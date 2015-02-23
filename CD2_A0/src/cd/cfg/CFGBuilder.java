@@ -1,7 +1,6 @@
 package cd.cfg;
 
 import cd.Main;
-import cd.exceptions.ToDoException;
 import cd.ir.Ast;
 import cd.ir.Ast.MethodDecl;
 import cd.ir.Ast.Stmt;
@@ -25,22 +24,40 @@ public class CFGBuilder {
 		cfg.end = cfg.newBlock(); // unique exit block to which all blocks that end with a return stmt. lead
 		
     CFGVisitor v = new CFGVisitor();
-    v.gen(mdecl, cfg.start);
-		{
-//			throw new ToDoException();
-		}
+		cfg.connect(v.gen(mdecl, cfg.start), cfg.end);
 	}
 
-	private class CFGVisitor extends AstVisitor<Void, BasicBlock> {
-    void gen(Ast ast, BasicBlock blk) {
-      visit(ast, blk);
+	private class CFGVisitor extends AstVisitor<BasicBlock, BasicBlock> {
+    BasicBlock gen(Ast ast, BasicBlock blk) {
+      return visit(ast, blk);
     }
     
-    protected Void dfltStmt(Stmt ast, BasicBlock blk) {
+    public BasicBlock visitChildren(Ast ast, BasicBlock blk) {
+      BasicBlock lastValue = blk;
+      for (Ast child : ast.children()) {
+        lastValue = visit(child, lastValue);
+      }
+      return lastValue;
+    }
+    
+    protected BasicBlock dfltStmt(Stmt ast, BasicBlock blk) {
       blk.addInstruction(ast);
-      System.out.println(ast);
-      System.out.println("da");
       return dflt(ast, blk);
+    }
+    
+    public BasicBlock ifElse(Ast.IfElse ast, BasicBlock blk) {
+      cfg.terminateInCondition(blk, ast.condition());
+      
+      return cfg.join(visit(ast.then(), blk.trueSuccessor()),
+                      visit(ast.otherwise(), blk.falseSuccessor()));
+    }
+    
+    public BasicBlock whileLoop(Ast.WhileLoop ast, BasicBlock blk) {
+      cfg.terminateInCondition(blk, ast.condition());
+      
+      cfg.connect(visit(ast.body(), blk.trueSuccessor()), blk);
+      
+      return blk.falseSuccessor();
     }
   }
 }
