@@ -73,6 +73,10 @@ public class BasicBlock {
 		return this.successors.get(1);
 	}
 	
+	public void addInstruction(Ast inst) {
+    instructions.add(inst);
+  }
+	
 	public String toString() {
 		return "BB"+index;
 	}
