@@ -24,7 +24,11 @@ public class CFGBuilder {
 		cfg.end = cfg.newBlock(); // unique exit block to which all blocks that end with a return stmt. lead
 		
     CFGVisitor v = new CFGVisitor();
-		cfg.connect(v.gen(mdecl, cfg.start), cfg.end);
+    
+    BasicBlock ret = v.gen(mdecl, cfg.start);
+    if (ret != cfg.end) {
+      cfg.connect(ret, cfg.end);
+    }
 	}
 
 	private class CFGVisitor extends AstVisitor<BasicBlock, BasicBlock> {
@@ -40,16 +44,37 @@ public class CFGBuilder {
       return lastValue;
     }
     
-    protected BasicBlock dfltStmt(Stmt ast, BasicBlock blk) {
+    public BasicBlock returnStmt(Ast.ReturnStmt ast, BasicBlock blk) {
       blk.addInstruction(ast);
+      cfg.connect(blk, cfg.end);
+      
+      return cfg.end;
+    }
+    
+    protected BasicBlock dfltStmt(Stmt ast, BasicBlock blk) {
+      if (blk != cfg.end) {
+        blk.addInstruction(ast);
+      }
       return dflt(ast, blk);
     }
     
     public BasicBlock ifElse(Ast.IfElse ast, BasicBlock blk) {
       cfg.terminateInCondition(blk, ast.condition());
       
-      return cfg.join(visit(ast.then(), blk.trueSuccessor()),
-                      visit(ast.otherwise(), blk.falseSuccessor()));
+      BasicBlock thenBlock = visit(ast.then(), blk.trueSuccessor()),
+                  elseBlock = visit(ast.otherwise(), blk.falseSuccessor());
+      
+      BasicBlock ret;
+      if (thenBlock == cfg.end) {
+        ret = cfg.newBlock();
+        cfg.connect(elseBlock, ret);
+      } else if (elseBlock == cfg.end) {
+        ret = cfg.newBlock();
+        cfg.connect(thenBlock, ret);
+      } else {
+        ret = cfg.join(thenBlock, elseBlock);
+      }
+      return ret;
     }
     
     public BasicBlock whileLoop(Ast.WhileLoop ast, BasicBlock blk) {
@@ -57,7 +82,11 @@ public class CFGBuilder {
       cfg.terminateInCondition(whileBlock, ast.condition());
       cfg.connect(blk, whileBlock);
       
-      cfg.connect(visit(ast.body(), whileBlock.trueSuccessor()), whileBlock);
+      BasicBlock trueBlock = visit(ast.body(), whileBlock.trueSuccessor());
+      
+      if (trueBlock != cfg.end) {
+        cfg.connect(trueBlock, whileBlock);
+      }
       
       return whileBlock.falseSuccessor();
     }
