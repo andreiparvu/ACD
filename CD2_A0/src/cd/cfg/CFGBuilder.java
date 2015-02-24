@@ -53,11 +53,13 @@ public class CFGBuilder {
     }
     
     public BasicBlock whileLoop(Ast.WhileLoop ast, BasicBlock blk) {
-      cfg.terminateInCondition(blk, ast.condition());
+      BasicBlock whileBlock = cfg.newBlock();
+      cfg.terminateInCondition(whileBlock, ast.condition());
+      cfg.connect(blk, whileBlock);
       
-      cfg.connect(visit(ast.body(), blk.trueSuccessor()), blk);
+      cfg.connect(visit(ast.body(), whileBlock.trueSuccessor()), whileBlock);
       
-      return blk.falseSuccessor();
+      return whileBlock.falseSuccessor();
     }
   }
 }
