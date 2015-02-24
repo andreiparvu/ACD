@@ -1,0 +1,42 @@
+// test simple if statements
+class Main {
+    void main() {
+        Main m;
+        int i;
+        
+        i = 4;
+        
+        if(i > 0) {
+            write(0);
+            writeln();
+        } else {
+            write(1);
+            writeln();
+        }
+        
+        if(i == 100) {
+            write(2);
+            writeln();
+        }
+        
+        write(3);
+        writeln();
+        
+        m = null;    
+        if(m == null) {
+            write(4);
+            writeln();
+        }
+        
+        m = new Main();
+        if(m != null) {
+            write(5);
+            writeln();
+        }
+        
+        if(-1 > 0) {
+            write(6);
+            writeln();
+        }
+    }
+}

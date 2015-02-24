@@ -1,0 +1,11 @@
+// cast to array of non-array refrence
+class Main {
+
+    void main() {
+        int[] arr;
+        Object o;
+        
+        o = new Object();
+        arr = (int[]) o;
+    }
+}

@@ -1,0 +1,16 @@
+// this tests the float division by zero and writef for special values
+class Main {
+	void main() {
+	    float i;
+	    
+        i = 42.0 / 0.0;
+        writef(i); // +inf
+        writeln();
+        writef(-i); // -inf
+        writeln();
+        writef(i - i); // nan
+        writeln();
+        writef(-(i-i)); // nan
+        writeln();
+	}
+}
