@@ -1,0 +1,30 @@
+// some valid downcasts
+class Main {
+
+    void main() {
+        A[] a;
+        Object o;
+        Main m;
+
+        // null can always be casted
+        o = null;        
+        a = (A[]) o;
+        m = (Main) o;
+        
+        // valid array downcast
+        o = new A[5];
+        a = (A[]) o;
+        
+        // valid object downcast
+        o = new Main();
+        m = (Main) o;
+        
+        // array cast to same type
+        a = (A[]) a;
+        
+        write(1);
+        writeln();
+    }
+}
+
+class A {}

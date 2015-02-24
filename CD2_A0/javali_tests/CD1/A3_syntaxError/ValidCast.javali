@@ -1,0 +1,42 @@
+// valid cast
+
+class Main {
+    void main() { 
+        A a;
+        B b;
+        A[] arr;
+        Object o;
+        
+        a = new A();
+        b = new B();
+        arr = new A[16];
+        o = new Object();
+        
+        o = arr;
+        if(o == arr) {
+            write(333);
+            writeln();
+        }
+        
+        arr = (A[]) o;
+        a = (A) b;
+        a.print();
+        
+        b = (B) a;
+        
+        b.print();
+    }
+}
+
+class A {
+    void print() {
+        write(222);
+        writeln(); 
+    }
+}
+class B extends A {
+    void print() {
+        write(111);
+        writeln();
+    }
+}

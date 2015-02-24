@@ -1,0 +1,46 @@
+// Test readf() with different kinds of values.
+
+class Main {
+	float x;
+
+    void main() {
+    	float y, z;
+    	float[] arr; 
+    	
+    	writef(1.0);
+    	writeln();
+    	
+    	y = readf();
+    	writef(y+1.0);
+    	writeln();
+    	
+    	x = readf();
+    	writef(x+1.0);
+    	writeln();
+    	
+    	arr = new float[55];
+    	arr[51] = readf();
+    	writef(arr[51] + 1.0);
+    	writeln();
+    	
+    	// exponent 
+    	z = readf();
+    	writef(z);
+    	writeln();
+    	
+    	// negative 
+    	z = readf();
+    	writef(z);
+    	writeln();
+
+    	// infinity 
+    	z = readf();
+    	writef(z);
+    	writeln();
+    	
+    	// NaN
+    	z = readf();
+    	writef(z);
+    	writeln();
+    }
+}
