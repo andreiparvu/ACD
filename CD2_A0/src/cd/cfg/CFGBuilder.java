@@ -66,6 +66,9 @@ public class CFGBuilder {
       
       BasicBlock ret;
       if (thenBlock == cfg.end) {
+        if (elseBlock == cfg.end) {
+          return cfg.end;
+        }
         ret = cfg.newBlock();
         cfg.connect(elseBlock, ret);
       } else if (elseBlock == cfg.end) {
