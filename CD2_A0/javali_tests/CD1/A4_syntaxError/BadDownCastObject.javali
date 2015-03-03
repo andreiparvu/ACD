@@ -1,0 +1,12 @@
+// downcast from object source
+class Main {
+
+    void main() {
+        int[] arr;
+        Object o;
+        Main m;
+        
+        o = new Object();
+        m = (Main) o;
+    }
+}

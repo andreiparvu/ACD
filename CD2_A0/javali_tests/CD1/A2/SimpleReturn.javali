@@ -1,0 +1,23 @@
+class Main {
+
+   int m() {
+      return 0;
+   }
+	
+	void main() {
+	
+	   int res, res1;
+	   res = -1;
+
+      res = m();
+      write(res);
+      
+      res1 = this.m();
+      write(res1);
+      
+      writeln();
+      
+      
+	}
+	
+}

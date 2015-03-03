@@ -1,0 +1,13 @@
+bin/
+# backup files
+*~
+*.swp
+# test framework intermediate files
+*.bin
+*.cfg.dot
+*.cfg.dot.ref
+*.exec.ref
+*.parser.ref
+*.s
+*.semantic.ref
+*.err

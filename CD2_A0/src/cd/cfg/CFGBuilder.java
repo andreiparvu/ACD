@@ -1,7 +1,6 @@
 package cd.cfg;
 
 import cd.Main;
-import cd.exceptions.ToDoException;
 import cd.ir.Ast;
 import cd.ir.Ast.MethodDecl;
 import cd.ir.Ast.Stmt;
@@ -25,22 +24,74 @@ public class CFGBuilder {
 		cfg.end = cfg.newBlock(); // unique exit block to which all blocks that end with a return stmt. lead
 		
     CFGVisitor v = new CFGVisitor();
-    v.gen(mdecl, cfg.start);
-		{
-//			throw new ToDoException();
-		}
+    
+    BasicBlock ret = v.gen(mdecl, cfg.start);
+    if (ret != cfg.end) {
+      cfg.connect(ret, cfg.end);
+    }
 	}
 
-	private class CFGVisitor extends AstVisitor<Void, BasicBlock> {
-    void gen(Ast ast, BasicBlock blk) {
-      visit(ast, blk);
+	private class CFGVisitor extends AstVisitor<BasicBlock, BasicBlock> {
+    BasicBlock gen(Ast ast, BasicBlock blk) {
+      return visit(ast, blk);
     }
     
-    protected Void dfltStmt(Stmt ast, BasicBlock blk) {
+    public BasicBlock visitChildren(Ast ast, BasicBlock blk) {
+      BasicBlock lastValue = blk;
+      for (Ast child : ast.children()) {
+        lastValue = visit(child, lastValue);
+      }
+      return lastValue;
+    }
+    
+    public BasicBlock returnStmt(Ast.ReturnStmt ast, BasicBlock blk) {
       blk.addInstruction(ast);
-      System.out.println(ast);
-      System.out.println("da");
+      cfg.connect(blk, cfg.end);
+      
+      return cfg.end;
+    }
+    
+    protected BasicBlock dfltStmt(Stmt ast, BasicBlock blk) {
+      if (blk != cfg.end) {
+        blk.addInstruction(ast);
+      }
       return dflt(ast, blk);
+    }
+    
+    public BasicBlock ifElse(Ast.IfElse ast, BasicBlock blk) {
+      cfg.terminateInCondition(blk, ast.condition());
+      
+      BasicBlock thenBlock = visit(ast.then(), blk.trueSuccessor()),
+                  elseBlock = visit(ast.otherwise(), blk.falseSuccessor());
+      
+      BasicBlock ret;
+      if (thenBlock == cfg.end) {
+        if (elseBlock == cfg.end) {
+          return cfg.end;
+        }
+        ret = cfg.newBlock();
+        cfg.connect(elseBlock, ret);
+      } else if (elseBlock == cfg.end) {
+        ret = cfg.newBlock();
+        cfg.connect(thenBlock, ret);
+      } else {
+        ret = cfg.join(thenBlock, elseBlock);
+      }
+      return ret;
+    }
+    
+    public BasicBlock whileLoop(Ast.WhileLoop ast, BasicBlock blk) {
+      BasicBlock whileBlock = cfg.newBlock();
+      cfg.terminateInCondition(whileBlock, ast.condition());
+      cfg.connect(blk, whileBlock);
+      
+      BasicBlock trueBlock = visit(ast.body(), whileBlock.trueSuccessor());
+      
+      if (trueBlock != cfg.end) {
+        cfg.connect(trueBlock, whileBlock);
+      }
+      
+      return whileBlock.falseSuccessor();
     }
   }
 }

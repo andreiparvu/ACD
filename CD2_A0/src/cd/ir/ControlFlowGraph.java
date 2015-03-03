@@ -20,6 +20,14 @@ public class ControlFlowGraph {
 		return blk;
 	}
 	
+	public BasicBlock getLast() {
+		if (count() == 0) {
+			return null;
+		}
+		
+		return allBlocks.get(count() - 1);
+	}
+	
 	/**
 	 * Given a list of basic blocks that do not yet have successors,
 	 * merges their control flows into a single successor and returns
