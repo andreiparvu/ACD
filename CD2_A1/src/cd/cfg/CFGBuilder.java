@@ -2,10 +2,12 @@ package cd.cfg;
 
 import cd.Main;
 import cd.ir.Ast;
+import cd.ir.Ast.Assign;
 import cd.ir.Ast.IfElse;
 import cd.ir.Ast.MethodDecl;
 import cd.ir.Ast.Seq;
 import cd.ir.Ast.Stmt;
+import cd.ir.Ast.Var;
 import cd.ir.Ast.WhileLoop;
 import cd.ir.AstVisitor;
 import cd.ir.BasicBlock;
@@ -38,6 +40,14 @@ public class CFGBuilder {
 			if (arg == null) return null; // dead code, no need to generate anything
 			arg.instructions.add(ast);
 			return arg;
+		}
+		
+		public BasicBlock assign(Assign ast, BasicBlock arg) {
+		    if (ast.left() instanceof Var) {
+		        arg.assignedSyms.add(((Var)ast.left()).sym);
+		    }
+		    
+		    return dfltStmt(ast, arg);
 		}
 		
 		@Override

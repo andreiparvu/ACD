@@ -3,6 +3,7 @@ package cd.ir;
 import cd.ir.Ast.Decl;
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.Stmt;
+import cd.ir.Ast.Var;
 
 /** A visitor that visits any kind of node */
 public class AstVisitor<R,A> extends ExprVisitor<R,A> {
@@ -29,6 +30,10 @@ public class AstVisitor<R,A> extends ExprVisitor<R,A> {
 		return lastValue;
 	}
 	
+	protected R dflt(Var ast, A arg) {
+        return visitChildren(ast, arg);
+    }
+	
 	/** 
 	 * The default action for default actions is to call this,
 	 * which simply recurses to any children.  Also called
@@ -36,6 +41,7 @@ public class AstVisitor<R,A> extends ExprVisitor<R,A> {
 	protected R dflt(Ast ast, A arg) {
 		return visitChildren(ast, arg);
 	}
+	
 	
 	/** 
 	 * The default action for statements is to call this */

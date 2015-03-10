@@ -4,7 +4,7 @@ digraph G {
     label = "Main.main"
     M0_BB0 [
       shape="record"
-      label="BB0|If: (a \<= 3)"
+      label="BB0|a = 3|this.d = 3|If: (a \<= 3)"
     ];
     M0_BB0 -> M0_BB2;
     M0_BB0 -> M0_BB3 [label="False"];
@@ -15,7 +15,7 @@ digraph G {
     M0_BB1 -> M0_BB10 [color="red" label="dom"];
     M0_BB2 [
       shape="record"
-      label="BB2"
+      label="BB2|c = 3"
     ];
     M0_BB2 -> M0_BB4;
     M0_BB2 -> M0_BB0 [color="red" label="dom"];
@@ -41,7 +41,7 @@ digraph G {
     M0_BB5 -> M0_BB4 [color="red" label="dom"];
     M0_BB6 [
       shape="record"
-      label="BB6"
+      label="BB6|this.d = a"
     ];
     M0_BB6 -> M0_BB10;
     M0_BB6 -> M0_BB4 [color="red" label="dom"];

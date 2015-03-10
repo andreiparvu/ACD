@@ -93,6 +93,8 @@ public class BasicBlock {
 	 */
 	public final Map<VariableSymbol, Phi> phis = new HashMap<VariableSymbol, Phi>();
 	
+	public final ArrayList<Symbol> assignedSyms = new ArrayList<>();
+	
 	public BasicBlock(int index) {
 		this.index = index;
 	}
@@ -105,6 +107,15 @@ public class BasicBlock {
 	public BasicBlock falseSuccessor() {
 		assert this.condition != null;
 		return this.successors.get(1);
+	}
+	
+	public int whichPred(BasicBlock bb) {
+	    for (int i = 0; i < predecessors.size(); i++) {
+	        if (predecessors.get(i).index == bb.index) {
+	            return i;
+	        }
+	    }
+	    return -1;
 	}
 	
 	public String toString() {
