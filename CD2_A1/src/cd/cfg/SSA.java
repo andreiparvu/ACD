@@ -3,6 +3,7 @@ package cd.cfg;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Stack;
 
 import cd.Main;
@@ -16,6 +17,8 @@ import cd.ir.ControlFlowGraph;
 import cd.ir.Phi;
 import cd.ir.Symbol;
 import cd.ir.Symbol.VariableSymbol;
+import cd.semantic.SymbolCreator;
+import cd.semantic.SymbolCreator.MethodSymbolCreator;
 
 public class SSA {
     
@@ -23,9 +26,22 @@ public class SSA {
     
     private HashMap<String, Stack<Integer>> stacks = new HashMap<>();
     private HashMap<String, Integer> highestVersion = new HashMap<>();
+    private MethodSymbolCreator symbolCreator;
+    private Map<String, VariableSymbol> locals;
     
     public SSA(final Main main) {
         this.main = main;
+    }
+    
+    public void compute(final MethodDecl mdecl) {
+        symbolCreator = new SymbolCreator(main, null).new MethodSymbolCreator(mdecl.sym);
+        stacks.clear();
+        highestVersion.clear();
+        locals = mdecl.sym.locals;
+        
+        addPhis(mdecl);
+        
+        generateVariableVersions(mdecl);
     }
     
     private void addPhis(final MethodDecl mdecl) {
@@ -35,7 +51,7 @@ public class SSA {
         
         
         // TODO: the same thing for method fields ?
-        for (String s : mdecl.sym.locals.keySet()) {
+        for (String s : locals.keySet()) {
             
             // initialize the first version of the symbol
             stacks.put(s, new Stack<Integer>());
@@ -77,18 +93,14 @@ public class SSA {
                 hset.remove(bb.index);
             }
         }
+        
+        locals.clear();
     }
     
-    private VariableSymbol createVersion(VariableSymbol x, boolean createVersion) {
-        String name = x.name;
+    private void generateVariableVersions(final MethodDecl mdecl) {
+        final ControlFlowGraph cfg = mdecl.cfg;
         
-        if (createVersion) {
-            int nextVer = highestVersion.get(name);
-            
-            stacks.get(name).add(nextVer + 1);
-            highestVersion.put(name, nextVer + 1);
-        }
-        return new VariableSymbol(x, stacks.get(name).peek());
+        dfSearch(cfg.start);
     }
     
     void dfSearch(BasicBlock curBB) {
@@ -143,23 +155,11 @@ public class SSA {
         }
     }
     
-    private void createVersions(final MethodDecl mdecl) {
-        final ControlFlowGraph cfg = mdecl.cfg;
-        
-        dfSearch(cfg.start);
-    }
-    
-    public void compute(final MethodDecl mdecl) {
-        addPhis(mdecl);
-        
-        createVersions(mdecl);
-    }
-    
     private class InstructionVisitor extends AstVisitor<Void, Boolean> {
         protected Void dflt(Ast ast, Boolean createVersion) {
             if (ast instanceof Var) { // should get rid of this, overload function
                 Var x = (Var)ast;
-                
+
                 x.setSymbol(createVersion(x.sym, createVersion));
             }
             
@@ -173,5 +173,23 @@ public class SSA {
             
             return null;
         }
+    }
+    
+    private VariableSymbol createVersion(VariableSymbol x, boolean createVersion) {
+        String name = x.name;
+        
+        if (createVersion) {
+            int nextVer = highestVersion.get(name);
+            
+            stacks.get(name).add(nextVer + 1);
+            highestVersion.put(name, nextVer + 1);
+            
+            VariableSymbol ret = new VariableSymbol(x, stacks.get(name).peek());
+            symbolCreator.addSymbol(ret);
+            
+            return ret;
+        }
+        
+        return locals.get(name + "_" + stacks.get(name).peek());
     }
 }

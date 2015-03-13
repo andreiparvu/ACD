@@ -136,9 +136,12 @@ public class SymbolCreator extends Object {
 		public Void varDecl(VarDecl ast, Void arg) {
 			ast.sym = new VariableSymbol(
 					ast.name, typesTable.getType(ast.type), Kind.LOCAL);
-			add(methodSym.locals, ast.sym);
+			addSymbol(ast.sym);
 			return null;
 		}
-
+		
+		public void addSymbol(VariableSymbol sym) {
+		    add(methodSym.locals, sym);
+		}
 	}
 }
