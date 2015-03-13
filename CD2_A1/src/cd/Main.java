@@ -45,7 +45,7 @@ import cd.semantic.SemanticAnalyzer;
 public class Main {
 	
 	// Set to non-null to write debug info out
-	public Writer debug = new PrintWriter(System.out);
+	public Writer debug = null;//new PrintWriter(System.out);
 	
 	// Set to non-null to write dump of control flow graph
 	public File cfgdumpbase;

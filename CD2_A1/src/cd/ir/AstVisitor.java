@@ -30,10 +30,6 @@ public class AstVisitor<R,A> extends ExprVisitor<R,A> {
 		return lastValue;
 	}
 	
-	protected R dflt(Var ast, A arg) {
-        return visitChildren(ast, arg);
-    }
-	
 	/** 
 	 * The default action for default actions is to call this,
 	 * which simply recurses to any children.  Also called

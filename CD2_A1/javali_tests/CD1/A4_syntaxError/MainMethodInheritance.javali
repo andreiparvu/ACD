@@ -1,0 +1,17 @@
+class Main extends Parent {
+
+}
+
+class Grandparent {
+    void main() {
+        write(111);
+        writeln();
+    }
+}
+
+class Parent extends Grandparent {
+    void main() {
+        write(222);
+        writeln();
+    }
+}

@@ -1,0 +1,46 @@
+// test operators with immediate operands
+class Main {
+	void main() {
+		int r0, r1, r2;
+		int i0,  i1, i2;
+		
+		i0 = 123;
+		i1 = 456;
+		i2 = 789;
+		
+		r0 = i0 + 1;
+		r1 = 2 + i1;
+		r2 = i2 + 3;
+		write(r0); writeln();
+		write(r1); writeln();
+		write(r2); writeln();
+		
+		r0 = i0 - 1;
+		r1 = 2 - i1;
+		r2 = i2 - 3;
+		write(r0); writeln();
+		write(r1); writeln();
+		write(r2); writeln();
+		
+		r0 = i0 * 1;
+		r1 = 2 * i1;
+		r2 = i2 * 3;
+		write(r0); writeln();
+		write(r1); writeln();
+		write(r2); writeln();
+		
+		r0 = i0 / 1;
+		r1 = 2 / i1;
+		r2 = i2 / 3;
+		write(r0); writeln();
+		write(r1); writeln();
+		write(r2); writeln();
+
+		r0 = i0 % 1;
+		r1 = 2 % i1;
+		r2 = i2 % 3;
+		write(r0); writeln();
+		write(r1); writeln();
+		write(r2); writeln();
+	}
+}

@@ -3,6 +3,9 @@ class Main {
   void main() {
     int a;
     int b, c;
+    int[] d;
+
+    d = new int[10];
 
     a = 3;
     b = 5;

@@ -19,6 +19,7 @@ import org.junit.Test;
 import cd.Config;
 import cd.Main;
 import cd.debug.AstDump;
+import cd.debug.CfgDump;
 import cd.exceptions.AssemblyFailedException;
 import cd.exceptions.ParseFailure;
 import cd.exceptions.SemanticFailure;
@@ -124,6 +125,12 @@ abstract public class AbstractTestSamplePrograms {
 						// are detected correctly, etc.
 						boolean passedSemanticAnalysis = testSemanticAnalyzer(astRoots);
 						
+						{
+							if (passedSemanticAnalysis) {						
+								testControlFlowGraph(astRoots);
+							}
+						}
+						
 						if (passedSemanticAnalysis) {
 							boolean passedCodeGen = testCodeGenerator(astRoots, hasWellDefinedOutput);
 						}
@@ -207,6 +214,35 @@ abstract public class AbstractTestSamplePrograms {
 
 		assertEquals("semantic", semanticRef, result);
 		return passed;
+	}
+	
+	public void testControlFlowGraph(List<ClassDecl> astRoots)
+	throws IOException {
+		String cfgRef = findCfgRef();
+
+		/* CFG is built during semantic analysis. We expect CFG testing to
+		 * happen after the semantic analysis. */
+	
+		assertEquals("cfg", cfgRef, CfgDump.toString(astRoots, false));
+	}
+	
+	private String findCfgRef() throws IOException {
+		// Check for a .ref file
+		if (cfgreffile.exists() && cfgreffile.lastModified() > cfgreffile.lastModified()) {
+			return FileUtil.read(cfgreffile);
+		}
+		
+		/* If no file exists, contact reference server. */
+		String res = null;
+		Reference ref = openClient();
+		try {
+			res = ref.cfgReference(FileUtil.read(this.file));
+		} catch (Throwable e) {
+			return fragmentBug(e);
+		}	
+		
+		FileUtil.write(cfgreffile, res);
+		return res;
 	}
 	
 	/**

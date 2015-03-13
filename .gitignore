@@ -11,3 +11,7 @@ bin/
 *.s
 *.semantic.ref
 *.err
+*.ssa*
+*.dessa*
+*.dom.dot
+a.out

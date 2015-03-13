@@ -4,9 +4,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 
 import cd.Main;
+import cd.debug.AstDump;
 import cd.ir.Ast;
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.MethodDecl;
@@ -27,7 +29,7 @@ public class SSA {
     private HashMap<String, Stack<Integer>> stacks = new HashMap<>();
     private HashMap<String, Integer> highestVersion = new HashMap<>();
     private MethodSymbolCreator symbolCreator;
-    private Map<String, VariableSymbol> locals;
+    private Map<String, VariableSymbol> locals, params = new HashMap<>();
     
     public SSA(final Main main) {
         this.main = main;
@@ -38,6 +40,11 @@ public class SSA {
         stacks.clear();
         highestVersion.clear();
         locals = mdecl.sym.locals;
+        
+        for (int i=0; i<mdecl.argumentNames.size(); i++) {
+        	// add initial argument version to locals
+        	params.put(mdecl.argumentNames.get(i), mdecl.sym.parameters.get(i));
+        }
         
         addPhis(mdecl);
         
@@ -51,15 +58,17 @@ public class SSA {
         
         
         // TODO: the same thing for method fields ?
-        for (String s : locals.keySet()) {
-            
+        HashMap<String, VariableSymbol> allVars = new HashMap<>(locals);
+
+        
+        allVars.putAll(params);
+        for (String s : allVars.keySet()) {
             // initialize the first version of the symbol
             stacks.put(s, new Stack<Integer>());
             stacks.get(s).add(0);
             highestVersion.put(s, 0);
             
-            System.err.println("Check " + s);
-            VariableSymbol curSym = mdecl.sym.locals.get(s);
+            VariableSymbol curSym = allVars.get(s);
             
             LinkedList<BasicBlock> worklist = new LinkedList<>();
             HashSet<Integer> hset = new HashSet<>();
@@ -81,7 +90,7 @@ public class SSA {
                 BasicBlock bb = worklist.poll();
                 
                 for (BasicBlock frontier : bb.dominanceFrontier) {
-                    System.err.println("Add phi for " + s + " in " + frontier.index + " from " + bb.index);
+                    main.debug("Add phi for " + s + " in " + frontier.index + " from " + bb.index);
                     
                     frontier.phis.put(curSym, new Phi(curSym, frontier.predecessors.size()));
                     
@@ -118,7 +127,7 @@ public class SSA {
         
         // visit each instruction and create new versions
         for (Ast instr : curBB.instructions) {
-            System.out.println(instr);
+            main.debug("new instr " + instr);
             (new InstructionVisitor()).visit(instr, false);
         }
         if (curBB.condition != null) {
@@ -135,7 +144,11 @@ public class SSA {
                 if (e instanceof Var) {
                     Var v = (Var)e;
                     
-                    v.setSymbol(createVersion(v.sym, false));
+                    VariableSymbol next = createVersion(v.sym, false);
+                    if (next == null) {
+                    	next = varSym;
+                    }
+                	v.setSymbol(next);
                 }
             }
         }
@@ -156,20 +169,19 @@ public class SSA {
     }
     
     private class InstructionVisitor extends AstVisitor<Void, Boolean> {
-        protected Void dflt(Ast ast, Boolean createVersion) {
-            if (ast instanceof Var) { // should get rid of this, overload function
-                Var x = (Var)ast;
-
-                x.setSymbol(createVersion(x.sym, createVersion));
-            }
+        public Void var(Ast.Var ast, Boolean createVersion) {
+            ast.setSymbol(createVersion(ast.sym, createVersion));
             
-            return visitChildren(ast, createVersion);
+            return dfltExpr(ast, createVersion);
         }
         
         public Void assign(Ast.Assign ast, Boolean createVersion) {
-            dfltExpr(ast.right(), false);
+            visit(ast.right(), false);
             // we want to create a new version for an assignment
-            dfltExpr(ast.left(), true);
+            if (ast.left() instanceof Ast.Var) {
+            	createVersion = true;
+            }
+            visit(ast.left(), createVersion);
             
             return null;
         }
@@ -177,7 +189,6 @@ public class SSA {
     
     private VariableSymbol createVersion(VariableSymbol x, boolean createVersion) {
         String name = x.name;
-        
         if (createVersion) {
             int nextVer = highestVersion.get(name);
             
@@ -189,7 +200,13 @@ public class SSA {
             
             return ret;
         }
+        int version = stacks.get(name).peek();
+        name += "_" + version;
         
-        return locals.get(name + "_" + stacks.get(name).peek());
+        if (locals.get(name) == null) {
+        	return params.get(x.name);
+        }
+        
+        return locals.get(name);
     }
 }

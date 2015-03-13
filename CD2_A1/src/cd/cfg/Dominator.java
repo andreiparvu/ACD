@@ -29,8 +29,6 @@ public class Dominator {
 		Boolean hasChanged = true;
 		int numberOfBlocks = cfg.count();
 
-		System.out.println("Creating dominators");
-
 		for (int i = 0; i < numberOfBlocks; i++) {
 			in.add(new BitSet(numberOfBlocks));
 			out.add(new BitSet(numberOfBlocks));

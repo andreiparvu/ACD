@@ -1,0 +1,9 @@
+// test read with negative numbers
+class Main {
+	void main() {
+        int neg;
+        
+        neg = read();
+        write(neg); writeln();
+	}
+}

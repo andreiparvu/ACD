@@ -4,7 +4,7 @@ digraph G {
     label = "Main.main"
     M0_BB0 [
       shape="record"
-      label="BB0|a = 3|b = 5|c = 0|If: (a \<= 3)"
+      label="BB0|d = new int[][10]|a = 3|b = 5|c = 0|If: (a \<= 3)"
     ];
     M0_BB0 -> M0_BB2;
     M0_BB0 -> M0_BB3 [label="False"];
