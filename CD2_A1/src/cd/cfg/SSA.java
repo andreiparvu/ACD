@@ -127,7 +127,7 @@ public class SSA {
         
         // visit each instruction and create new versions
         for (Ast instr : curBB.instructions) {
-            main.debug("new instr " + instr);
+            main.debug("new instr %s", instr);
             (new InstructionVisitor()).visit(instr, false);
         }
         if (curBB.condition != null) {
