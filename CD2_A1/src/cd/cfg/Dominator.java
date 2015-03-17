@@ -31,6 +31,7 @@ public class Dominator {
 
 		ArrayList<BitSet> outCopy = new ArrayList<>();
 		
+		// initialize CFG analysis, in and out
 		for (int i = 0; i < numberOfBlocks; i++) {
 			inDom.add(new BitSet(numberOfBlocks));
 			outDom.add(new BitSet(numberOfBlocks));
@@ -48,6 +49,7 @@ public class Dominator {
 				inDom.get(i).set(0, numberOfBlocks);
 				BitSet cur = new BitSet(numberOfBlocks);
 
+				// do the intersection of the predecessors
 				for (BasicBlock pred : cfg.allBlocks.get(i).predecessors) {
 					inDom.get(i).and(outDom.get(pred.index));
 				}
@@ -55,6 +57,7 @@ public class Dominator {
 				cur.set(i);
 
 				if (cur.equals(outDom.get(i)) == false) {
+					// set hasChanged to true if there is a difference from the previous out
 					outDom.get(i).set(0, numberOfBlocks, false);
 					outDom.get(i).or(cur);
 
@@ -66,6 +69,7 @@ public class Dominator {
 			}
 		}
 		
+		// create dominance tree, using BFS
 		LinkedList<Integer> q = new LinkedList<>();
 		
 		q.add(cfg.start.index);
@@ -76,6 +80,8 @@ public class Dominator {
 			for (int i = 0; i < numberOfBlocks; i++) {
 				if (i != curBB && outCopy.get(i).get(curBB)) {
 					outCopy.get(i).set(curBB, false);
+					// i-th block has only one remaining dominator (itself), so the current
+					// block must be its immediate dominator
 					if (outCopy.get(i).cardinality() == 1) {
 						cfg.allBlocks.get(curBB).dominatorTreeChildren.add(cfg.allBlocks.get(i));
 						cfg.allBlocks.get(i).dominatorTreeParent = cfg.allBlocks.get(curBB);
@@ -89,12 +95,14 @@ public class Dominator {
 	private void computeFrontier(BasicBlock curBB) {
 	    for (BasicBlock child : curBB.dominatorTreeChildren) {
 	        computeFrontier(child);
+	        // add DFup of the children to the current block
 	        for (BasicBlock df : child.dominanceFrontier) {
 	            if (outDom.get(df.index).get(curBB.index) == false) {
 	                curBB.dominanceFrontier.add(df);
 	            }
 	        }
 	    }
+	    // add DFlocal
 	    for (BasicBlock succ : curBB.successors) {
 	        if (outDom.get(succ.index).get(curBB.index) == false) {
 	            curBB.dominanceFrontier.add(succ);
