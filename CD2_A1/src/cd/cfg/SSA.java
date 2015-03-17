@@ -57,7 +57,6 @@ public class SSA {
         main.debug("Computing SSA form for %s", mdecl.name);
         
         
-        // TODO: the same thing for method fields ?
         HashMap<String, VariableSymbol> allVars = new HashMap<>(locals);
 
         

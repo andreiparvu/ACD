@@ -14,47 +14,53 @@ import cd.ir.ControlFlowGraph;
 public class Dominator {
 
 	public final Main main;
-
+	ArrayList<BitSet> inDom = new ArrayList<BitSet>(), outDom = new ArrayList<BitSet>();
+	
 	public Dominator(Main main) {
 		this.main = main;
 	}
 
 	public void compute(ControlFlowGraph cfg) {
 		computeDominatorTree(cfg);
-		computeFrontier(cfg);
+		computeFrontier(cfg.start);
 	}
 
 	private void computeDominatorTree(ControlFlowGraph cfg) {
-		ArrayList<BitSet> in = new ArrayList<BitSet>(), out = new ArrayList<BitSet>();
 		Boolean hasChanged = true;
 		int numberOfBlocks = cfg.count();
 
+		ArrayList<BitSet> outCopy = new ArrayList<>();
+		
 		for (int i = 0; i < numberOfBlocks; i++) {
-			in.add(new BitSet(numberOfBlocks));
-			out.add(new BitSet(numberOfBlocks));
+			inDom.add(new BitSet(numberOfBlocks));
+			outDom.add(new BitSet(numberOfBlocks));
 			if (i != 0) {
-				out.get(i).set(0, numberOfBlocks);
+				outDom.get(i).set(0, numberOfBlocks);
 			}
+			outCopy.add(new BitSet(numberOfBlocks));
 		}
 
-		out.get(0).set(0);
+		outDom.get(0).set(0);
 		while (hasChanged) {
 			hasChanged = false;
 
 			for (int i = 1; i < numberOfBlocks; i++) {
-				in.get(i).set(0, numberOfBlocks);
+				inDom.get(i).set(0, numberOfBlocks);
 				BitSet cur = new BitSet(numberOfBlocks);
 
 				for (BasicBlock pred : cfg.allBlocks.get(i).predecessors) {
-					in.get(i).and(out.get(pred.index));
+					inDom.get(i).and(outDom.get(pred.index));
 				}
-				cur.or(in.get(i));
+				cur.or(inDom.get(i));
 				cur.set(i);
 
-				if (cur.equals(out.get(i)) == false) {
-					out.get(i).set(0, numberOfBlocks, false);
-					out.get(i).or(cur);
+				if (cur.equals(outDom.get(i)) == false) {
+					outDom.get(i).set(0, numberOfBlocks, false);
+					outDom.get(i).or(cur);
 
+					outCopy.get(i).set(0, numberOfBlocks, false);
+                    outCopy.get(i).or(cur);
+                    
 					hasChanged = true;
 				}
 			}
@@ -68,9 +74,9 @@ public class Dominator {
 			int curBB = q.poll();
 			
 			for (int i = 0; i < numberOfBlocks; i++) {
-				if (i != curBB && out.get(i).get(curBB)) {
-					out.get(i).set(curBB, false);
-					if (out.get(i).cardinality() == 1) {
+				if (i != curBB && outCopy.get(i).get(curBB)) {
+					outCopy.get(i).set(curBB, false);
+					if (outCopy.get(i).cardinality() == 1) {
 						cfg.allBlocks.get(curBB).dominatorTreeChildren.add(cfg.allBlocks.get(i));
 						cfg.allBlocks.get(i).dominatorTreeParent = cfg.allBlocks.get(curBB);
 						q.add(i);
@@ -80,16 +86,19 @@ public class Dominator {
 		}
 	}
 
-	private void computeFrontier(ControlFlowGraph cfg) {
-		for (BasicBlock node : cfg.allBlocks) {
-			for (BasicBlock pred : node.predecessors) {
-				BasicBlock cur = pred;
-				
-				while (cur != null && cur != node.dominatorTreeParent) {
-					cur.dominanceFrontier.add(node);
-					cur = cur.dominatorTreeParent;
-				}
-			}
-		}
+	private void computeFrontier(BasicBlock curBB) {
+	    for (BasicBlock child : curBB.dominatorTreeChildren) {
+	        computeFrontier(child);
+	        for (BasicBlock df : child.dominanceFrontier) {
+	            if (outDom.get(df.index).get(curBB.index) == false) {
+	                curBB.dominanceFrontier.add(df);
+	            }
+	        }
+	    }
+	    for (BasicBlock succ : curBB.successors) {
+	        if (outDom.get(succ.index).get(curBB.index) == false) {
+	            curBB.dominanceFrontier.add(succ);
+	        }
+	    }
 	}
 }
