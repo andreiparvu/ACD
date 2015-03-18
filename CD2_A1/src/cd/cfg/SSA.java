@@ -57,7 +57,6 @@ public class SSA {
         main.debug("Computing SSA form for %s", mdecl.name);
         
         
-        // TODO: the same thing for method fields ?
         HashMap<String, VariableSymbol> allVars = new HashMap<>(locals);
 
         
@@ -203,6 +202,7 @@ public class SSA {
         name += "_" + version;
         
         if (locals.get(name) == null) {
+          // check if the variable is a parameter
         	return params.get(x.name);
         }
         
