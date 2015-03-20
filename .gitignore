@@ -4,14 +4,8 @@ bin/
 *.swp
 # test framework intermediate files
 *.bin
-*.cfg.dot
-*.cfg.dot.ref
-*.exec.ref
-*.parser.ref
+*.dot
+*.ref
 *.s
-*.semantic.ref
 *.err
-*.ssa*
-*.dessa*
-*.dom.dot
 a.out
