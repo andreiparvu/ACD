@@ -1,0 +1,18 @@
+// simple field access
+class Main {
+    int field;
+
+    void main() {
+        Main m;
+        
+        m = new SubMain();
+    
+        m.field = 3;
+        write(m.field);
+        writeln();
+    }
+}
+
+class SubMain extends Main {
+}
+

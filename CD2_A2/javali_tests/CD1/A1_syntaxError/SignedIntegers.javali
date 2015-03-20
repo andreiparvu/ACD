@@ -1,0 +1,22 @@
+// tests with signed integers
+class Main {
+	void main() {
+        int i0, i1, i2, i3, i4;
+        int r1, r2, r3;
+		
+		i0 = -12345;
+		i1 = -2;
+		i2 = -30;
+		i3 = 40;
+		i4 = 567890;
+
+		
+		r1 = i0 * i1 + 70 - 23 * i4;
+		r2 = i2 / i4 + i1 * i3;
+		r3 = i4 / i2 / i3 / 42 % 5;
+		
+		write(r1); writeln();
+		write(r2); writeln();
+		write(r3); writeln();
+	}
+}
