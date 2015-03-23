@@ -75,6 +75,7 @@ public abstract class Ast {
 
 	/** Base class for all expressions */
 	public static abstract class Expr extends Ast {
+		public final static int FLOAT = 1, INT = 2, BOOL = 3;
 		
 		protected Expr(int fixedCount) {
 			super(fixedCount);
@@ -87,6 +88,20 @@ public abstract class Ast {
 			return this.accept((ExprVisitor<R,A>)visitor, arg);
 		}
 		public abstract <R,A> R accept(ExprVisitor<R, A> visitor, A arg);
+		
+		public int isConstant() {
+		    return 0;
+		}
+		
+		public boolean compareTo(IntConst e) {
+		    return false;
+		}
+		public boolean compareTo(FloatConst e) {
+            return false;
+        }
+		public boolean compareTo(BooleanConst e) {
+            return false;
+        }
 		
 		/** Copies any non-AST fields. */
 		protected <E extends Expr> E postCopy(E item) {
@@ -131,7 +146,7 @@ public abstract class Ast {
 	}
 	
 	/** Base class used for things with no arguments */
-	protected static abstract class LeafExpr extends Expr {
+	public static abstract class LeafExpr extends Expr {
 		public LeafExpr() {
 			super(0);
 		}
@@ -238,6 +253,10 @@ public abstract class Ast {
 		public FloatConst deepCopy() {
 			return postCopy(new FloatConst(value));
 		}
+		
+		public int isConstant() {
+		    return Expr.FLOAT;
+		}
 	}
 
 	public static class IntConst extends LeafExpr {
@@ -257,6 +276,13 @@ public abstract class Ast {
 			return postCopy(new IntConst(value));
 		}
 		
+		public int isConstant() {
+            return Expr.INT;
+        }
+		
+		public boolean compareTo(IntConst e) {
+		    return value == e.value;
+		}
 	}
 
 	public static class BooleanConst extends LeafExpr {
@@ -276,6 +302,9 @@ public abstract class Ast {
 			return postCopy(new BooleanConst(value));
 		}
 		
+		public int isConstant() {
+            return Expr.BOOL;
+        }
 	}
 	
 	public static class NullConst extends LeafExpr {

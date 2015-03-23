@@ -2,18 +2,27 @@ package cd.cfg;
 
 import static java.lang.String.format;
 
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.ListIterator;
+import java.util.Map;
 
 import cd.Main;
-import cd.exceptions.ToDoException;
 import cd.ir.Ast;
+import cd.ir.Ast.BinaryOp;
+import cd.ir.Ast.BooleanConst;
+import cd.ir.Ast.Expr;
+import cd.ir.Ast.IntConst;
+import cd.ir.Ast.LeafExpr;
+import cd.ir.Ast.MethodDecl;
 import cd.ir.Ast.UnaryOp;
 import cd.ir.Ast.UnaryOp.UOp;
 import cd.ir.AstRewriteVisitor;
-import cd.ir.Ast.BinaryOp;
-import cd.ir.Ast.BooleanConst;
-import cd.ir.Ast.IntConst;
-import cd.ir.Ast.MethodDecl;
+import cd.ir.AstVisitor;
+import cd.ir.BasicBlock;
+import cd.ir.ControlFlowGraph;
+import cd.ir.Phi;
+import cd.ir.Symbol.VariableSymbol;
 
 public class Optimizer {
 	
@@ -34,20 +43,37 @@ public class Optimizer {
 	}
 	
 	public void compute(MethodDecl md) {
-		{
-			int oldChanges = 0;
-			do {
-				oldChanges = changes;
-				/*
-				 * To do: 
-				 * (1) constant propagation
-				 * (2) copy propagation
-				 * (3) common sub-expression elimination
-				 */
-				constantFolding.visit(md, null);
-				System.err.println("Phase " + changes);
-			} while (changes != oldChanges);
-		}
+	    ControlFlowGraph cfg = md.cfg;
+
+	    Map<String, LeafExpr> propagations = new HashMap<>();
+		int oldChanges = 0;
+		do {
+			oldChanges = changes;
+			/*
+			 * To do: 
+			 * (1) constant propagation
+			 * (2) copy propagation
+			 * (3) common sub-expression elimination
+			 */
+			for (BasicBlock bb : cfg.allBlocks) {
+			    for (Ast instr : bb.instructions) {
+			        constantFolding.visit(instr, null);
+			    }
+			    if (bb.condition != null) {
+			        bb.condition = (Expr)constantFolding.visit(bb.condition, null);
+			    }
+			}
+			
+			for (int i = 0; i < cfg.allBlocks.size(); i++) {
+			    for (Phi phi : cfg.allBlocks.get(i).phis.values()) {
+			        phi.checkIfConstant(propagations);
+			    }
+			}
+			
+			propagateCopies(cfg.start, propagations);
+			
+			System.err.println("Phase " + changes);
+		} while (changes != oldChanges);
 	}
 	
 	private AstRewriteVisitor<Void> constantFolding = new AstRewriteVisitor<Void>() {
@@ -151,6 +177,65 @@ public class Optimizer {
 
 		
 	};
-
-
+	
+	void propagateCopies(BasicBlock bb, Map<String, LeafExpr> toPropagate) {
+	    for (Phi phi : bb.phis.values()) {
+	        for (int i = 0; i < phi.rhs.size(); i++) {
+	            phi.rhs.set(i, (Expr)new PropagateVisitor().visit(phi.rhs.get(i), toPropagate));
+	        }
+	    }
+	    Iterator<Map.Entry<VariableSymbol, Phi>> iter = bb.phis.entrySet().iterator();
+	    while (iter.hasNext()) {
+	        if ((iter.next()).getValue().isConstant) {
+	            iter.remove();
+	        }
+	    }
+	    
+	    for (Ast instr : bb.instructions) {
+	        new PropagateVisitor().visit(instr, toPropagate);
+	        new CollectVisitor().visit(instr, toPropagate);
+	    }
+	    if (bb.condition != null) {
+	        new PropagateVisitor().visit(bb.condition, toPropagate);
+	    }
+	    
+	    for (BasicBlock next : bb.dominatorTreeChildren) {
+	        propagateCopies(next, toPropagate);
+	    }
+	}
+	
+	private class PropagateVisitor extends AstRewriteVisitor<Map<String, LeafExpr>> {
+	    public Ast var(Ast.Var ast, Map<String, LeafExpr> toPropagate) {
+	        System.err.println(ast.sym.name);
+	        if (toPropagate.containsKey(ast.sym.name)) {
+	            changes++;
+	            return toPropagate.get(ast.sym.name);
+	        }
+	        return dflt(ast, toPropagate);
+	    }
+	    
+	    public Ast assign(Ast.Assign ast, Map<String, LeafExpr> toPropagate) {
+	        ast.setRight((Expr)visit(ast.right(), toPropagate));
+	        
+	        if (!(ast.left() instanceof Ast.Var)) {
+	            ast.setLeft((Expr)visit(ast.left(), toPropagate));
+	        }
+	        
+	        return ast;
+	    }
+	}
+	
+	private class CollectVisitor extends AstVisitor<Void, Map<String, LeafExpr>> {
+	    public Void assign(Ast.Assign ast, Map<String, LeafExpr> toPropagate) {
+	        if (ast.left() instanceof Ast.Var && ast.right() instanceof LeafExpr) {
+	            toPropagate.put(((Ast.Var)ast.left()).sym.name, (LeafExpr)ast.right());
+	        }
+	        
+	        return dfltStmt(ast, null);
+	    }
+	    
+	    public Void visitChildren(Ast ast, Map<String, LeafExpr> arg) {
+	        return null;
+	    }
+	}
 }
