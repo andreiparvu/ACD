@@ -47,6 +47,7 @@ public class Optimizer {
 
 	    Map<String, LeafExpr> propagations = new HashMap<>();
 		int oldChanges = 0;
+		int cnt = 0;
 		do {
 			oldChanges = changes;
 			/*
@@ -73,6 +74,10 @@ public class Optimizer {
 			propagateCopies(cfg.start, propagations);
 			
 			System.err.println("Phase " + changes);
+			if (cnt == 5) {
+//				break;
+			}
+			cnt++;
 		} while (changes != oldChanges);
 	}
 	
@@ -196,7 +201,7 @@ public class Optimizer {
 	        new CollectVisitor().visit(instr, toPropagate);
 	    }
 	    if (bb.condition != null) {
-	        new PropagateVisitor().visit(bb.condition, toPropagate);
+	        bb.condition = (Expr)new PropagateVisitor().visit(bb.condition, toPropagate);
 	    }
 	    
 	    for (BasicBlock next : bb.dominatorTreeChildren) {
@@ -206,8 +211,9 @@ public class Optimizer {
 	
 	private class PropagateVisitor extends AstRewriteVisitor<Map<String, LeafExpr>> {
 	    public Ast var(Ast.Var ast, Map<String, LeafExpr> toPropagate) {
-	        System.err.println(ast.sym.name);
 	        if (toPropagate.containsKey(ast.sym.name)) {
+//		        System.err.println("==" + ast.sym.name);
+
 	            changes++;
 	            return toPropagate.get(ast.sym.name);
 	        }
@@ -228,7 +234,9 @@ public class Optimizer {
 	private class CollectVisitor extends AstVisitor<Void, Map<String, LeafExpr>> {
 	    public Void assign(Ast.Assign ast, Map<String, LeafExpr> toPropagate) {
 	        if (ast.left() instanceof Ast.Var && ast.right() instanceof LeafExpr) {
-	            toPropagate.put(((Ast.Var)ast.left()).sym.name, (LeafExpr)ast.right());
+	        	if (((LeafExpr)ast.right()).isPropagatable) {
+	        		toPropagate.put(((Ast.Var)ast.left()).sym.name, (LeafExpr)ast.right());
+	        	}
 	        }
 	        
 	        return dfltStmt(ast, null);

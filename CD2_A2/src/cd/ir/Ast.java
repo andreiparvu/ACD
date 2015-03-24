@@ -147,6 +147,8 @@ public abstract class Ast {
 	
 	/** Base class used for things with no arguments */
 	public static abstract class LeafExpr extends Expr {
+		public boolean isPropagatable = false;
+		
 		public LeafExpr() {
 			super(0);
 		}
@@ -154,6 +156,10 @@ public abstract class Ast {
 	
 	/** Represents {@code this}, the current object */
 	public static class ThisRef extends LeafExpr {
+		
+		public ThisRef() {
+			isPropagatable = true;
+		}
 		
 		@Override
 		public <R, A> R accept(ExprVisitor<R, A> visitor, A arg) {
@@ -242,6 +248,7 @@ public abstract class Ast {
 		public final float value;
 		public FloatConst(float value) {
 			this.value = value;
+			isPropagatable = true;
 		}
 		
 		@Override
@@ -264,6 +271,7 @@ public abstract class Ast {
 		public final int value;
 		public IntConst(int value) {
 			this.value = value;
+			isPropagatable = true;
 		}
 		
 		@Override
@@ -290,6 +298,7 @@ public abstract class Ast {
 		public final boolean value;
 		public BooleanConst(boolean value) {
 			this.value = value;
+			isPropagatable = true;
 		}
 		
 		@Override
@@ -308,7 +317,9 @@ public abstract class Ast {
 	}
 	
 	public static class NullConst extends LeafExpr {
-		
+		public NullConst() {
+//			isPropagatable = true;
+		}
 		@Override
 		public <R, A> R accept(ExprVisitor<R, A> visitor, A arg) {
 			return visitor.nullConst(this, arg);
@@ -453,6 +464,7 @@ public abstract class Ast {
 		 */
 		public Var(String name) {
 			this.name = name;
+			isPropagatable = true;
 		}
 		@Override
 		public <R, A> R accept(ExprVisitor<R, A> visitor, A arg) {
