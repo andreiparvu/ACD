@@ -65,29 +65,29 @@ public class SSA {
             for(final VariableSymbol sym : mdecl.sym.parameters)
                 currentVersions.put(sym, sym);
             renumberBlock(cfg.start, currentVersions);
-            
+
             {
-            	// Phase 3: Detect uses of (potentially) uninitialized variables
-            	(new AstVisitor<Void, Void>() {
+                // Phase 3: Detect uses of (potentially) uninitialized variables
+                (new AstVisitor<Void, Void>() {
 
-            		@Override
-					public Void varDecl(VarDecl ast, Void arg) {
-						// decls are visited before method body
-						possibilyUninitialized.add(ast.sym);
-						
-						return super.varDecl(ast, arg);
-					}
+                    @Override
+                    public Void varDecl(VarDecl ast, Void arg) {
+                        // decls are visited before method body
+                        possibilyUninitialized.add(ast.sym);
 
-					@Override
-					public Void var(Var ast, Void arg) {
-						if (possibilyUninitialized.contains(ast.sym)) {
-					    	throw new SemanticFailure(Cause.POSSIBLY_UNINITIALIZED, 
-					    			"use of possibly possibly uninitalized variable: %s", ast.name);
-						}
-						return super.var(ast, arg);
-					}
-            		
-            	}).visit(mdecl, null);
+                        return super.varDecl(ast, arg);
+                    }
+
+                    @Override
+                    public Void var(Var ast, Void arg) {
+                        if (possibilyUninitialized.contains(ast.sym)) {
+                            throw new SemanticFailure(Cause.POSSIBLY_UNINITIALIZED,
+                                    "use of possibly possibly uninitalized variable: %s", ast.name);
+                        }
+                        return super.var(ast, arg);
+                    }
+
+                }).visit(mdecl, null);
             }
         }
     }
@@ -155,7 +155,7 @@ public class SSA {
                     }
                     else {
                         // Possibly uninitialized! Whatever shall we do?
-                    	phi.containsUninitalized = true;
+                        phi.containsUninitalized = true;
                     }
                 }
             }
@@ -209,7 +209,7 @@ public class SSA {
                     }
                     else {
                         // Possibly uninitialized! Whatever shall we do?
-                    	// TODO insert error here?
+                        // TODO insert error here?
                     }
                 }
                 return null;
