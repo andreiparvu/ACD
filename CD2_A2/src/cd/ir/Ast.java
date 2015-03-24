@@ -214,6 +214,20 @@ public abstract class Ast {
 		public BinaryOp deepCopy() {
 			return postCopy(new BinaryOp(left(), operator, right()));
 		}
+		
+		public boolean isCommutative() {
+			switch(this.operator) {
+			case B_AND: // TODO: not true for short circuit
+			case B_OR:
+			case B_EQUAL:
+			case B_TIMES:
+			case B_PLUS:
+				return true; 
+			default:
+				return false;
+			
+			}
+		}
 	}
 	
 	/** A Cast from one type to another: {@code (typeName)arg} */

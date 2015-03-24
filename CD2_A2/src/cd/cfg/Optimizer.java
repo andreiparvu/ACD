@@ -8,6 +8,7 @@ import java.util.ListIterator;
 import java.util.Map;
 
 import cd.Main;
+import cd.debug.AstOneLine;
 import cd.ir.Ast;
 import cd.ir.Ast.BinaryOp;
 import cd.ir.Ast.BooleanConst;
@@ -49,6 +50,8 @@ public class Optimizer {
 		int oldChanges = 0;
 		int cnt = 0;
 		do {
+			Map<String, Integer> subexpressions = new HashMap<>();
+			
 			oldChanges = changes;
 			/*
 			 * To do: 
@@ -73,6 +76,8 @@ public class Optimizer {
 			
 			propagateCopies(cfg.start, propagations);
 			
+			identifySubexpression(cfg.start, subexpressions);
+			
 			System.err.println("Phase " + changes);
 			if (cnt == 5) {
 //				break;
@@ -80,6 +85,52 @@ public class Optimizer {
 			cnt++;
 		} while (changes != oldChanges);
 	}
+	
+	private void identifySubexpression(BasicBlock curBB, Map<String, Integer> subexpressions) {
+		for (Ast instr : curBB.instructions) {
+			canonicExpressionVisitor.visit(instr, subexpressions);
+		}
+		if (curBB.condition != null) {
+			canonicExpressionVisitor.visit(curBB.condition, subexpressions);
+		}
+		
+		for (BasicBlock bb : curBB.dominatorTreeChildren) {
+			identifySubexpression(bb, subexpressions);
+		}
+	}
+	
+	private AstVisitor<Void, Map<String, Integer>> canonicExpressionVisitor = new AstVisitor<Void, Map<String, Integer>>() {
+		@Override
+		public Void binaryOp(BinaryOp ast, Map<String, Integer> subexpressions) {
+			if (ast.left() instanceof LeafExpr && ast.right() instanceof LeafExpr) {
+				LeafExpr left = (LeafExpr)ast.left(), right = (LeafExpr)ast.right();
+				
+				
+				if (left.isPropagatable && right.isPropagatable) {
+					String leftStr = AstOneLine.toString(left);
+					String rightStr = AstOneLine.toString(right);
+
+					if (ast.isCommutative()) {
+						if (leftStr.compareTo(rightStr) > 0) {
+							String tmp = leftStr;
+							leftStr = rightStr;
+							rightStr = tmp;
+						}
+					}
+					
+					String canonicForm = String.format("%s %s %s", ast.operator.repr, leftStr, rightStr);
+					if (!subexpressions.containsKey(canonicForm)) {
+						subexpressions.put(canonicForm, 0);
+					}
+					System.err.println(canonicForm);
+					subexpressions.put(canonicForm, subexpressions.get(canonicForm)+1);
+				}
+				
+
+			}
+			return dflt(ast, subexpressions);
+		}
+	};
 	
 	private AstRewriteVisitor<Void> constantFolding = new AstRewriteVisitor<Void>() {
 		
