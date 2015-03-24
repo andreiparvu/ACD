@@ -14,11 +14,13 @@ public class Phi {
 	public VariableSymbol lhs;
 	public List<Expr> rhs = new ArrayList<Expr>(); // Always an Ast.Var or an Ast.Const!
 	public boolean isConstant;
+	public boolean containsUninitalized;
 	
 	public Phi(VariableSymbol v0sym, int predCount) {
 		this.v0sym = v0sym;
 		this.lhs = v0sym;
 		this.isConstant = false;
+		this.containsUninitalized = false;
 		for (int i = 0; i < predCount; i++)
 			rhs.add(Ast.Var.withSym(v0sym));
 	}

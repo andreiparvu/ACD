@@ -6,12 +6,15 @@ import java.util.Map;
 import java.util.Set;
 
 import cd.Main;
+import cd.exceptions.SemanticFailure;
 import cd.exceptions.ToDoException;
+import cd.exceptions.SemanticFailure.Cause;
 import cd.ir.Ast;
 import cd.ir.Ast.Assign;
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.MethodDecl;
 import cd.ir.Ast.Var;
+import cd.ir.Ast.VarDecl;
 import cd.ir.AstVisitor;
 import cd.ir.BasicBlock;
 import cd.ir.ControlFlowGraph;
@@ -30,6 +33,7 @@ public class SSA {
     private MethodSymbol msym;
     
     private Map<VariableSymbol, Integer> maxVersions;
+    private Set<VariableSymbol> possibilyUninitialized;
     
     public void compute(final MethodDecl mdecl) {
         final ControlFlowGraph cfg = mdecl.cfg;
@@ -55,6 +59,7 @@ public class SSA {
             // Phase 2: Renumber
             msym = mdecl.sym;
             maxVersions = new HashMap<VariableSymbol, Integer>();
+            possibilyUninitialized = new HashSet<VariableSymbol>();
             final Map<VariableSymbol, VariableSymbol> currentVersions =
                     new HashMap<VariableSymbol, VariableSymbol>();
             for(final VariableSymbol sym : mdecl.sym.parameters)
@@ -62,8 +67,27 @@ public class SSA {
             renumberBlock(cfg.start, currentVersions);
             
             {
-                // Phase 3: Detect uses of (potentially) uninitialized variables
-                // TODO throw new ToDoException();
+            	// Phase 3: Detect uses of (potentially) uninitialized variables
+            	(new AstVisitor<Void, Void>() {
+
+            		@Override
+					public Void varDecl(VarDecl ast, Void arg) {
+						// decls are visited before method body
+						possibilyUninitialized.add(ast.sym);
+						
+						return super.varDecl(ast, arg);
+					}
+
+					@Override
+					public Void var(Var ast, Void arg) {
+						if (possibilyUninitialized.contains(ast.sym)) {
+					    	throw new SemanticFailure(Cause.POSSIBLY_UNINITIALIZED, 
+					    			"use of possibly possibly uninitalized variable: %s", ast.name);
+						}
+						return super.var(ast, arg);
+					}
+            		
+            	}).visit(mdecl, null);
             }
         }
     }
@@ -110,6 +134,9 @@ public class SSA {
         for(final Phi phi : block.phis.values()) {
             assert phi.v0sym == phi.lhs;
             phi.lhs = renumberDefinedSymbol(phi.lhs, currentVersions);
+            if (phi.containsUninitalized) {
+                possibilyUninitialized.add(phi.lhs);
+            }
         }
         
         for(final Ast ast : block.instructions)
@@ -128,6 +155,7 @@ public class SSA {
                     }
                     else {
                         // Possibly uninitialized! Whatever shall we do?
+                    	phi.containsUninitalized = true;
                     }
                 }
             }
@@ -181,6 +209,7 @@ public class SSA {
                     }
                     else {
                         // Possibly uninitialized! Whatever shall we do?
+                    	// TODO insert error here?
                     }
                 }
                 return null;
