@@ -3,10 +3,12 @@ package cd.ir;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.IntConst;
 import cd.ir.Ast.LeafExpr;
+import cd.ir.Ast.Var;
 import cd.ir.Symbol.VariableSymbol;
 
 public class Phi {
@@ -24,6 +26,11 @@ public class Phi {
 	}
 	
 	public void checkIfConstant(Map<String, LeafExpr> toPropagate) {
+	    if (rhs.size() == 1) {
+	        toPropagate.put(lhs.name, (LeafExpr)rhs.get(0));
+	        isConstant = true;
+	        return ;
+	    }
 	    
 	    for (Expr e : rhs) {
 	        if (e.isConstant() == 0) {
@@ -39,6 +46,14 @@ public class Phi {
 	    
 	    isConstant = true;
 	    toPropagate.put(lhs.name, (LeafExpr)rhs.get(0));
+	}
+	
+	public void detectUses(Set<String> usedVars) {
+	    for (Expr e : rhs) {
+	        if (e instanceof Var) {
+	            usedVars.add(((Var)e).sym.name);
+	        }
+	    }
 	}
 	
 	public String toString() {

@@ -3,9 +3,12 @@ package cd.cfg;
 import static java.lang.String.format;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Set;
 
 import cd.Main;
 import cd.ir.Ast;
@@ -47,7 +50,9 @@ public class Optimizer {
 
 	    Map<String, LeafExpr> propagations = new HashMap<>();
 		int oldChanges = 0;
+		int cnt = 0;
 		do {
+		    LinkedList<BasicBlock> deadBlocks = new LinkedList<>();
 			oldChanges = changes;
 			/*
 			 * To do: 
@@ -55,12 +60,37 @@ public class Optimizer {
 			 * (2) copy propagation
 			 * (3) common sub-expression elimination
 			 */
-			for (BasicBlock bb : cfg.allBlocks) {
-			    for (Ast instr : bb.instructions) {
+			for (BasicBlock blk : cfg.allBlocks) {
+			    for (Ast instr : blk.instructions) {
 			        constantFolding.visit(instr, null);
 			    }
-			    if (bb.condition != null) {
-			        bb.condition = (Expr)constantFolding.visit(bb.condition, null);
+			    // might want to move this somewhere else
+			    if (blk.condition != null) {
+			        blk.condition = (Expr)constantFolding.visit(blk.condition, null);
+			        
+			        if (blk.condition.isConstant() == Ast.Expr.BOOL) {
+		                System.err.println("yeah");
+		                BooleanConst c = (BooleanConst)blk.condition;
+		                
+		                if (c.value) {
+		                    if (blk.falseSuccessor() != null) {
+		                        blk.falseSuccessor().deletePred(blk);
+		                    }
+		                    if (blk.falseSuccessor().isDead()) {
+		                        deadBlocks.add(blk.falseSuccessor());
+		                    }
+		                    blk.deleteFalseSuccessor();
+		                } else {
+		                    if (blk.trueSuccessor() != null) {
+		                        blk.trueSuccessor().deletePred(blk);
+		                    }
+		                    if (blk.trueSuccessor().isDead()) {
+		                        deadBlocks.add(blk.trueSuccessor());
+		                    }
+		                    blk.deleteTrueSuccessor();
+		                }
+		                blk.condition = null;
+		            }
 			    }
 			}
 			
@@ -73,7 +103,56 @@ public class Optimizer {
 			propagateCopies(cfg.start, propagations);
 			
 			System.err.println("Phase " + changes);
+			
+			while (!deadBlocks.isEmpty()) {
+			    BasicBlock curBB = deadBlocks.poll();
+			    for (BasicBlock succ : curBB.successors) {
+			        succ.deletePred(curBB);
+			        changes++;
+			        if (succ.isDead()) {
+			            deadBlocks.add(succ);
+			        }
+			    }
+			}
+			
+			if (cnt == 4) {
+//			    break;
+			}
+			cnt++;
 		} while (changes != oldChanges);
+		
+		Set<String> usedVars = new HashSet<>();
+		for (BasicBlock bb : cfg.allBlocks) {
+		    for (Ast instr : bb.instructions) {
+		        detectUses.visit(instr, usedVars);
+		    }
+		    if (bb.condition != null) {
+		        detectUses.visit(bb.condition, usedVars);
+		    }
+		    for (Phi phi : bb.phis.values()) {
+		        phi.detectUses(usedVars);
+		    }
+		}
+
+		System.err.println(usedVars.size());
+		for (String kkt : usedVars) {
+		    System.err.println("slbz" + kkt);
+		}
+		
+		for (BasicBlock bb : cfg.allBlocks) {
+		    Iterator<Ast> it = bb.instructions.iterator();
+		    for (; it.hasNext(); ) {
+		        if (detectUnused.visit(it.next(), usedVars)) {
+		            it.remove();
+		        }
+		    }
+		    Iterator<Map.Entry<VariableSymbol, Phi>> iter = bb.phis.entrySet().iterator();
+		    for (; iter.hasNext(); ) {
+		        if (usedVars.contains(iter.next().getValue().lhs.name) == false) {
+		            iter.remove();
+		        }
+		    }
+		}       
 	}
 	
 	private AstRewriteVisitor<Void> constantFolding = new AstRewriteVisitor<Void>() {
@@ -174,8 +253,6 @@ public class Optimizer {
 			}
 			return op;
 		}
-
-		
 	};
 	
 	void propagateCopies(BasicBlock bb, Map<String, LeafExpr> toPropagate) {
@@ -196,7 +273,7 @@ public class Optimizer {
 	        new CollectVisitor().visit(instr, toPropagate);
 	    }
 	    if (bb.condition != null) {
-	        new PropagateVisitor().visit(bb.condition, toPropagate);
+	        bb.condition = (Expr)new PropagateVisitor().visit(bb.condition, toPropagate);
 	    }
 	    
 	    for (BasicBlock next : bb.dominatorTreeChildren) {
@@ -208,6 +285,7 @@ public class Optimizer {
 	    public Ast var(Ast.Var ast, Map<String, LeafExpr> toPropagate) {
 	        System.err.println(ast.sym.name);
 	        if (toPropagate.containsKey(ast.sym.name)) {
+	            System.err.println(toPropagate.get(ast.sym.name));
 	            changes++;
 	            return toPropagate.get(ast.sym.name);
 	        }
@@ -234,4 +312,35 @@ public class Optimizer {
 	        return null;
 	    }
 	}
+	
+	private AstVisitor<Void, Set<String>> detectUses = new AstVisitor<Void, Set<String>>() {
+	    public Void assign(Ast.Assign ast, Set<String> usedVars) {
+	        visit(ast.right(), usedVars);
+	        if (!(ast.left() instanceof Ast.Var)) {
+	            visit(ast.left(), usedVars);
+	        }
+	        
+	        return null;
+	    }
+	    
+	    public Void var(Ast.Var ast, Set<String> usedVars) {
+	        usedVars.add(ast.sym.name);
+	        
+	        return null;
+	    }
+	};
+	
+	private AstVisitor<Boolean, Set<String>> detectUnused = new AstVisitor<Boolean, Set<String>>() {
+        public Boolean assign(Ast.Assign ast, Set<String> usedVars) {
+            if (ast.left() instanceof Ast.Var) {
+                return usedVars.contains(((Ast.Var)(ast.left())).sym.name) == false; 
+            }
+            
+            return dfltStmt(ast, usedVars);
+        }
+        
+        protected Boolean dflt(Ast ast, Set<String> usedVars) {
+            return false;
+        }
+    };
 }
