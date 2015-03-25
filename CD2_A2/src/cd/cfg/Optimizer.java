@@ -2,14 +2,19 @@ package cd.cfg;
 
 import static java.lang.String.format;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Set;
 
 import cd.Main;
 import cd.debug.AstOneLine;
 import cd.ir.Ast;
+import cd.ir.Ast.Assign;
 import cd.ir.Ast.BinaryOp;
 import cd.ir.Ast.BooleanConst;
 import cd.ir.Ast.Expr;
@@ -18,11 +23,13 @@ import cd.ir.Ast.LeafExpr;
 import cd.ir.Ast.MethodDecl;
 import cd.ir.Ast.UnaryOp;
 import cd.ir.Ast.UnaryOp.UOp;
+import cd.ir.Ast.Var;
 import cd.ir.AstRewriteVisitor;
 import cd.ir.AstVisitor;
 import cd.ir.BasicBlock;
 import cd.ir.ControlFlowGraph;
 import cd.ir.Phi;
+import cd.ir.Symbol.PrimitiveTypeSymbol;
 import cd.ir.Symbol.VariableSymbol;
 
 public class Optimizer {
@@ -35,12 +42,43 @@ public class Optimizer {
 	
 	public static int overall;
 	
+	private int nrTemp = 0;
+	
 	public Optimizer(Main main) {
 		this.main = main;
 	}
 	
 	private String phase() {
 		return format(".opt.%d", overall++);		
+	}
+	
+	private class ExpressionManager {
+	    public class Data {
+	        int position;
+	        Var substitute;
+	        Expr node;
+	        boolean isTemp;
+	        
+	        public Data(int position, Var substitute, Expr node, boolean isTemp) {
+	            this.position = position;
+	            this.substitute = substitute;
+	            this.node = node;
+	            this.isTemp = isTemp;
+	        }
+	    }
+	    
+	    Map<String, Data> info = new HashMap<>();
+	    
+	    List<String> subexpressions;
+	    Set<String> isUsed = new HashSet<>();
+	    int curPosition;
+	    Var curVar = null;
+	}
+	
+	private Var newTempVar() {
+	    nrTemp++;
+	    return Var.withSym(new VariableSymbol("temp_" + nrTemp,
+	            new PrimitiveTypeSymbol("temp_" + nrTemp), VariableSymbol.Kind.LOCAL));
 	}
 	
 	public void compute(MethodDecl md) {
@@ -50,8 +88,6 @@ public class Optimizer {
 		int oldChanges = 0;
 		int cnt = 0;
 		do {
-			Map<String, Integer> subexpressions = new HashMap<>();
-			
 			oldChanges = changes;
 			/*
 			 * To do: 
@@ -76,7 +112,7 @@ public class Optimizer {
 			
 			propagateCopies(cfg.start, propagations);
 			
-			identifySubexpression(cfg.start, subexpressions);
+			identifySubexpression(cfg.start, new ExpressionManager());
 			
 			System.err.println("Phase " + changes);
 			if (cnt == 5) {
@@ -86,22 +122,60 @@ public class Optimizer {
 		} while (changes != oldChanges);
 	}
 	
-	private void identifySubexpression(BasicBlock curBB, Map<String, Integer> subexpressions) {
-		for (Ast instr : curBB.instructions) {
-			canonicExpressionVisitor.visit(instr, subexpressions);
+	private void identifySubexpression(BasicBlock curBB, ExpressionManager exprManager) {
+	    List<String> curExpressions = new ArrayList<>();
+	    exprManager.subexpressions = curExpressions;
+	    
+		for (int i = 0; i < curBB.instructions.size(); i++) {
+		    exprManager.curPosition = i;
+			canonicExpressionVisitor.visit(curBB.instructions.get(i), exprManager);
 		}
+		exprManager.curPosition = curBB.instructions.size();
 		if (curBB.condition != null) {
-			canonicExpressionVisitor.visit(curBB.condition, subexpressions);
+			canonicExpressionVisitor.visit(curBB.condition, exprManager);
 		}
 		
 		for (BasicBlock bb : curBB.dominatorTreeChildren) {
-			identifySubexpression(bb, subexpressions);
+			identifySubexpression(bb, exprManager);
 		}
+		
+		int nrAdded = 0;
+		for (String expr : curExpressions) {
+		    System.err.println(expr);
+		    if (exprManager.isUsed.contains(expr)) {
+		        ExpressionManager.Data data = exprManager.info.get(expr);
+		        if (data.isTemp) {
+		            curBB.instructions.add(data.position + nrAdded,
+		                    new Assign(data.substitute, data.node));
+		            nrAdded++;
+		        }
+		    }
+		    exprManager.info.remove(expr);
+		}
+		        
 	}
 	
-	private AstVisitor<Void, Map<String, Integer>> canonicExpressionVisitor = new AstVisitor<Void, Map<String, Integer>>() {
+	private AstRewriteVisitor<ExpressionManager> canonicExpressionVisitor = new AstRewriteVisitor<ExpressionManager>() {
 		@Override
-		public Void binaryOp(BinaryOp ast, Map<String, Integer> subexpressions) {
+		public Ast assign(Ast.Assign ast, ExpressionManager exprManager) {
+		    if (ast.left() instanceof Var) {
+		        exprManager.curVar = (Var)ast.left();
+		        ast.setRight((Expr)visit(ast.right(), exprManager));
+		        
+		        return ast;
+		    }
+		    
+		    return visitChildren(ast, exprManager);
+		}
+		
+		@Override
+		public Ast dflt(Ast ast, ExpressionManager exprManager) {
+		    exprManager.curVar = null;
+		    return visitChildren(ast, exprManager);
+		}
+		
+		@Override
+		public Ast binaryOp(BinaryOp ast, ExpressionManager exprManager) {
 			if (ast.left() instanceof LeafExpr && ast.right() instanceof LeafExpr) {
 				LeafExpr left = (LeafExpr)ast.left(), right = (LeafExpr)ast.right();
 				
@@ -119,16 +193,29 @@ public class Optimizer {
 					}
 					
 					String canonicForm = String.format("%s %s %s", ast.operator.repr, leftStr, rightStr);
-					if (!subexpressions.containsKey(canonicForm)) {
-						subexpressions.put(canonicForm, 0);
+					if (!exprManager.info.containsKey(canonicForm)) {
+					    Var next;
+					    boolean isTemp = false;
+					    if (exprManager.curVar == null) {
+					        exprManager.subexpressions.add(canonicForm);
+					        next = newTempVar();
+					        isTemp = true;
+					    } else {
+					        next = exprManager.curVar;
+					    }
+					    
+					    exprManager.info.put(canonicForm,
+					            (new ExpressionManager()).new Data(exprManager.curPosition, next, ast, isTemp));
+					} else {
+					    changes++;
+					    exprManager.isUsed.add(canonicForm);
+					    return exprManager.info.get(canonicForm).substitute;
 					}
-					System.err.println(canonicForm);
-					subexpressions.put(canonicForm, subexpressions.get(canonicForm)+1);
 				}
 				
 
 			}
-			return dflt(ast, subexpressions);
+			return dflt(ast, exprManager);
 		}
 	};
 	
