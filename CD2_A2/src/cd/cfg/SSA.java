@@ -69,15 +69,6 @@ public class SSA {
             {
                 // Phase 3: Detect uses of (potentially) uninitialized variables
                 (new AstVisitor<Void, Void>() {
-
-                    @Override
-                    public Void varDecl(VarDecl ast, Void arg) {
-                        // decls are visited before method body
-                        possibilyUninitialized.add(ast.sym);
-
-                        return super.varDecl(ast, arg);
-                    }
-
                     @Override
                     public Void var(Var ast, Void arg) {
                         if (possibilyUninitialized.contains(ast.sym)) {
@@ -153,10 +144,11 @@ public class SSA {
                     if(cursym != null) {
                         phi.rhs.set(predIndex, Ast.Var.withSym(cursym));
                     }
-                    else {
-                        // Possibly uninitialized! Whatever shall we do?
-                        phi.containsUninitalized = true;
-                    }
+
+                    if (cursym == null || possibilyUninitialized.contains(cursym)) {
+					    // Possibly uninitialized! Whatever shall we do?
+					    phi.containsUninitalized = true;
+					}
                 }
             }
         }
@@ -209,7 +201,8 @@ public class SSA {
                     }
                     else {
                         // Possibly uninitialized! Whatever shall we do?
-                        // TODO insert error here?
+                        throw new SemanticFailure(Cause.POSSIBLY_UNINITIALIZED,
+                                                  "use of uninitalized variable: %s", ast.name);
                     }
                 }
                 return null;
@@ -230,4 +223,5 @@ public class SSA {
         currentVersions.put(lhs, sym);
         return sym;
     }
+
 }
