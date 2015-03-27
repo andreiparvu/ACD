@@ -76,6 +76,7 @@ public abstract class Ast {
 	/** Base class for all expressions */
 	public static abstract class Expr extends Ast {
 		public final static int FLOAT = 1, INT = 2, BOOL = 3;
+		public String canonicalForm = null;
 		
 		protected Expr(int fixedCount) {
 			super(fixedCount);

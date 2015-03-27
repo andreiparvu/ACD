@@ -135,10 +135,12 @@ public class Optimizer {
 	    
 		for (int i = 0; i < curBB.instructions.size(); i++) {
 		    exprManager.curPosition = i;
+		    generateCanonicalForm.visit(curBB.instructions.get(i), null);
 			canonicExpressionVisitor.visit(curBB.instructions.get(i), exprManager);
 		}
 		exprManager.curPosition = curBB.instructions.size();
 		if (curBB.condition != null) {
+		    generateCanonicalForm.visit(curBB.condition, null);
 			canonicExpressionVisitor.visit(curBB.condition, exprManager);
 		}
 		
@@ -162,6 +164,48 @@ public class Optimizer {
 		        
 	}
 	
+	private AstVisitor<Void, Void> generateCanonicalForm = new AstVisitor<Void, Void>() {
+
+		@Override
+		public Void binaryOp(BinaryOp ast, Void arg) {
+			if (ast.left() instanceof LeafExpr) {
+				LeafExpr left = (LeafExpr)ast.left();
+				if (left.isPropagatable) {
+					left.canonicalForm = AstOneLine.toString(left);
+				}
+			} else {
+				visit(ast.left(), arg);
+			}
+			
+			if (ast.right() instanceof LeafExpr) {
+				LeafExpr right = (LeafExpr)ast.right();
+				if (right.isPropagatable) {
+					right.canonicalForm = AstOneLine.toString(right);
+				}
+			} else {
+				visit(ast.right(), arg);
+			}
+			
+			String leftStr = ast.left().canonicalForm;
+			String rightStr = ast.right().canonicalForm;
+			
+			if (leftStr != null && rightStr != null) {
+				if (ast.isCommutative()) {
+					if (leftStr.compareTo(rightStr) > 0) {
+						String tmp = leftStr;
+						leftStr = rightStr;
+						rightStr = tmp;
+					}
+				}
+				
+				ast.canonicalForm = String.format("%s %s %s", ast.operator.repr, leftStr, rightStr);
+			}
+			
+			return null;
+		}
+		
+	};
+	
 	private AstRewriteVisitor<ExpressionManager> canonicExpressionVisitor = new AstRewriteVisitor<ExpressionManager>() {
 		@Override
 		public Ast assign(Ast.Assign ast, ExpressionManager exprManager) {
@@ -183,45 +227,27 @@ public class Optimizer {
 		
 		@Override
 		public Ast binaryOp(BinaryOp ast, ExpressionManager exprManager) {
-			if (ast.left() instanceof LeafExpr && ast.right() instanceof LeafExpr) {
-				LeafExpr left = (LeafExpr)ast.left(), right = (LeafExpr)ast.right();
-				
-				
-				if (left.isPropagatable && right.isPropagatable) {
-					String leftStr = AstOneLine.toString(left);
-					String rightStr = AstOneLine.toString(right);
-
-					if (ast.isCommutative()) {
-						if (leftStr.compareTo(rightStr) > 0) {
-							String tmp = leftStr;
-							leftStr = rightStr;
-							rightStr = tmp;
-						}
-					}
-					
-					String canonicForm = String.format("%s %s %s", ast.operator.repr, leftStr, rightStr);
-					if (!exprManager.info.containsKey(canonicForm)) {
-					    Var next;
-					    boolean isTemp = false;
-					    if (exprManager.curVar == null) {
-					        exprManager.subexpressions.add(canonicForm);
-					        next = newTempVar();
-					        isTemp = true;
-					    } else {
-					        next = exprManager.curVar;
-					    }
-					    
-					    exprManager.info.put(canonicForm,
-					            (new ExpressionManager()).new Data(exprManager.curPosition, next, ast, isTemp));
+			if (ast.canonicalForm != null) {
+				if (!exprManager.info.containsKey(ast.canonicalForm)) {
+					Var next;
+					boolean isTemp = false;
+					if (exprManager.curVar == null) {
+						exprManager.subexpressions.add(ast.canonicalForm);
+						next = newTempVar();
+						isTemp = true;
 					} else {
-					    changes++;
-					    exprManager.isUsed.add(canonicForm);
-					    return exprManager.info.get(canonicForm).substitute;
+						next = exprManager.curVar;
 					}
-				}
-				
 
+					exprManager.info.put(ast.canonicalForm,
+							(new ExpressionManager()).new Data(exprManager.curPosition, next, ast, isTemp));
+				} else {
+					changes++;
+					exprManager.isUsed.add(ast.canonicalForm);
+					return exprManager.info.get(ast.canonicalForm).substitute;
+				}
 			}
+
 			return dflt(ast, exprManager);
 		}
 	};
