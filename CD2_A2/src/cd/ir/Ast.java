@@ -76,10 +76,7 @@ public abstract class Ast {
 	/** Base class for all expressions */
 	public static abstract class Expr extends Ast {
 		public final static int FLOAT = 1, INT = 2, BOOL = 3;
-<<<<<<< HEAD
-=======
 		public String canonicalForm = null;
->>>>>>> master
 		
 		protected Expr(int fixedCount) {
 			super(fixedCount);
@@ -151,11 +148,8 @@ public abstract class Ast {
 	
 	/** Base class used for things with no arguments */
 	public static abstract class LeafExpr extends Expr {
-<<<<<<< HEAD
-=======
 		public boolean isPropagatable = false;
 		
->>>>>>> master
 		public LeafExpr() {
 			super(0);
 		}
@@ -285,13 +279,10 @@ public abstract class Ast {
 		public int isConstant() {
 		    return Expr.FLOAT;
 		}
-<<<<<<< HEAD
-=======
 		
 		public boolean compareTo(FloatConst e) {
             return value == e.value;
         }
->>>>>>> master
 	}
 
 	public static class IntConst extends LeafExpr {
@@ -342,13 +333,10 @@ public abstract class Ast {
 		public int isConstant() {
             return Expr.BOOL;
         }
-<<<<<<< HEAD
-=======
 		
 		public boolean compareTo(BooleanConst e) {
             return value == e.value;
         }
->>>>>>> master
 	}
 	
 	public static class NullConst extends LeafExpr {
