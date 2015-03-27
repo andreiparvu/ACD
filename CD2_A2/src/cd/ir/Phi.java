@@ -4,7 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import cd.ir.Ast.BooleanConst;
 import cd.ir.Ast.Expr;
+import cd.ir.Ast.FloatConst;
 import cd.ir.Ast.IntConst;
 import cd.ir.Ast.LeafExpr;
 import cd.ir.Symbol.VariableSymbol;
@@ -34,9 +36,23 @@ public class Phi {
 	    }
 	    
 	    for (int i = 1; i < rhs.size(); i++) {
-	        if (!rhs.get(0).compareTo((IntConst)rhs.get(i))) {
-	            return ;
-	        }
+	    	switch (rhs.get(0).isConstant()) {
+	    	case Expr.INT:
+	    		if (!rhs.get(0).compareTo((IntConst)rhs.get(i))) {
+		            return ;
+		        }
+	    		break;
+	    	case Expr.FLOAT:
+	    		if (!rhs.get(0).compareTo((FloatConst)rhs.get(i))) {
+		            return ;
+		        }
+	    		break;
+	    	case Expr.BOOL:
+	    		if (!rhs.get(0).compareTo((BooleanConst)rhs.get(i))) {
+		            return ;
+		        }
+	    		break;
+	    	}
 	    }
 	    
 	    isConstant = true;
