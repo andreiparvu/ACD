@@ -313,20 +313,42 @@ public class Optimizer {
 	    }
 	}
 	
-	private AstVisitor<Void, Set<String>> detectUses = new AstVisitor<Void, Set<String>>() {
-	    public Void assign(Ast.Assign ast, Set<String> usedVars) {
-	        visit(ast.right(), usedVars);
-	        if (!(ast.left() instanceof Ast.Var)) {
+	private AstVisitor<Boolean, Set<String>> detectUses = new AstVisitor<Boolean, Set<String>>() {
+	    public Boolean assign(Ast.Assign ast, Set<String> usedVars) {
+	        Boolean isUsed = visit(ast.right(), usedVars);
+	        if (!(ast.left() instanceof Ast.Var) || isUsed) {
 	            visit(ast.left(), usedVars);
 	        }
 	        
-	        return null;
+	        return true;
 	    }
 	    
-	    public Void var(Ast.Var ast, Set<String> usedVars) {
+	    public Boolean var(Ast.Var ast, Set<String> usedVars) {
+	        System.err.println(ast.sym.name);
 	        usedVars.add(ast.sym.name);
 	        
-	        return null;
+	        return false;
+	    }
+
+	    public Boolean visitChildren(Ast ast, Set<String> arg) {
+	        Boolean lastValue = false;
+	        for (Ast child : ast.children())
+	            lastValue = visit(child, arg);
+	        return lastValue;
+	    }
+	    
+	    public Boolean builtInRead(Ast.BuiltInRead ast, Set<String> arg) {
+	        return true;
+	    }
+	    
+	    public Boolean builtInReadFloat(Ast.BuiltInReadFloat ast, Set<String> arg) {
+	        return true;
+	    }
+	    
+	    public Boolean methodCall(Ast.MethodCall ast, Set<String> usedVars) {
+	        dfltStmt(ast, usedVars);
+	        
+	        return true;
 	    }
 	};
 	
