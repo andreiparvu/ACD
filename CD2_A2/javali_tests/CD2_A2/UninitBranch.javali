@@ -1,9 +1,7 @@
-// Test an obviously uninitialized variable.  You 
-// probably want to add some more involved tests
-// than this!
 class Main {
     void main() {
         int i;
+        int j;
 
         if (true) {
             i = 1;

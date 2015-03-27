@@ -54,7 +54,7 @@ public class Optimizer {
 	}
 	
 	private class ExpressionManager {
-	    public class Data {
+ 	    public class Data {
 	        int position;
 	        Var substitute;
 	        Expr node;
@@ -67,7 +67,7 @@ public class Optimizer {
 	            this.isTemp = isTemp;
 	        }
 	    }
-	    
+ 	    
 	    Map<String, Data> info = new HashMap<>();
 	    
 	    List<String> subexpressions;
@@ -76,15 +76,21 @@ public class Optimizer {
 	    Var curVar = null;
 	}
 	
+	MethodDecl mdecl;
+	
 	private Var newTempVar() {
 	    nrTemp++;
-	    return Var.withSym(new VariableSymbol("temp_" + nrTemp,
-	            new PrimitiveTypeSymbol("temp_" + nrTemp), VariableSymbol.Kind.LOCAL));
+	    String tempName = "temp_" + nrTemp;
+	    VariableSymbol sym = new VariableSymbol(tempName,
+	            new PrimitiveTypeSymbol(tempName), VariableSymbol.Kind.LOCAL);
+	    mdecl.sym.locals.put(tempName, sym);
+	    return Var.withSym(sym);
 	}
 	
 	public void compute(MethodDecl md) {
 	    ControlFlowGraph cfg = md.cfg;
 
+	    mdecl = md;
 	    Map<String, LeafExpr> propagations = new HashMap<>();
 		int oldChanges = 0;
 		int cnt = 0;
@@ -347,8 +353,6 @@ public class Optimizer {
 			}
 			return op;
 		}
-
-		
 	};
 	
 	void propagateCopies(BasicBlock bb, Map<String, LeafExpr> toPropagate) {

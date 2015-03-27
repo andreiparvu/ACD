@@ -22,7 +22,7 @@ public class TestSamplePrograms extends AbstractTestSamplePrograms {
 	 * variable like:
 	 * {@code justFile = new File("javali_tests/A2/Inheritance.javali")}.
 	 */
-//	public static final File justFile = new File("./javali_tests/CD1/A4_syntaxError/Matrix.javali");
+//	public static final File justFile = new File("./javali_tests/CD2_A2/UninitPhiNode.javali");
 	public static final File justFile = null;
 
 	/**
@@ -31,8 +31,8 @@ public class TestSamplePrograms extends AbstractTestSamplePrograms {
 	 * particular directory, use sth. like:
 	 * {@code testDir = new File("javali_tests/A2/")}.
 	 */
-	public static final File testDir = new File("javali_tests/");
-//	public static final File testDir = null;
+//	public static final File testDir = new File("javali_tests/");
+	public static final File testDir = null;
 	
 	@Parameters
 	public static Collection<Object[]> testFiles() {
