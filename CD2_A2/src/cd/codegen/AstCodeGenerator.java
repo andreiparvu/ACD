@@ -175,7 +175,7 @@ public class AstCodeGenerator {
 		emitLabel("STR_D");
 		emit(Config.DOT_STRING + " \"%d\"");
 		emitLabel("STR_F");
-		emit(Config.DOT_STRING + " \"%.10f\"");
+		emit(Config.DOT_STRING + " \"%.5f\"");
 		emitLabel("SCANF_STR_F");
 		emit(Config.DOT_STRING + " \"%f\"");
 		emit(Config.DATA_INT_SECTION);
@@ -903,13 +903,22 @@ public class AstCodeGenerator {
 
 			String label = uniqueLabel();
 			String trueLabel = "float$cmp$" + label + "$true";
+			String falseLabel = "float$cmp$" + label + "$false";
 			String endLabel = "float$cmp$" + label + "$end";
 
 			emitGprRegToFloatReg(FLOAT_REG_0, leftReg);
 			emitGprRegToFloatReg(FLOAT_REG_1, rightReg);
-
+			
 			emit("ucomiss", FLOAT_REG_1, FLOAT_REG_0);
+			if (opname.equals("jne")) {
+				// NaN != Nan is always true
+				emit("jp", trueLabel);
+			} else {
+				emit("jp", falseLabel);
+			}
 			emit(opname, trueLabel);
+			
+			emitLabel(falseLabel);
 			emitMove(c(0), leftReg);
 			emit("jmp", endLabel);
 			emitLabel(trueLabel);

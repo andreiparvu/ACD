@@ -18,6 +18,7 @@ import cd.ir.Ast.Assign;
 import cd.ir.Ast.BinaryOp;
 import cd.ir.Ast.BooleanConst;
 import cd.ir.Ast.Expr;
+import cd.ir.Ast.FloatConst;
 import cd.ir.Ast.IntConst;
 import cd.ir.Ast.LeafExpr;
 import cd.ir.Ast.MethodDecl;
@@ -249,14 +250,11 @@ public class Optimizer {
 			
 			if (left instanceof BooleanConst && right instanceof BooleanConst) {
 				return booleanConstOp(ast, (BooleanConst)left, (BooleanConst)right);
-			}
-			if (left instanceof IntConst && right instanceof IntConst) {
+			} else if (left instanceof IntConst && right instanceof IntConst) {
 				return intConstOp(ast, (IntConst)left, (IntConst)right);
+			} else if (left instanceof FloatConst && right instanceof FloatConst) {
+				return floatConstOp(ast, (FloatConst)left, (FloatConst)right);
 			}
-			
-			/*if (left instanceof FloatConst && right instanceof FloatConst) {
-				return floatOp(ast, (FloatConst)left, (FloatConst)right);
-			}*/
 			
 			return ast;
 		}
@@ -268,13 +266,13 @@ public class Optimizer {
 			case B_TIMES:	return new IntConst(left.value * right.value);
 			case B_DIV:
 				if (right.value != 0) {
-					// only do compile time evaluation of no division by zeor
+					// only do compile time evaluation of no division by zero
 					return new IntConst(left.value / right.value);
 				}
 				break;
 			case B_MOD:
 				if (right.value != 0) {
-					// only do compile time evaluation of no division by zeor
+					// only do compile time evaluation of no division by zero
 					return new IntConst(left.value % right.value);
 				}
 				break;		
@@ -298,6 +296,38 @@ public class Optimizer {
 			}
 		}
 
+		/* This method uses the "strictfp" keyword to ensure that Java uses IEEE 754
+		 * compliant floating point arithmetic. This should not make a difference on
+		 * your average x86 with SSE2, but if some bored TA decides to run this on an
+		 * Intel 386, this should ensures correctness. 
+		 * 
+		 * We also modify the code generator (which uses SSE2) to match Java semantics
+		 * i.e. for equality comparison with NaN and rounding modes of IEEE 754-1985.
+		 *
+		 * References:
+		 *  - http://math.nist.gov/javanumerics/reports/issues.html#Rounding
+		 *  - Muller, Jean-Michel, et al. Handbook of floating-point arithmetic. 
+		 *    Springer Science & Business Media, 2009.
+		 *             
+		 */
+		strictfp private Ast floatConstOp(BinaryOp op, FloatConst left, FloatConst right) {
+			switch(op.operator) {
+			case B_PLUS: 				return new FloatConst(left.value + right.value);
+			case B_MINUS:				return new FloatConst(left.value - right.value);
+			case B_TIMES:				return new FloatConst(left.value * right.value);
+			case B_DIV:					return new FloatConst(left.value / right.value);
+			case B_EQUAL:				return new BooleanConst(left.value == right.value);
+			case B_GREATER_OR_EQUAL:	return new BooleanConst(left.value >= right.value);
+			case B_GREATER_THAN:		return new BooleanConst(left.value > right.value);
+			case B_LESS_OR_EQUAL:		return new BooleanConst(left.value <= right.value);
+			case B_LESS_THAN:			return new BooleanConst(left.value < right.value);
+			case B_NOT_EQUAL: 			return new BooleanConst(left.value != right.value);
+			default:	break;
+			}
+			
+			return op;
+		}
+		
 		@Override
 		public Ast unaryOp(UnaryOp op, Void arg) {
 			Ast child = visit(op.arg(), arg);
