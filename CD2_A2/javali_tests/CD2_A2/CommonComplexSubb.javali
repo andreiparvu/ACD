@@ -1,0 +1,15 @@
+class Main {
+  void main() {
+    int x, y, z;
+
+    x = read();
+    y = read();
+    z = read();
+
+
+    write(x + y * z + x);
+    write(x + y * z);
+    write(y * z);
+
+  }
+}

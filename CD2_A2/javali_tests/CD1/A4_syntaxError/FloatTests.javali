@@ -1,0 +1,142 @@
+// various float operations and comparisions
+class Main {
+    void main() {
+        float f1, f2, f3, f4;
+        float inf, nan;
+
+        f1 = 1.1111;
+        f2 = 123456789.0987654;
+        
+        f3 = f2 - f1;
+        writef(f3);
+        writeln();
+        writef(f3+0.0);
+        writeln();
+        
+        f4 = f1 + f1;
+        writef(f4);
+        writeln();
+        
+        writef(f1 * f2);
+        writeln();
+        
+        writef(4.2 / 2.0);
+        writeln();
+        
+        writef(0.14 - (-3.00));
+        writeln();
+        
+        if(f1 > 1.0) {
+            write(111);
+            writeln();
+        }
+        
+        if(f2 < 1.0) {
+            write(222);
+            writeln();
+        }
+        
+        if(f2 <= 123456789.0987654) {
+            write(333);
+            writeln();
+        }        
+
+        // special float values
+
+        inf = 1.0 / 0.0;
+        nan = inf / inf;
+        
+        if(inf >= -inf) {
+            write(444);
+            writeln();
+        }
+
+        if((f4 - f4) != (0.0 / f4)) {
+            write(555);
+            writeln();
+        }
+        
+        if(nan == nan) {
+            write(6661);
+            writeln();
+        }
+        
+        if(nan != nan) {
+            write(6662);
+            writeln();
+        }
+        
+        if(nan > nan) {
+            write(6663);
+            writeln();
+        }
+        
+        if(nan >= nan) {
+            write(6664);
+            writeln();
+        }
+        
+        if(nan < nan) {
+            write(66631);
+            writeln();
+        }
+        
+        if(nan <= nan) {
+            write(66641);
+            writeln();
+        }
+        
+        if((0.0 * inf) > nan) {
+            write(6665);
+            writeln(); 
+        }
+        
+        if((0.0 * inf) <= nan) {
+            write(6666);
+            writeln(); 
+        }
+        
+        if((0.0 * inf) >= nan) {
+            write(6667);
+            writeln(); 
+        }
+        
+        if(inf == inf) {
+            write(7771);
+            writeln();
+        }
+        
+        if(inf != inf) {
+            write(7772);
+            writeln();
+        }
+        
+        if(0.0 == (-0.0)) {
+            write(8881);
+            writeln();
+        }
+        
+        if(0.0 >= (-0.0)) {
+            write(8882);
+            writeln();
+        }
+        
+        if(0.0 <= (-0.0)) {
+            write(8883);
+            writeln();
+        }
+        
+        if(0.0 > (-0.0)) {
+            write(8884);
+            writeln();
+        }
+        
+        if(0.0 < (-0.0)) {
+            write(8885);
+            writeln();
+        }
+        
+        write(999);
+        writeln();
+    }
+}

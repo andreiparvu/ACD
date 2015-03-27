@@ -1,0 +1,31 @@
+class Main {
+  void main() {
+    int a, b, c, d, e, f, g, h, k;
+    int i;
+    
+    int[] array;
+    
+    array = new int[100];
+    
+    i = 0;
+    while (i < 100) {
+        array[i] = i;
+        i = i + 1;
+    }
+
+    a = read();
+    b = read();
+    c = read();
+
+    e = array[a * 2 + c];
+    f = array[a * 2 + c + 1];
+    h = array[a * 2 + (1 + c)];
+    k = array[a * 2 + (c + 1)];
+
+    write(e); writeln();
+    write(f); writeln();
+    write(h); writeln();
+    write(k); writeln();
+  }
+}
+

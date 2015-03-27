@@ -175,7 +175,7 @@ public class AstCodeGenerator {
 		emitLabel("STR_D");
 		emit(Config.DOT_STRING + " \"%d\"");
 		emitLabel("STR_F");
-		emit(Config.DOT_STRING + " \"%.10f\"");
+		emit(Config.DOT_STRING + " \"%.5f\"");
 		emitLabel("SCANF_STR_F");
 		emit(Config.DOT_STRING + " \"%f\"");
 		emit(Config.DATA_INT_SECTION);
@@ -738,6 +738,9 @@ public class AstCodeGenerator {
 		@Override
 		public String binaryOp(BinaryOp ast, Void arg) {
 			{
+				if(ast.operator == BOp.B_AND || ast.operator == BOp.B_OR) {
+					return binaryOpShortCircuit(ast);
+				}
 				
 				String leftReg = null;
 				String rightReg = null;
@@ -778,12 +781,6 @@ public class AstCodeGenerator {
 							break;
 						case B_MOD:
 							emitDivMod("%edx", leftReg, rightReg);
-							break;
-						case B_AND:
-							emit("andl", rightReg, leftReg);
-							break;
-						case B_OR:
-							emit("orl", rightReg, leftReg);
 							break;
 						case B_EQUAL:
 							emitCmp("sete", leftReg, rightReg);
@@ -882,6 +879,44 @@ public class AstCodeGenerator {
 			}
 		}
 
+		private String binaryOpShortCircuit(BinaryOp ast) {
+			assert ast.operator == BOp.B_AND || ast.operator == BOp.B_OR;
+			
+			String leftReg = null;
+			String rightReg = null;
+			
+			String exitLabel = uniqueLabel();
+
+			// evaluate left
+			leftReg = gen(ast.left());
+			assert leftReg != null;
+			
+			// skip evaluation of right
+			emit("cmpl", c(0), leftReg);
+			if(ast.operator == BOp.B_AND) {
+				emit("je", exitLabel);
+			} else {
+				emit("jne", exitLabel);
+			}
+			
+			// evaluate right
+			Pair<String> regs = genPushing(leftReg, ast.right());
+			leftReg = regs.a;
+			rightReg = regs.b;
+			assert rightReg != null;
+			
+			// calculate actual result
+			if(ast.operator == BOp.B_AND) {
+				emit("andl", rightReg, leftReg);
+			} else {
+				emit("orl", rightReg, leftReg);
+			}
+			
+			emitLabel(exitLabel);
+			
+			return leftReg;
+		}
+
 		private void emitCmp(String opname, String leftReg, String rightReg) {
 
 			emit("cmpl", rightReg, leftReg);
@@ -903,13 +938,22 @@ public class AstCodeGenerator {
 
 			String label = uniqueLabel();
 			String trueLabel = "float$cmp$" + label + "$true";
+			String falseLabel = "float$cmp$" + label + "$false";
 			String endLabel = "float$cmp$" + label + "$end";
 
 			emitGprRegToFloatReg(FLOAT_REG_0, leftReg);
 			emitGprRegToFloatReg(FLOAT_REG_1, rightReg);
-
+			
 			emit("ucomiss", FLOAT_REG_1, FLOAT_REG_0);
+			if (opname.equals("jne")) {
+				// NaN != Nan is always true
+				emit("jp", trueLabel);
+			} else {
+				emit("jp", falseLabel);
+			}
 			emit(opname, trueLabel);
+			
+			emitLabel(falseLabel);
 			emitMove(c(0), leftReg);
 			emit("jmp", endLabel);
 			emitLabel(trueLabel);

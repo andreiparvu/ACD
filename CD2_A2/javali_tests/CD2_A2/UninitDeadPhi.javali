@@ -1,0 +1,12 @@
+class Main {
+    void main() {
+        int i;
+
+        if (true) {
+            i = 2;
+        } else {
+            i = 1;
+        }
+        
+    }
+}

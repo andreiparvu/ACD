@@ -76,6 +76,10 @@ public abstract class Ast {
 	/** Base class for all expressions */
 	public static abstract class Expr extends Ast {
 		public final static int FLOAT = 1, INT = 2, BOOL = 3;
+<<<<<<< HEAD
+=======
+		public String canonicalForm = null;
+>>>>>>> master
 		
 		protected Expr(int fixedCount) {
 			super(fixedCount);
@@ -147,6 +151,11 @@ public abstract class Ast {
 	
 	/** Base class used for things with no arguments */
 	public static abstract class LeafExpr extends Expr {
+<<<<<<< HEAD
+=======
+		public boolean isPropagatable = false;
+		
+>>>>>>> master
 		public LeafExpr() {
 			super(0);
 		}
@@ -154,6 +163,10 @@ public abstract class Ast {
 	
 	/** Represents {@code this}, the current object */
 	public static class ThisRef extends LeafExpr {
+		
+		public ThisRef() {
+			isPropagatable = true;
+		}
 		
 		@Override
 		public <R, A> R accept(ExprVisitor<R, A> visitor, A arg) {
@@ -208,6 +221,20 @@ public abstract class Ast {
 		public BinaryOp deepCopy() {
 			return postCopy(new BinaryOp(left(), operator, right()));
 		}
+		
+		public boolean isCommutative() {
+			switch(this.operator) {
+			case B_AND: // TODO: not true for short circuit
+			case B_OR:
+			case B_EQUAL:
+			case B_TIMES:
+			case B_PLUS:
+				return true; 
+			default:
+				return false;
+			
+			}
+		}
 	}
 	
 	/** A Cast from one type to another: {@code (typeName)arg} */
@@ -242,6 +269,7 @@ public abstract class Ast {
 		public final float value;
 		public FloatConst(float value) {
 			this.value = value;
+			isPropagatable = true;
 		}
 		
 		@Override
@@ -257,6 +285,13 @@ public abstract class Ast {
 		public int isConstant() {
 		    return Expr.FLOAT;
 		}
+<<<<<<< HEAD
+=======
+		
+		public boolean compareTo(FloatConst e) {
+            return value == e.value;
+        }
+>>>>>>> master
 	}
 
 	public static class IntConst extends LeafExpr {
@@ -264,6 +299,7 @@ public abstract class Ast {
 		public final int value;
 		public IntConst(int value) {
 			this.value = value;
+			isPropagatable = true;
 		}
 		
 		@Override
@@ -290,6 +326,7 @@ public abstract class Ast {
 		public final boolean value;
 		public BooleanConst(boolean value) {
 			this.value = value;
+			isPropagatable = true;
 		}
 		
 		@Override
@@ -305,10 +342,19 @@ public abstract class Ast {
 		public int isConstant() {
             return Expr.BOOL;
         }
+<<<<<<< HEAD
+=======
+		
+		public boolean compareTo(BooleanConst e) {
+            return value == e.value;
+        }
+>>>>>>> master
 	}
 	
 	public static class NullConst extends LeafExpr {
-		
+		public NullConst() {
+//			isPropagatable = true;
+		}
 		@Override
 		public <R, A> R accept(ExprVisitor<R, A> visitor, A arg) {
 			return visitor.nullConst(this, arg);
@@ -453,6 +499,7 @@ public abstract class Ast {
 		 */
 		public Var(String name) {
 			this.name = name;
+			isPropagatable = true;
 		}
 		@Override
 		public <R, A> R accept(ExprVisitor<R, A> visitor, A arg) {
