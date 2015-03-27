@@ -1,7 +1,5 @@
 package cd.cfg;
 
-import static java.lang.String.format;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,22 +33,14 @@ import cd.ir.Symbol.VariableSymbol;
 
 public class Optimizer {
 	
-	private final boolean INTENSE_DEBUG = true;
-	private final int MAX_INNER = 16, MAX_OUTER = 16; 
-	
 	public final Main main;
 	public int changes = 0;
 	
-	public static int overall;
-	
+	private MethodDecl mdecl;
 	private int nrTemp = 0;
 	
 	public Optimizer(Main main) {
 		this.main = main;
-	}
-	
-	private String phase() {
-		return format(".opt.%d", overall++);		
 	}
 	
 	private class ExpressionManager {
@@ -75,9 +65,7 @@ public class Optimizer {
 	    int curPosition;
 	    Var curVar = null;
 	}
-	
-	MethodDecl mdecl;
-	
+		
 	private Var newTempVar() {
 	    nrTemp++;
 	    String tempName = "temp_" + nrTemp;
@@ -89,11 +77,10 @@ public class Optimizer {
 	
 	public void compute(MethodDecl md) {
 	    ControlFlowGraph cfg = md.cfg;
-
 	    mdecl = md;
+
 	    Map<String, LeafExpr> propagations = new HashMap<>();
 		int oldChanges = 0;
-		int cnt = 0;
 		do {
 			oldChanges = changes;
 			/*
@@ -121,12 +108,28 @@ public class Optimizer {
 			
 			identifySubexpression(cfg.start, new ExpressionManager());
 			
-			System.err.println("Phase " + changes);
-			if (cnt == 5) {
-//				break;
-			}
-			cnt++;
+			System.err.println("phase" + changes);
 		} while (changes != oldChanges);
+	}
+	
+	private abstract class OptimizerAstRewriter<A>	extends AstRewriteVisitor<A> {
+		@Override
+		public Ast visitChildren(Ast ast, A arg) {
+			ListIterator<Ast> children = ast.rwChildren.listIterator();
+			while (children.hasNext()) {
+				Ast child = children.next();
+				if (child != null) {
+					Ast replace = visit(child, arg);
+					if (replace != child) {
+						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
+						changes++;
+						
+						children.set(replace);
+					}
+				}
+			}
+			return ast;
+		}
 	}
 	
 	private void identifySubexpression(BasicBlock curBB, ExpressionManager exprManager) {
@@ -153,9 +156,6 @@ public class Optimizer {
 		
 		int nrAdded = 0;
 		for (String expr : curExpressions) {
-			if (curBB.index == 6) {
-				System.err.println(expr);
-			}
 		    if (exprManager.isUsed.contains(expr)) {
 		        ExpressionManager.Data data = exprManager.info.get(expr);
 		        if (data.isTemp) {
@@ -211,7 +211,7 @@ public class Optimizer {
 		
 	};
 	
-	private AstRewriteVisitor<ExpressionManager> canonicExpressionVisitor = new AstRewriteVisitor<ExpressionManager>() {
+	private AstRewriteVisitor<ExpressionManager> canonicExpressionVisitor = new OptimizerAstRewriter<ExpressionManager>() {
 		@Override
 		public Ast assign(Ast.Assign ast, ExpressionManager exprManager) {
 		    if (ast.left() instanceof Var) {
@@ -257,28 +257,7 @@ public class Optimizer {
 		}
 	};
 	
-	private AstRewriteVisitor<Void> constantFolding = new AstRewriteVisitor<Void>() {
-		
-		/* More folding ideas:
-		 * 	- fold casts
-		 *  - fold if
-		 */
-		@Override
-		public Ast visitChildren(Ast ast, Void arg) {
-			ListIterator<Ast> children = ast.rwChildren.listIterator();
-			while (children.hasNext()) {
-				Ast child = children.next();
-				if (child != null) {
-					Ast replace = visit(child, arg);
-					if (replace != child) {
-						System.err.format("Replace: %s <- %s\n", child, replace);
-						changes++;
-						children.set(replace);
-					}
-				}
-			}
-			return ast;
-		}
+	private AstRewriteVisitor<Void> constantFolding = new OptimizerAstRewriter<Void>() {
 
 		@Override
 		public Ast binaryOp(BinaryOp ast, Void arg) {
@@ -292,6 +271,8 @@ public class Optimizer {
 			} else if (left instanceof FloatConst && right instanceof FloatConst) {
 				return floatConstOp(ast, (FloatConst)left, (FloatConst)right);
 			}
+			
+			
 			
 			return ast;
 		}
@@ -324,6 +305,15 @@ public class Optimizer {
 			
 			return op;
 		}
+		
+		/*private Ast intSimplification(BinaryOp ast, Expr left, Expr right) {
+			if (left instanceof IntConst) {
+				IntConst child = (IntConst) expr;
+				if (child.value == 0) {
+					
+				}
+			}
+		}*/
 		
 		private Ast booleanConstOp(BinaryOp op, BooleanConst left, BooleanConst right) {
 			switch (op.operator) {
@@ -359,11 +349,12 @@ public class Optimizer {
 			case B_LESS_OR_EQUAL:		return new BooleanConst(left.value <= right.value);
 			case B_LESS_THAN:			return new BooleanConst(left.value < right.value);
 			case B_NOT_EQUAL: 			return new BooleanConst(left.value != right.value);
-			default:	break;
+			default:					break;
 			}
 			
 			return op;
 		}
+		
 		
 		@Override
 		public Ast unaryOp(UnaryOp op, Void arg) {
@@ -375,8 +366,14 @@ public class Optimizer {
 				case U_PLUS:	return new IntConst(val.value);
 				default:		break;
 				}
-
-			} else	if (child instanceof BooleanConst) {
+			} else if (child instanceof FloatConst) {
+				FloatConst val = (FloatConst) child;
+				switch (op.operator) {
+				case U_MINUS:	return new FloatConst(-val.value);
+				case U_PLUS:	return new FloatConst(val.value);
+				default:		break;
+				}
+			} else if (child instanceof BooleanConst) {
 				assert op.operator == UOp.U_BOOL_NOT;
 				BooleanConst val = (BooleanConst) child;
 
@@ -384,6 +381,8 @@ public class Optimizer {
 			}
 			return op;
 		}
+		
+		
 	};
 	
 	void propagateCopies(BasicBlock bb, Map<String, LeafExpr> toPropagate) {
@@ -412,12 +411,9 @@ public class Optimizer {
 	    }
 	}
 	
-	private class PropagateVisitor extends AstRewriteVisitor<Map<String, LeafExpr>> {
+	private class PropagateVisitor extends OptimizerAstRewriter<Map<String, LeafExpr>> {
 	    public Ast var(Ast.Var ast, Map<String, LeafExpr> toPropagate) {
 	        if (toPropagate.containsKey(ast.sym.name)) {
-//		        System.err.println("==" + ast.sym.name);
-
-	            changes++;
 	            return toPropagate.get(ast.sym.name);
 	        }
 	        return dflt(ast, toPropagate);
