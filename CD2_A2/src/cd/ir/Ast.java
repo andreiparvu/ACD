@@ -279,6 +279,10 @@ public abstract class Ast {
 		public int isConstant() {
 		    return Expr.FLOAT;
 		}
+		
+		public boolean compareTo(FloatConst e) {
+            return value == e.value;
+        }
 	}
 
 	public static class IntConst extends LeafExpr {
@@ -328,6 +332,10 @@ public abstract class Ast {
 		
 		public int isConstant() {
             return Expr.BOOL;
+        }
+		
+		public boolean compareTo(BooleanConst e) {
+            return value == e.value;
         }
 	}
 	

@@ -136,6 +136,9 @@ public class Optimizer {
 		for (int i = 0; i < curBB.instructions.size(); i++) {
 		    exprManager.curPosition = i;
 		    generateCanonicalForm.visit(curBB.instructions.get(i), null);
+		    if (curBB.index == 6) {
+		    	System.err.println(curBB.instructions.get(i));
+		    }
 			canonicExpressionVisitor.visit(curBB.instructions.get(i), exprManager);
 		}
 		exprManager.curPosition = curBB.instructions.size();
@@ -150,7 +153,9 @@ public class Optimizer {
 		
 		int nrAdded = 0;
 		for (String expr : curExpressions) {
-		    System.err.println(expr);
+			if (curBB.index == 6) {
+				System.err.println(expr);
+			}
 		    if (exprManager.isUsed.contains(expr)) {
 		        ExpressionManager.Data data = exprManager.info.get(expr);
 		        if (data.isTemp) {
@@ -232,13 +237,13 @@ public class Optimizer {
 					Var next;
 					boolean isTemp = false;
 					if (exprManager.curVar == null) {
-						exprManager.subexpressions.add(ast.canonicalForm);
 						next = newTempVar();
 						isTemp = true;
 					} else {
 						next = exprManager.curVar;
 					}
 
+					exprManager.subexpressions.add(ast.canonicalForm);
 					exprManager.info.put(ast.canonicalForm,
 							(new ExpressionManager()).new Data(exprManager.curPosition, next, ast, isTemp));
 				} else {
