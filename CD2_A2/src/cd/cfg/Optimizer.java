@@ -80,7 +80,7 @@ public class Optimizer {
 	
 	private Var newTempVar() {
 	    nrTemp++;
-	    String tempName = "temp_" + nrTemp;
+	    String tempName = "$temp_" + nrTemp;
 	    VariableSymbol sym = new VariableSymbol(tempName,
 	            new PrimitiveTypeSymbol(tempName), VariableSymbol.Kind.LOCAL);
 	    mdecl.sym.locals.put(tempName, sym);

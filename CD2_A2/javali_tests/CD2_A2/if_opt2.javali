@@ -1,19 +1,22 @@
 class Main {
   void main() {
     int a, b, d;
+    float p;
 
     d = 3;
 
     if (d <= 5) {
       b = 3;
       a = 5;
+      p = 3.3;
     } else {
       b = 10;
       a = 2 + 3;
+      p = 3.3;
     }
 
     d = a;
-
+    write(p);
     write(a);
     write(b);
     write(d);
