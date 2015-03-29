@@ -1,0 +1,17 @@
+class Main {
+  int doit() {
+    write(5);
+
+    return 3;
+  }
+
+  void main() {
+    int a, x;
+    int[] b;
+
+    a = 3 + doit();
+    x = 4;
+    b = new int[x];
+  }
+}
+

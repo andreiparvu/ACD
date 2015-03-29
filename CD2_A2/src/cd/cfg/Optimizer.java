@@ -1,25 +1,16 @@
 package cd.cfg;
 
-import static java.lang.String.format;
-
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 
 import cd.Main;
-import cd.ir.Ast;
-import cd.ir.Ast.BinaryOp;
-import cd.ir.Ast.BooleanConst;
-import cd.ir.Ast.Expr;
 import cd.debug.AstOneLine;
 import cd.ir.Ast;
 import cd.ir.Ast.Assign;
@@ -94,12 +85,6 @@ public class Optimizer {
 		do {
 		  LinkedList<BasicBlock> deadBlocks = new LinkedList<>();
 			oldChanges = changes;
-			/*
-			 * To do: 
-			 * (1) constant propagation
-			 * (2) copy propagation
-			 * (3) common sub-expression elimination
-			 */
 			for (BasicBlock blk : cfg.allBlocks) {
 			    for (Ast instr : blk.instructions) {
 			        constantFolding.visit(instr, null);
@@ -161,6 +146,7 @@ public class Optimizer {
 		Set<String> usedVars = new HashSet<>();
 		for (BasicBlock bb : cfg.allBlocks) {
 		    for (Ast instr : bb.instructions) {
+		        System.err.println(instr);
 		        detectUses.visit(instr, usedVars);
 		    }
 		    if (bb.condition != null) {
@@ -171,11 +157,6 @@ public class Optimizer {
 		    }
 		}
 
-		System.err.println(usedVars.size());
-		for (String kkt : usedVars) {
-		    System.err.println("slbz" + kkt);
-		}
-		
 		for (BasicBlock bb : cfg.allBlocks) {
 		    Iterator<Ast> it = bb.instructions.iterator();
 		    for (; it.hasNext(); ) {
@@ -189,7 +170,7 @@ public class Optimizer {
 		            iter.remove();
 		        }
 		    }
-		}       
+		}     
 	}
 	
 	private abstract class OptimizerAstRewriter<A>	extends AstRewriteVisitor<A> {
@@ -512,6 +493,7 @@ public class Optimizer {
 	private class CollectVisitor extends AstVisitor<Void, Map<String, LeafExpr>> {
 	    public Void assign(Ast.Assign ast, Map<String, LeafExpr> toPropagate) {
 	        if (ast.left() instanceof Ast.Var && ast.right() instanceof LeafExpr) {
+	            System.err.println(ast);
 	        	if (((LeafExpr)ast.right()).isPropagatable) {
 	        		toPropagate.put(((Ast.Var)ast.left()).sym.name, (LeafExpr)ast.right());
 	        	}
@@ -536,7 +518,6 @@ public class Optimizer {
 	    }
 	    
 	    public Boolean var(Ast.Var ast, Set<String> usedVars) {
-	        System.err.println(ast.sym.name);
 	        usedVars.add(ast.sym.name);
 	        
 	        return false;
@@ -544,9 +525,44 @@ public class Optimizer {
 
 	    public Boolean visitChildren(Ast ast, Set<String> arg) {
 	        Boolean lastValue = false;
-	        for (Ast child : ast.children())
-	            lastValue = visit(child, arg);
+	        for (Ast child : ast.children()) {
+	            if (visit(child, arg) == true) {
+	                lastValue = true;
+	            }
+	        }
 	        return lastValue;
+	    }
+	    
+	    public Boolean binaryOp(Ast.BinaryOp ast, Set<String> arg) {
+	        boolean ret, children = dfltExpr(ast, arg);
+	        if (ast.operator == Ast.BinaryOp.BOp.B_DIV) {
+	            // div may generate division by zero / don't eliminate
+	            ret = true;
+	        } else {
+	            ret = children;
+	        }
+	        
+	        return ret;
+	    }
+	    
+	    public Boolean newArray(Ast.NewArray ast, Set<String> arg) {
+	        // may generate error when provided with a negative size
+	        dfltExpr(ast, arg);
+	        
+	        return true;
+	    }
+	    
+	    public Boolean index(Ast.Index ast, Set<String> arg) {
+	        // may generate error when provided with a negative size
+	        dfltExpr(ast, arg);
+	        
+	        return true;
+	    }
+	        
+	    public Boolean cast(Ast.Cast ast, Set<String> arg) {
+	        dfltExpr(ast, arg);
+	        
+	        return true;
 	    }
 	    
 	    public Boolean builtInRead(Ast.BuiltInRead ast, Set<String> arg) {
@@ -557,8 +573,8 @@ public class Optimizer {
 	        return true;
 	    }
 	    
-	    public Boolean methodCall(Ast.MethodCall ast, Set<String> usedVars) {
-	        dfltStmt(ast, usedVars);
+	    public Boolean methodCall(Ast.MethodCallExpr ast, Set<String> usedVars) {
+	        dfltExpr(ast, usedVars);
 	        
 	        return true;
 	    }
