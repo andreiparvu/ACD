@@ -94,7 +94,6 @@ public class Optimizer {
 			        blk.condition = (Expr)constantFolding.visit(blk.condition, null);
 			        
 			        if (blk.condition.isConstant() == Ast.Expr.BOOL) {
-		                System.err.println("yeah");
 		                BooleanConst c = (BooleanConst)blk.condition;
 		                
 		                if (c.value) {
