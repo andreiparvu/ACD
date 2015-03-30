@@ -104,6 +104,7 @@ public abstract class Ast {
             return false;
         }
 		
+		/** This expression does not cause any side effects */
 		public abstract boolean isCachable();
 		
 		/** Copies any non-AST fields. */
@@ -237,7 +238,7 @@ public abstract class Ast {
 				if (!(right() instanceof IntConst)) return false;
 				IntConst divisor = (IntConst) right();
 				
-				// only okay if lhs is a non-zero constant
+				// only okay if rhs is a non-zero constant
 				return divisor.value != 0;
 			}
 			
@@ -275,7 +276,7 @@ public abstract class Ast {
 		@Override
 		public boolean isCachable() {
 			// Downcast might cause failure
-			return !typeSym.isReferenceType() && arg().isCachable();
+			return false;
 		}
 		
 	}

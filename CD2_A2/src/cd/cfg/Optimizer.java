@@ -21,6 +21,7 @@ import cd.ir.Ast.IntConst;
 import cd.ir.Ast.LeafExpr;
 import cd.ir.Ast.MethodDecl;
 import cd.ir.Ast.UnaryOp;
+import cd.ir.Ast.BinaryOp.BOp;
 import cd.ir.Ast.UnaryOp.UOp;
 import cd.ir.Ast.Var;
 import cd.ir.AstRewriteVisitor;
@@ -130,6 +131,24 @@ public class Optimizer {
 			}
 			return ast;
 		}
+		
+		@Override
+		public Ast visitChildren(Expr expr, A arg) {
+			ListIterator<Ast> children = expr.rwChildren.listIterator();
+			while (children.hasNext()) {
+				Expr child = (Expr)children.next();
+				if (child != null) {
+					Ast replace = visit(child, arg);
+					if (replace != child) {
+						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
+						changes++;
+						
+						children.set(replace);
+					}
+				}
+			}
+			return expr;
+		}
 	}
 	
 	private void identifySubexpression(BasicBlock curBB, ExpressionManager exprManager) {
@@ -172,24 +191,18 @@ public class Optimizer {
 	private AstVisitor<Void, Void> generateCanonicalForm = new AstVisitor<Void, Void>() {
 
 		@Override
+		protected Void dfltExpr(Expr ast, Void arg) {
+			if (ast.isCachable()) {
+				ast.canonicalForm = AstOneLine.toString(ast);
+			}
+
+			return null;
+		}
+
+		@Override
 		public Void binaryOp(BinaryOp ast, Void arg) {
-			if (ast.left() instanceof LeafExpr) {
-				LeafExpr left = (LeafExpr)ast.left();
-				if (left.isCachable()) {
-					left.canonicalForm = AstOneLine.toString(left);
-				}
-			} else {
-				visit(ast.left(), arg);
-			}
-			
-			if (ast.right() instanceof LeafExpr) {
-				LeafExpr right = (LeafExpr)ast.right();
-				if (right.isCachable()) {
-					right.canonicalForm = AstOneLine.toString(right);
-				}
-			} else {
-				visit(ast.right(), arg);
-			}
+			visit(ast.left(), arg);
+			visit(ast.right(), arg);
 			
 			String leftStr = ast.left().canonicalForm;
 			String rightStr = ast.right().canonicalForm;
@@ -245,6 +258,7 @@ public class Optimizer {
 		@Override
 		public Ast binaryOp(BinaryOp ast, ExpressionManager exprManager) {
 			if (ast.canonicalForm != null) {
+				assert ast.isCachable(); 
 				if (!exprManager.info.containsKey(ast.canonicalForm)) {
 					Var next;
 					boolean isTemp = false;
@@ -273,8 +287,10 @@ public class Optimizer {
 
 		@Override
 		public Ast binaryOp(BinaryOp ast, Void arg) {
-			Ast left = visit(ast.left(), arg);
-			Ast right = visit(ast.right(), arg);
+			// make sure left() and right() are rewritten
+			visitChildren(ast, arg);
+			
+			Expr left = ast.left(), right = ast.right();
 			
 			if (left instanceof BooleanConst && right instanceof BooleanConst) {
 				return booleanConstOp(ast, (BooleanConst)left, (BooleanConst)right);
@@ -282,14 +298,14 @@ public class Optimizer {
 				return intConstOp(ast, (IntConst)left, (IntConst)right);
 			} else if (left instanceof FloatConst && right instanceof FloatConst) {
 				return floatConstOp(ast, (FloatConst)left, (FloatConst)right);
+			} else if (ast.type.equals(main.intType)) {
+				return intBinOpSimplification(ast);
 			}
-			
-			
 			
 			return ast;
 		}
 		
-		private Ast intConstOp(BinaryOp op, IntConst left, IntConst right) {
+		private Expr intConstOp(BinaryOp op, IntConst left, IntConst right) {
 			switch(op.operator) {
 			case B_PLUS: 	return new IntConst(left.value + right.value);
 			case B_MINUS:	return new IntConst(left.value - right.value);
@@ -317,17 +333,83 @@ public class Optimizer {
 			
 			return op;
 		}
+
+		private Expr intBinOpSimplification(BinaryOp ast) {
+			Expr left = ast.left();
+			Expr right = ast.right();
+			
+			assert ast.type.equals(main.intType);
+			assert !(right instanceof IntConst && left instanceof IntConst);
+			
+			String leftStr = AstOneLine.toString(left), rightStr = AstOneLine.toString(right);
+
+			// CachableExpr - CachableExpr
+			if (ast.operator == BOp.B_MINUS && 
+					leftStr.equals(rightStr) &&
+					left.isCachable() && right.isCachable()) {
+				return new IntConst(0);
+			} else if (right instanceof IntConst) {
+				int rightVal = ((IntConst)right).value;
+				
+				// Expr - 0
+				if (ast.operator == BOp.B_MINUS && rightVal == 0) {
+					return left;
+				}
+				
+				// Expr / 1
+				if (ast.operator == BOp.B_DIV && rightVal == 1) {
+					return left;
+				}
+				
+				// Expr + IntConst | Expr * IntConst
+				return intBinOpAsymmetricSimplification(ast, (IntConst)right, left);
+			} else if (left instanceof IntConst) {
+				int leftVal = ((IntConst)left).value;
+				
+				// 0 - Expr
+				if (ast.operator == BOp.B_MINUS && leftVal == 0) {
+					UnaryOp newAst = new UnaryOp(UOp.U_MINUS, right);
+					newAst.type = ast.type;
+					return newAst;
+				}
+				
+				// IntConst + Expr | IntConst * Expr
+				return intBinOpAsymmetricSimplification(ast, (IntConst)left, right);
+			}
+			
+
+			return ast;
+		}
 		
-		/*private Ast intSimplification(BinaryOp ast, Expr left, Expr right) {
-			if (left instanceof IntConst) {
-				IntConst child = (IntConst) expr;
-				if (child.value == 0) {
-					
+		private Expr intBinOpAsymmetricSimplification(BinaryOp ast, IntConst first, Expr second) {
+			// 0 + Expr
+			if (ast.operator == BOp.B_PLUS && first.value == 0) {
+				return second;
+			}
+			
+			// 1 * Expr
+			if (ast.operator == BOp.B_TIMES && first.value == 1) {
+				return second;
+			}
+			
+			// IntConst * CachableExpr
+			if (ast.operator == BOp.B_TIMES && second.isCachable()) {
+				switch (first.value) {
+				case 0: return new IntConst(0);
+				case 2:
+					// make sure to keep type information
+					BinaryOp newAst = ast.deepCopy();
+					newAst.operator = BOp.B_PLUS;
+					newAst.setLeft(second);
+					newAst.setRight(second);
+					return newAst;
 				}
 			}
-		}*/
+			
+			return ast;
+		}
 		
-		private Ast booleanConstOp(BinaryOp op, BooleanConst left, BooleanConst right) {
+		private Expr booleanConstOp(BinaryOp op, BooleanConst left, BooleanConst right) {
 			switch (op.operator) {
 			case B_OR:	return new BooleanConst(left.value || right.value);
 			case B_AND: return new BooleanConst(left.value && right.value);
@@ -349,7 +431,7 @@ public class Optimizer {
 		 *    Springer Science & Business Media, 2009.
 		 *             
 		 */
-		strictfp private Ast floatConstOp(BinaryOp op, FloatConst left, FloatConst right) {
+		strictfp private Expr floatConstOp(BinaryOp op, FloatConst left, FloatConst right) {
 			switch(op.operator) {
 			case B_PLUS: 				return new FloatConst(left.value + right.value);
 			case B_MINUS:				return new FloatConst(left.value - right.value);
@@ -369,7 +451,7 @@ public class Optimizer {
 		
 		
 		@Override
-		public Ast unaryOp(UnaryOp op, Void arg) {
+		strictfp public Expr unaryOp(UnaryOp op, Void arg) {
 			Ast child = visit(op.arg(), arg);
 			if (child instanceof IntConst) {
 				IntConst val = (IntConst) child;
