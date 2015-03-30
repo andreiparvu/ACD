@@ -233,8 +233,8 @@ public abstract class Ast {
 			if (!left().isCachable()) return false;
 			if (!right().isCachable()) return false;
 			
-			if (operator == BOp.B_DIV || operator == BOp.B_MOD) {
-				// Division by zero is a side-effect
+			if ((operator == BOp.B_DIV || operator == BOp.B_MOD) && type.name.equals("int")) {
+				// Integer division by zero is a side-effect
 				if (!(right() instanceof IntConst)) return false;
 				IntConst divisor = (IntConst) right();
 				
