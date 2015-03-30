@@ -129,48 +129,59 @@ public class Optimizer {
 			
 			identifySubexpression(cfg.start, new ExpressionManager());
 			System.err.println("Phase " + changes);
-			
-			while (!deadBlocks.isEmpty()) {
-			    BasicBlock curBB = deadBlocks.poll();
-			    for (BasicBlock succ : curBB.successors) {
-			        succ.deletePred(curBB);
-			        changes++;
-			        if (succ.isDead()) {
-			            deadBlocks.add(succ);
-			        }
-			    }
-			}
-			
 		} while (changes != oldChanges);
 		
-		Set<String> usedVars = new HashSet<>();
-		for (BasicBlock bb : cfg.allBlocks) {
-		    for (Ast instr : bb.instructions) {
-		        System.err.println(instr);
-		        detectUses.visit(instr, usedVars);
-		    }
-		    if (bb.condition != null) {
-		        detectUses.visit(bb.condition, usedVars);
-		    }
-		    for (Phi phi : bb.phis.values()) {
-		        phi.detectUses(usedVars);
-		    }
-		}
-
-		for (BasicBlock bb : cfg.allBlocks) {
-		    Iterator<Ast> it = bb.instructions.iterator();
-		    for (; it.hasNext(); ) {
-		        if (detectUnused.visit(it.next(), usedVars)) {
-		            it.remove();
-		        }
-		    }
-		    Iterator<Map.Entry<VariableSymbol, Phi>> iter = bb.phis.entrySet().iterator();
-		    for (; iter.hasNext(); ) {
-		        if (usedVars.contains(iter.next().getValue().lhs.name) == false) {
-		            iter.remove();
-		        }
-		    }
-		}     
+		oldChanges = 0;
+		changes = 0;
+		
+		do {
+		    oldChanges = changes;
+    		Set<String> usedVars = new HashSet<>();
+    		Iterator<BasicBlock> bbIt = cfg.allBlocks.iterator();
+    		for (; bbIt.hasNext(); ) {
+    		    BasicBlock bb = bbIt.next();
+    		    
+    		    if (bb.isDead() && bb.index != 0) {
+    		        changes++;
+    		        for (BasicBlock succ : bb.successors) {
+                        succ.deletePred(bb);
+                    }
+    		    
+    		        bbIt.remove();
+    		        continue;
+    		    }
+    		    
+    		    for (Ast instr : bb.instructions) {
+    		        detectUses.visit(instr, usedVars);
+    		    }
+    		    if (bb.condition != null) {
+    		        detectUses.visit(bb.condition, usedVars);
+    		    }
+    		    for (Phi phi : bb.phis.values()) {
+    		        phi.detectUses(usedVars);
+    		    }
+    		}
+    
+    		for (BasicBlock bb : cfg.allBlocks) {
+    		    Iterator<Ast> it = bb.instructions.iterator();
+    		    for (; it.hasNext(); ) {
+    		        Ast curInstr = it.next();
+    		        String varName = detectUnused.visit(curInstr, usedVars);
+    		        if (varName != null) {
+    		            mdecl.sym.locals.remove(varName);
+    		            changes++;
+    		            it.remove();
+    		        }
+    		    }
+    		    Iterator<Map.Entry<VariableSymbol, Phi>> iter = bb.phis.entrySet().iterator();
+    		    for (; iter.hasNext(); ) {
+    		        if (usedVars.contains(iter.next().getValue().lhs.name) == false) {
+    		            changes++;
+    		            iter.remove();
+    		        }
+    		    }
+    		}
+		} while (changes != oldChanges);
 	}
 	
 	private abstract class OptimizerAstRewriter<A>	extends AstRewriteVisitor<A> {
@@ -580,17 +591,21 @@ public class Optimizer {
 	    }
 	};
 	
-	private AstVisitor<Boolean, Set<String>> detectUnused = new AstVisitor<Boolean, Set<String>>() {
-        public Boolean assign(Ast.Assign ast, Set<String> usedVars) {
+	private AstVisitor<String, Set<String>> detectUnused = new AstVisitor<String, Set<String>>() {
+        public String assign(Ast.Assign ast, Set<String> usedVars) {
             if (ast.left() instanceof Ast.Var) {
-                return usedVars.contains(((Ast.Var)(ast.left())).sym.name) == false; 
+                Var v = (Var)ast.left();
+                
+                if (usedVars.contains(v.sym.name) == false) {
+                    return v.sym.name;
+                }
             }
             
             return dfltStmt(ast, usedVars);
         }
         
-        protected Boolean dflt(Ast ast, Set<String> usedVars) {
-            return false;
+        protected String dflt(Ast ast, Set<String> usedVars) {
+            return null;
         }
     };
 }
