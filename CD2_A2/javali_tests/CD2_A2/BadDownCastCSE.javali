@@ -1,0 +1,19 @@
+class A {
+    A f;
+}
+
+class B extends A {
+}
+
+class Main {
+	void main() {
+		A a;
+		B b, c, d;
+
+        a = new A();
+        
+        // should not be merged.. or should it?
+        a.f = (B)a;
+        a.f = (B)a;
+	}
+}

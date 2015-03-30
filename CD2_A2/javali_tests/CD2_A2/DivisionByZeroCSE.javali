@@ -1,0 +1,9 @@
+class Main {
+	void main() {
+        int zero;
+        
+        zero = read();
+        
+        write(10 / zero - 10 / zero);
+	}
+}
