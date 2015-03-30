@@ -72,7 +72,7 @@ public class Optimizer {
 	    String tempName = "$temp_" + nrTemp;
 	    VariableSymbol sym = new VariableSymbol(tempName,
 	            new PrimitiveTypeSymbol(tempName), VariableSymbol.Kind.LOCAL);
-	    mdecl.sym.locals.put(tempName, sym);
+//	    mdecl.sym.locals.put(tempName, sym);
 	    return Var.withSym(sym);
 	}
 	
@@ -84,12 +84,7 @@ public class Optimizer {
 		int oldChanges = 0;
 		do {
 			oldChanges = changes;
-			/*
-			 * To do: 
-			 * (1) constant propagation
-			 * (2) copy propagation
-			 * (3) common sub-expression elimination
-			 */
+			
 			for (BasicBlock bb : cfg.allBlocks) {
 			    for (Ast instr : bb.instructions) {
 			        constantFolding.visit(instr, null);
@@ -180,6 +175,7 @@ public class Optimizer {
 		        if (data.isTemp) {
 		            curBB.instructions.add(data.position + nrAdded,
 		                    new Assign(data.substitute, data.node));
+		            mdecl.sym.locals.put(data.substitute.sym.name, data.substitute.sym);
 		            nrAdded++;
 		        }
 		    }

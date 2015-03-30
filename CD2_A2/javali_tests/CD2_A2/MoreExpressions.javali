@@ -1,0 +1,25 @@
+class Main {
+  void doit(int a, int b, int c) {
+    int x, y;
+
+    x = a + b + c;
+
+    if (a + b + c <= 10) {
+      write(a + b);
+
+      a = a + 10;
+
+      y = a + b + c;
+    } else {
+      y = a + b + c;
+      y = y + c;
+    }
+
+    write(y);
+  }
+
+  void main() {
+    doit(1, 2, 3);
+  }
+}
+
