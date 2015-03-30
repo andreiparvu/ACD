@@ -175,7 +175,7 @@ public class Optimizer {
 		public Void binaryOp(BinaryOp ast, Void arg) {
 			if (ast.left() instanceof LeafExpr) {
 				LeafExpr left = (LeafExpr)ast.left();
-				if (left.isPropagatable) {
+				if (left.isCachable()) {
 					left.canonicalForm = AstOneLine.toString(left);
 				}
 			} else {
@@ -184,7 +184,7 @@ public class Optimizer {
 			
 			if (ast.right() instanceof LeafExpr) {
 				LeafExpr right = (LeafExpr)ast.right();
-				if (right.isPropagatable) {
+				if (right.isCachable()) {
 					right.canonicalForm = AstOneLine.toString(right);
 				}
 			} else {
@@ -194,7 +194,8 @@ public class Optimizer {
 			String leftStr = ast.left().canonicalForm;
 			String rightStr = ast.right().canonicalForm;
 			
-			if (leftStr != null && rightStr != null) {
+			if (ast.left().isCachable() && ast.right().isCachable()) {
+				assert leftStr != null && rightStr != null;
 				if (ast.isCommutative()) {
 					if (leftStr.compareTo(rightStr) > 0) {
 						String tmp = leftStr;
@@ -208,7 +209,18 @@ public class Optimizer {
 			
 			return null;
 		}
-		
+
+		@Override
+		public Void unaryOp(UnaryOp ast, Void arg) {
+			visit(ast.arg(), arg);
+
+			if (ast.arg().isCachable()) {
+				assert ast.arg().canonicalForm != null;
+				ast.canonicalForm = String.format("%s %s", ast.operator.repr, ast.arg().canonicalForm);
+			}
+			return null;
+		}
+
 	};
 	
 	private AstRewriteVisitor<ExpressionManager> canonicExpressionVisitor = new OptimizerAstRewriter<ExpressionManager>() {
@@ -433,7 +445,7 @@ public class Optimizer {
 	private class CollectVisitor extends AstVisitor<Void, Map<String, LeafExpr>> {
 	    public Void assign(Ast.Assign ast, Map<String, LeafExpr> toPropagate) {
 	        if (ast.left() instanceof Ast.Var && ast.right() instanceof LeafExpr) {
-	        	if (((LeafExpr)ast.right()).isPropagatable) {
+	        	if (((LeafExpr)ast.right()).isCachable()) {
 	        		toPropagate.put(((Ast.Var)ast.left()).sym.name, (LeafExpr)ast.right());
 	        	}
 	        }

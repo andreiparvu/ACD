@@ -104,6 +104,8 @@ public abstract class Ast {
             return false;
         }
 		
+		public abstract boolean isCachable();
+		
 		/** Copies any non-AST fields. */
 		protected <E extends Expr> E postCopy(E item) {
 			{
@@ -147,21 +149,14 @@ public abstract class Ast {
 	}
 	
 	/** Base class used for things with no arguments */
-	public static abstract class LeafExpr extends Expr {
-		public boolean isPropagatable = false;
-		
+	public static abstract class LeafExpr extends Expr {		
 		public LeafExpr() {
 			super(0);
 		}
 	}
 	
 	/** Represents {@code this}, the current object */
-	public static class ThisRef extends LeafExpr {
-		
-		public ThisRef() {
-			isPropagatable = true;
-		}
-		
+	public static class ThisRef extends LeafExpr {		
 		@Override
 		public <R, A> R accept(ExprVisitor<R, A> visitor, A arg) {
 			return visitor.thisRef(this, arg);
@@ -170,6 +165,11 @@ public abstract class Ast {
 		@Override
 		public ThisRef deepCopy() {
 			return postCopy(new ThisRef());
+		}
+
+		@Override
+		public boolean isCachable() {
+			return true;
 		}
 		
 	}
@@ -218,16 +218,30 @@ public abstract class Ast {
 		
 		public boolean isCommutative() {
 			switch(this.operator) {
-			case B_AND: // TODO: not true for short circuit
-			case B_OR:
 			case B_EQUAL:
 			case B_TIMES:
 			case B_PLUS:
 				return true; 
 			default:
 				return false;
-			
 			}
+		}
+
+		@Override
+		public boolean isCachable() {
+			if (!left().isCachable()) return false;
+			if (!right().isCachable()) return false;
+			
+			if (operator == BOp.B_DIV || operator == BOp.B_MOD) {
+				// Division by zero is a side-effect
+				if (!(right() instanceof IntConst)) return false;
+				IntConst divisor = (IntConst) right();
+				
+				// only okay if lhs is a non-zero constant
+				return divisor.value != 0;
+			}
+			
+			return true;
 		}
 	}
 	
@@ -257,13 +271,18 @@ public abstract class Ast {
 			((Cast)item).typeSym = typeSym;
 			return super.postCopy(item);
 		}
+
+		@Override
+		public boolean isCachable() {
+			// Downcast might cause failure
+			return !typeSym.isReferenceType() && arg().isCachable();
+		}
 		
 	}
 	public static class FloatConst extends LeafExpr {
 		public final float value;
 		public FloatConst(float value) {
 			this.value = value;
-			isPropagatable = true;
 		}
 		
 		@Override
@@ -283,6 +302,11 @@ public abstract class Ast {
 		public boolean compareTo(FloatConst e) {
             return value == e.value;
         }
+
+		@Override
+		public boolean isCachable() {
+			return true;
+		}
 	}
 
 	public static class IntConst extends LeafExpr {
@@ -290,7 +314,6 @@ public abstract class Ast {
 		public final int value;
 		public IntConst(int value) {
 			this.value = value;
-			isPropagatable = true;
 		}
 		
 		@Override
@@ -310,6 +333,11 @@ public abstract class Ast {
 		public boolean compareTo(IntConst e) {
 		    return value == e.value;
 		}
+		
+		@Override
+		public boolean isCachable() {
+			return true;
+		}
 	}
 
 	public static class BooleanConst extends LeafExpr {
@@ -317,7 +345,6 @@ public abstract class Ast {
 		public final boolean value;
 		public BooleanConst(boolean value) {
 			this.value = value;
-			isPropagatable = true;
 		}
 		
 		@Override
@@ -337,12 +364,15 @@ public abstract class Ast {
 		public boolean compareTo(BooleanConst e) {
             return value == e.value;
         }
+		
+		@Override
+		public boolean isCachable() {
+			return true;
+		}
 	}
 	
 	public static class NullConst extends LeafExpr {
-		public NullConst() {
-//			isPropagatable = true;
-		}
+
 		@Override
 		public <R, A> R accept(ExprVisitor<R, A> visitor, A arg) {
 			return visitor.nullConst(this, arg);
@@ -353,6 +383,10 @@ public abstract class Ast {
 			return postCopy(new NullConst());
 		}
 		
+		@Override
+		public boolean isCachable() {
+			return true;
+		}
 	}
 	
 	public static class Field extends ArgExpr {
@@ -383,6 +417,10 @@ public abstract class Ast {
 			return super.postCopy(item);
 		}
 		
+		@Override
+		public boolean isCachable() {
+			return false;
+		}
 	}
 	
 	public static class Index extends LeftRightExpr {
@@ -401,6 +439,11 @@ public abstract class Ast {
 			return postCopy(new Index(left(), right()));
 		}
 		
+		@Override
+		public boolean isCachable() {
+			// array reference could be shared
+			return false;
+		}
 	}
 	
 	public static class NewObject extends LeafExpr {
@@ -422,6 +465,10 @@ public abstract class Ast {
 			return postCopy(new NewObject(typeName));
 		}
 		
+		@Override
+		public boolean isCachable() {
+			return false;
+		}
 	}
 	
 	public static class NewArray extends ArgExpr {
@@ -444,6 +491,10 @@ public abstract class Ast {
 			return postCopy(new NewArray(typeName, arg()));
 		}
 		
+		@Override
+		public boolean isCachable() {
+			return false;
+		}
 	}
 	
 	public static class UnaryOp extends ArgExpr {
@@ -473,6 +524,10 @@ public abstract class Ast {
 			return postCopy(new UnaryOp(operator, arg()));
 		}
 		
+		@Override
+		public boolean isCachable() {
+			return arg().isCachable();
+		}
 	}
 	
 	public static class Var extends LeafExpr {
@@ -487,8 +542,8 @@ public abstract class Ast {
 		 */
 		public Var(String name) {
 			this.name = name;
-			isPropagatable = true;
 		}
+
 		@Override
 		public <R, A> R accept(ExprVisitor<R, A> visitor, A arg) {
 			return visitor.var(this, arg);
@@ -522,6 +577,10 @@ public abstract class Ast {
 			name = sym.toString();
 		}
 		
+		@Override
+		public boolean isCachable() {
+			return true;
+		}
 	}
 	
 	public static class BuiltInRead extends LeafExpr {
@@ -534,6 +593,11 @@ public abstract class Ast {
 		@Override
 		public BuiltInRead deepCopy() {
 			return postCopy(new BuiltInRead());
+		}
+		
+		@Override
+		public boolean isCachable() {
+			return false;
 		}
 		
 	}
@@ -549,6 +613,10 @@ public abstract class Ast {
 			return postCopy(new BuiltInReadFloat());
 		}
 		
+		@Override
+		public boolean isCachable() {
+			return false;
+		}
 	}
 	
 	public static class MethodCallExpr extends Expr {
@@ -616,6 +684,10 @@ public abstract class Ast {
 			return postCopy(new MethodCallExpr((Expr) receiver().deepCopy(), methodName, deepCopyArguments()));
 		}
 		
+		@Override
+		public boolean isCachable() {
+			return false;
+		}
 	}
 	
 	// _________________________________________________________________
