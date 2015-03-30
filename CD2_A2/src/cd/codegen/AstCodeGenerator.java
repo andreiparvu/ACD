@@ -104,37 +104,37 @@ public class AstCodeGenerator {
 	 * Name of the internal Javali$Alloc() helper function we generate.
 	 */
 	private static final String ALLOC = "Javali$Alloc";
-	
+
 	/**
 	 * Name of the internal Javali$PrintNewLine() helper function we generate.
 	 */
 	private static final String PRINT_NEW_LINE = "Javali$PrintNewLine";
-	
+
 	/**
 	 * Name of the internal Javali$PrintFloat() helper function we generate.
 	 */
 	private static final String PRINT_FLOAT = "Javali$PrintFloat";
-	
+
 	/**
 	 * Name of the internal Javali$PrintInteger() helper function we generate.
 	 */
 	private static final String PRINT_INTEGER = "Javali$PrintInteger";
-	
+
 	/**
 	 * Name of the internal Javali$ReadInteger() helper function we generate.
 	 */
 	private static final String READ_INTEGER = "Javali$ReadInteger";
-	
+
 	/**
 	 * Name of the internal Javali$ReadFloat() helper function we generate.
 	 */
 	private static final String READ_FLOAT = "Javali$ReadFloat";
-	
+
 	/**
 	 * Main method. Causes us to emit x86 assembly corresponding to {@code ast}
 	 * into {@code file}. Throws a {@link RuntimeException} should any I/O error
 	 * occur.
-	 * 
+	 *
 	 * <p>
 	 * The generated file will be divided into three sections:
 	 * <ol>
@@ -265,7 +265,7 @@ public class AstCodeGenerator {
 			emit("leave");
 			emit("ret");
 		}
-		
+
 		// Generate a helper method for allocating objects/arrays
 		{
 			String size = callerSave[0];
@@ -280,7 +280,7 @@ public class AstCodeGenerator {
 			emit("leave");
 			emit("ret");
 		}
-		
+
 		// Generate a helper method for printing a new line
 		{
 			emitCommentSection(PRINT_NEW_LINE + " function");
@@ -293,7 +293,7 @@ public class AstCodeGenerator {
 			emit("leave");
 			emit("ret");
 		}
-		
+
 		// Generate a helper method for printing a float
 		{
 			emitCommentSection(PRINT_FLOAT + " function");
@@ -309,7 +309,7 @@ public class AstCodeGenerator {
 			emit("leave");
 			emit("ret");
 		}
-		
+
 		// Generate a helper method for printing an integer
 		{
 			String temp = callerSave[0];
@@ -325,7 +325,7 @@ public class AstCodeGenerator {
 			emit("leave");
 			emit("ret");
 		}
-		
+
 		// Generate a helper method for reading an integer
 		{
 			String number = callerSave[0];
@@ -342,7 +342,7 @@ public class AstCodeGenerator {
 			emit("leave");
 			emit("ret");
 		}
-		
+
 		// Generate a helper method for reading a float
 		{
 			String floatNumber = callerSave[0];
@@ -378,7 +378,7 @@ public class AstCodeGenerator {
 		emit("movl", "$0", "%eax"); // normal termination:
 		emit("leave");
 		emit("ret");
-			
+
 	}
 
 	/**
@@ -496,7 +496,7 @@ public class AstCodeGenerator {
 		int last = registers.size() - 1;
 		if (last < 0)
 			throw new AssemblyFailedException("Program requires too many registers");
-		
+
 		return registers.remove(last);
 	}
 
@@ -519,15 +519,15 @@ public class AstCodeGenerator {
 	}
 
 	/**
-	 * Used to store the temporaries. We grow our stack dynamically, 
-	 * we allocate "temporary" values on this stack during method execution. 
+	 * Used to store the temporaries. We grow our stack dynamically,
+	 * we allocate "temporary" values on this stack during method execution.
 	 * Values can be stored and retrieved using
 	 * {@link #push(String)} and {@link #pop(String)}, which use the program
 	 * stack.
 	 */
-	
+
 	protected int bytes = 0;
-	
+
 	protected void initMethodData() {
 		{
 			THIS_OFFSET = 8;
@@ -535,19 +535,19 @@ public class AstCodeGenerator {
 			initRegisters();
 		}
 	}
-	
+
 	protected int padding(int numberOfParameters) {
 		int padding = (bytes + numberOfParameters * Config.SIZEOF_PTR + 15) & 0xFFFFFFF0;
-		return padding - bytes - numberOfParameters * Config.SIZEOF_PTR;	
+		return padding - bytes - numberOfParameters * Config.SIZEOF_PTR;
 	}
-	
+
 	protected void push(int padding) {
 		if (padding > 0) {
 			emit("sub", padding, SP);
 			bytes += padding;
 		}
 	}
-	
+
 	protected void pop(int padding) {
 		if (padding > 0) {
 			emit("add", padding, SP);
@@ -580,7 +580,7 @@ public class AstCodeGenerator {
 			bytes += Config.SIZEOF_PTR;
 		}
 	}
-	
+
 	protected void restoreCallerSaveRegs(String res) {
 		for (int reg = callerSave.length - 1; reg >= 0; reg--) {
 			if (registers.contains(callerSave[reg]))
@@ -590,7 +590,7 @@ public class AstCodeGenerator {
 			pop(callerSave[reg]);
 		}
 	}
-	
+
 	protected void storeCallerSaveRegs(String res) {
 		for (int reg = 0; reg < callerSave.length; reg++) {
 			if (registers.contains(callerSave[reg]))
@@ -600,14 +600,14 @@ public class AstCodeGenerator {
 			push(callerSave[reg]);
 		}
 	}
-	
+
 	protected int emitCallPrefix(String res, int numberOfParameters) {
 		storeCallerSaveRegs(res);
 		int padding = padding(numberOfParameters);
 		push(padding);
 		return padding;
 	}
-	
+
 	protected void emitCallSuffix(String res, int numberOfParameters, int padding) {
 		pop(numberOfParameters * Config.SIZEOF_PTR + padding);
 		if (res != null) {
@@ -658,10 +658,10 @@ public class AstCodeGenerator {
 		 * Therefore, this function returns a pair of registers, the first of
 		 * which stores the left value, and the second of which stores the right
 		 * value.
-		 * 
+		 *
 		 */
 		public Pair<String> genPushing(String leftReg, Expr right) {
-			
+
 			boolean pop = false;
 
 			if (rnv.calc(right) > availableRegisters()) {
@@ -669,9 +669,9 @@ public class AstCodeGenerator {
 				releaseRegister(leftReg);
 				pop = true;
 			}
-			
+
 			String rightReg = gen(right);
-						
+
 			if (pop) {
 				leftReg = getRegister();
 				pop(leftReg);
@@ -696,27 +696,27 @@ public class AstCodeGenerator {
 		private abstract class OperandsDispatcher {
 
 			public abstract void integerOp(String leftReg, Ast.BinaryOp.BOp op,
-					String rightReg);
-			
+			                               String rightReg);
+
 			public abstract void floatOp(String leftReg, Ast.BinaryOp.BOp op,
-					String rightReg);
-			
+			                             String rightReg);
+
 			public abstract void floatCmp(String leftReg, Ast.BinaryOp.BOp op,
-					String rightReg);
+			                              String rightReg);
 
 			public abstract void booleanOp(String leftReg, Ast.BinaryOp.BOp op,
-					String rightReg);
+			                               String rightReg);
 
 			public void binaryOp(Ast.BinaryOp ast, String leftReg, String rightReg) {
-				
+
 				assert ast.type != null;
-				
+
 				if (ast.type == main.intType) {
 					integerOp(leftReg, ast.operator, rightReg);
 				} else if (ast.type == main.floatType) {
 					floatOp(leftReg, ast.operator, rightReg);
 				} else if (ast.type == main.booleanType) {
-					
+
 					final TypeSymbol opType = ast.left().type;
 
 					if (opType == main.intType) {
@@ -728,11 +728,11 @@ public class AstCodeGenerator {
 					} else {
 						integerOp(leftReg, ast.operator, rightReg);
 					}
-					
+
 				}
-				
+
 			}
-			
+
 		}
 
 		@Override
@@ -741,28 +741,28 @@ public class AstCodeGenerator {
 				if(ast.operator == BOp.B_AND || ast.operator == BOp.B_OR) {
 					return binaryOpShortCircuit(ast);
 				}
-				
+
 				String leftReg = null;
 				String rightReg = null;
-				
+
 				{
-				
+
 					leftReg = gen(ast.left());
 					Pair<String> regs = genPushing(leftReg, ast.right());
 					leftReg = regs.a;
 					rightReg = regs.b;
-					
+
 				}
-				
+
 				assert leftReg != null && rightReg != null;
-				
+
 				new OperandsDispatcher() {
 
 					@Override
 					public void booleanOp(String leftReg, BOp op, String rightReg) {
 						integerOp(leftReg, op, rightReg);
 					}
-					
+
 					@Override
 					public void integerOp(String leftReg, BOp op, String rightReg) {
 
@@ -802,12 +802,12 @@ public class AstCodeGenerator {
 							break;
 						default:
 							throw new AssemblyFailedException(
-									"Invalid binary operator for " + 
-											main.intType + " or " + main.booleanType);
+							    "Invalid binary operator for " +
+							    main.intType + " or " + main.booleanType);
 						}
 
 					}
-					
+
 					@Override
 					public void floatOp(String leftReg, BOp op, String rightReg) {
 
@@ -829,13 +829,13 @@ public class AstCodeGenerator {
 							break;
 						case B_MOD:
 							throw new AssemblyFailedException(
-									"Invalid binary operator " 
-											+ BOp.B_MOD.toString() 
-											+ " for type " + main.floatType);
+							    "Invalid binary operator "
+							    + BOp.B_MOD.toString()
+							    + " for type " + main.floatType);
 						default:
 							throw new AssemblyFailedException(
-									"Invalid binary operator for " 
-											+ main.floatType);
+							    "Invalid binary operator for "
+							    + main.floatType);
 						}
 						emitFloatRegToGprReg(leftReg, FLOAT_REG_0);
 					}
@@ -864,13 +864,13 @@ public class AstCodeGenerator {
 							break;
 						default:
 							throw new AssemblyFailedException(
-									"Invalid binary operator for " 
-											+ main.floatType);
+							    "Invalid binary operator for "
+							    + main.floatType);
 						}
 
 					}
 
-				}.binaryOp(ast, leftReg, rightReg);
+				} .binaryOp(ast, leftReg, rightReg);
 
 				releaseRegister(rightReg);
 
@@ -881,16 +881,16 @@ public class AstCodeGenerator {
 
 		private String binaryOpShortCircuit(BinaryOp ast) {
 			assert ast.operator == BOp.B_AND || ast.operator == BOp.B_OR;
-			
+
 			String leftReg = null;
 			String rightReg = null;
-			
+
 			String exitLabel = uniqueLabel();
 
 			// evaluate left
 			leftReg = gen(ast.left());
 			assert leftReg != null;
-			
+
 			// skip evaluation of right
 			emit("cmpl", c(0), leftReg);
 			if(ast.operator == BOp.B_AND) {
@@ -898,22 +898,22 @@ public class AstCodeGenerator {
 			} else {
 				emit("jne", exitLabel);
 			}
-			
+
 			// evaluate right
 			Pair<String> regs = genPushing(leftReg, ast.right());
 			leftReg = regs.a;
 			rightReg = regs.b;
 			assert rightReg != null;
-			
+
 			// calculate actual result
 			if(ast.operator == BOp.B_AND) {
 				emit("andl", rightReg, leftReg);
 			} else {
 				emit("orl", rightReg, leftReg);
 			}
-			
+
 			emitLabel(exitLabel);
-			
+
 			return leftReg;
 		}
 
@@ -943,7 +943,7 @@ public class AstCodeGenerator {
 
 			emitGprRegToFloatReg(FLOAT_REG_0, leftReg);
 			emitGprRegToFloatReg(FLOAT_REG_1, rightReg);
-			
+
 			emit("ucomiss", FLOAT_REG_1, FLOAT_REG_0);
 			if (opname.equals("jne")) {
 				// NaN != Nan is always true
@@ -952,7 +952,7 @@ public class AstCodeGenerator {
 				emit("jp", falseLabel);
 			}
 			emit(opname, trueLabel);
-			
+
 			emitLabel(falseLabel);
 			emitMove(c(0), leftReg);
 			emit("jmp", endLabel);
@@ -963,7 +963,7 @@ public class AstCodeGenerator {
 		}
 
 		private void emitDivMod(String whichResultReg, String leftReg, String rightReg) {
-			
+
 			// Compare right reg for 0
 			int padding = emitCallPrefix(null, 1);
 			push(rightReg);
@@ -1113,12 +1113,12 @@ public class AstCodeGenerator {
 
 				emit("imul", Config.SIZEOF_PTR, reg);
 				emit("addl", Config.SIZEOF_PTR, reg);
-				
+
 				int allocPadding = emitCallPrefix(reg, 1);
 				push(reg);
 				emit("call", ALLOC);
 				emitCallSuffix(reg, 1, allocPadding);
-				
+
 				emitStore(c(vtable(arrsym)), 0, reg);
 				return reg;
 			}
@@ -1173,20 +1173,20 @@ public class AstCodeGenerator {
 					break;
 
 				case U_MINUS:
-					{
-						if (ast.type == main.floatType) {
-							emitGprRegToFloatReg(FLOAT_REG_0, argReg);
-							push("%eax");
-							emit("movd", FLOAT_REG_0, "%eax");
-							emit("xorl", "$2147483648", "%eax");
-							emit("movd", "%eax", FLOAT_REG_0);
-							pop("%eax");
-							emitFloatRegToGprReg(argReg, FLOAT_REG_0);
-						} else {
-							emit("negl", argReg);
-						}
+				{
+					if (ast.type == main.floatType) {
+						emitGprRegToFloatReg(FLOAT_REG_0, argReg);
+						push("%eax");
+						emit("movd", FLOAT_REG_0, "%eax");
+						emit("xorl", "$2147483648", "%eax");
+						emit("movd", "%eax", FLOAT_REG_0);
+						pop("%eax");
+						emitFloatRegToGprReg(argReg, FLOAT_REG_0);
+					} else {
+						emit("negl", argReg);
 					}
-					break;
+				}
+				break;
 
 				case U_BOOL_NOT:
 					emit("negl", argReg);
@@ -1237,9 +1237,9 @@ public class AstCodeGenerator {
 				emitUndent();
 			}
 		}
-				
+
 		public String methodCall(MethodSymbol mthSymbol, List<Expr> args) {
-			
+
 			// Push the arguments and the method prefix (caller save register,
 			// and padding) onto the stack.
 			// Note that the space for the arguments is not already reserved,
@@ -1248,45 +1248,45 @@ public class AstCodeGenerator {
 			// After each iteration of the following loop, reg holds the
 			// register used for the previous argument.
 			List<Expr> allArgs = args;
-			
+
 			int padding = emitCallPrefix(null, allArgs.size());
-			
+
 			String reg = null;
-			for (int i = 0; i < allArgs.size(); i++) {				
+			for (int i = 0; i < allArgs.size(); i++) {
 				if (reg != null) {
 					releaseRegister(reg);
 				}
 				reg = eg.gen(allArgs.get(i));
-				push(reg);				
+				push(reg);
 			}
-			
+
 			// Since "this" is the first parameter that push
 			// we have to get it back to resolve the method call
 			emitComment("Load \"this\" pointer");
 			emitLoad((allArgs.size() - 1) * Config.SIZEOF_PTR, SP, reg);
-						
+
 			// Check for a null receiver
 			int cnPadding = emitCallPrefix(null, 1);
 			push(reg);
 			emit("call", CHECK_NULL);
 			emitCallSuffix(null, 1, cnPadding);
-			
+
 			// Load the address of the method to call into "reg"
 			// and call it indirectly.
 			emitLoad(0, reg, reg);
 			int mthdoffset = 4 + mthSymbol.vtableIndex * Config.SIZEOF_PTR;
 			emitLoad(mthdoffset, reg, reg);
 			emit("call", "*" + reg);
-			
+
 			emitCallSuffix(reg, allArgs.size(), padding);
-			
+
 			if (mthSymbol.returnType == main.voidType) {
 				releaseRegister(reg);
 				return null;
 			}
-			
+
 			return reg;
-		
+
 		}
 
 		@Override
@@ -1402,7 +1402,7 @@ public class AstCodeGenerator {
 					@Override
 					protected Void dfltExpr(Expr ast, Expr arg) {
 						throw new RuntimeException(
-								"Store to unexpected lvalue " + ast);
+						    "Store to unexpected lvalue " + ast);
 					}
 
 				}
@@ -1423,7 +1423,7 @@ public class AstCodeGenerator {
 				releaseRegister(reg);
 				return null;
 			}
-			
+
 		}
 
 		@Override
@@ -1463,7 +1463,7 @@ public class AstCodeGenerator {
 					releaseRegister(reg);
 				} else {
 					emitMethodSuffix(true); // no return value -- return NULL as
-											// a default (required for main())
+					// a default (required for main())
 				}
 				return null;
 			}
@@ -1627,11 +1627,11 @@ public class AstCodeGenerator {
 	}
 
 	protected void emitMethodPrefix(MethodDecl ast) {
-				
+
 		// Emit the label for the method:
 		emit(Config.TEXT_SECTION);
 		emitCommentSection(String.format("Method %s.%s", ast.sym.owner.name,
-				ast.name));
+		                                 ast.name));
 		emit(".globl " + mthdlbl(ast.sym));
 		emitLabel(mthdlbl(ast.sym));
 
@@ -1649,7 +1649,7 @@ public class AstCodeGenerator {
 		// -4 locals
 		// (callee's arguments + temporaries)
 		//
-		// We allocate on the stack during the course of 
+		// We allocate on the stack during the course of
 		// a function call using push(...) and pop(...) instructions.
 		//
 		// Stack slots fall into several
@@ -1668,14 +1668,14 @@ public class AstCodeGenerator {
 		// invoked.
 		//
 		// We calculate all address relative to the base pointer.
-		
+
 		// Initialize method-specific data
 		initMethodData();
 
 		// Assign parameter offsets:
 		// As shown above, these start from 8.
 		// Being able to evaluate parameters like in Java
-		// with left-to-right evaluation order they result 
+		// with left-to-right evaluation order they result
 		// on the stack in reversed order.
 		// The "this" parameter is the first pushed on the stack
 		// thus receiving higher offset.
@@ -1688,7 +1688,7 @@ public class AstCodeGenerator {
 		}
 		THIS_OFFSET = paramOffset;
 		paramOffset += Config.SIZEOF_PTR;
-		
+
 		// First few slots are reserved for caller save regs:
 		int localSlot = callerSave.length * SIZEOF_REG;
 
@@ -1713,17 +1713,17 @@ public class AstCodeGenerator {
 
 		emit(String.format("enter $%d, $0", stackSize));
 		emit("and", -16, SP);
-		
+
 		storeCalleeSaveRegs();
 
 	}
 
 	protected void emitMethodSuffix(boolean returnNull) {
-			if (returnNull)
-				emit("movl", "$0", "%eax");
-			restoreCalleeSaveRegs();
-			emit("leave");
-			emit("ret");
+		if (returnNull)
+			emit("movl", "$0", "%eax");
+		restoreCalleeSaveRegs();
+		emit("leave");
+		emit("ret");
 	}
 
 }

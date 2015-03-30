@@ -34,7 +34,7 @@ public class TestSamplePrograms extends AbstractTestSamplePrograms {
 	 */
 //	public static final File testDir = new File("javali_tests/");
 	public static final File testDir = null;
-	
+
 	@Parameters
 	public static Collection<Object[]> testFiles() {
 		List<Object[]> result = new ArrayList<Object[]>();
@@ -69,9 +69,9 @@ public class TestSamplePrograms extends AbstractTestSamplePrograms {
 		this.errfile = new File(String.format("%s.err", file.getPath()));
 		this.main = new Main();
 		this.main.debug = new StringWriter();
-		
+
 		this.main.cfgdumpbase = file;
-		
+
 	}
-	
+
 }
