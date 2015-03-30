@@ -43,7 +43,9 @@ class Main {
     write(x - x); writeln();
     write(y - y - y); writeln();
     write(f() - f()); writeln();
-    
+
+    write(f() + f() + f() + f()); writeln();
+
     this.field = 3;
     write(this.field - this.field); writeln();
     write(this.field - 0); writeln();

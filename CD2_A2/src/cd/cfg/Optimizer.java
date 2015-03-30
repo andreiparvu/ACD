@@ -207,7 +207,7 @@ public class Optimizer {
 			String leftStr = ast.left().canonicalForm;
 			String rightStr = ast.right().canonicalForm;
 			
-			if (ast.left().isCachable() && ast.right().isCachable()) {
+			if (ast.isCachable()) {
 				assert leftStr != null && rightStr != null;
 				if (ast.isCommutative()) {
 					if (leftStr.compareTo(rightStr) > 0) {

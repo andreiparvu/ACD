@@ -1,9 +1,24 @@
 class Main {
-	void main() {
+    int f() {
+        write(999);
+        return 20;
+    }
+    
+    int endless() {
+        while (true) { }
+        return 0;
+    }
+
+    void main() {
         int zero;
+        boolean b;
         
         zero = read();
         
-        write(10 / zero - 10 / zero);
-	}
+        // b = (endless() > 0) || ((10 / zero) == 0);
+        write(f() + (10 / zero - 10 / zero)); writeln();
+
+
+        write(1);
+    }
 }
