@@ -1,6 +1,17 @@
 class Main {
+  int func() {
+    return 3;
+  }
+
+  void doit(int a, int b, int c) {
+    write(a + b + c);
+    write(a + b);
+    write(b + c);
+  }
+
   void main() {
     int a, b, c, d, e, x, y, f, g;
+    int x1, x2;
 
     b = read();
     c = read();
@@ -16,8 +27,19 @@ class Main {
       write(a * x);
     }
 
+    doit(a + b, b + a, b + a + c);
+    write(a + b + c);
+
     write(f);
     write(a * x);
+
+    a = func();
+    b = func();
+    c = func();
+    x1 = a * b + c;
+    x2 = a * (b + c);
+    write(x1);
+    write(x2);
   }
 }
 

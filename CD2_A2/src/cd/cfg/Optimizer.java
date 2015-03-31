@@ -256,7 +256,7 @@ public class Optimizer {
 				ast.canonicalForm = AstOneLine.toString(ast);
 			}
 
-			return null;
+			return super.dfltExpr(ast, arg);
 		}
 
 		@Override
@@ -319,6 +319,7 @@ public class Optimizer {
 		public Ast binaryOp(BinaryOp ast, ExpressionManager exprManager) {
 			if (ast.canonicalForm != null) {
 				assert ast.isCachable();
+				System.err.println("here " + ast.canonicalForm);
 				if (!exprManager.info.containsKey(ast.canonicalForm)) {
 					Var next;
 					boolean isTemp = false;
