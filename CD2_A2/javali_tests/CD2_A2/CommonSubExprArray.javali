@@ -17,6 +17,8 @@ class Main {
     b = read();
     c = read();
 
+    array[a * 2 + b] = 4;
+    array[c + 1] = 5;
     e = array[a * 2 + c];
     f = array[a * 2 + c + 1];
     h = array[a * 2 + (1 + c)];

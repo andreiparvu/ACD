@@ -153,9 +153,6 @@ public class Optimizer {
 		for (int i = 0; i < curBB.instructions.size(); i++) {
 			exprManager.curPosition = i;
 			generateCanonicalForm.visit(curBB.instructions.get(i), null);
-			if (curBB.index == 6) {
-				System.err.println(curBB.instructions.get(i));
-			}
 			canonicExpressionVisitor.visit(curBB.instructions.get(i), exprManager);
 		}
 		exprManager.curPosition = curBB.instructions.size();
@@ -192,7 +189,7 @@ public class Optimizer {
 				ast.canonicalForm = AstOneLine.toString(ast);
 			}
 
-			return null;
+			return super.dfltExpr(ast, arg);
 		}
 
 		@Override
@@ -255,6 +252,7 @@ public class Optimizer {
 		public Ast binaryOp(BinaryOp ast, ExpressionManager exprManager) {
 			if (ast.canonicalForm != null) {
 				assert ast.isCachable();
+				System.err.println("here " + ast.canonicalForm);
 				if (!exprManager.info.containsKey(ast.canonicalForm)) {
 					Var next;
 					boolean isTemp = false;

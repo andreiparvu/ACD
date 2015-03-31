@@ -122,7 +122,13 @@ public class AstOneLine {
 
 		@Override
 		public String methodCall(MethodCall ast, Void arg) {
-			return String.format("%s.%s(...)", str(ast.receiver()), ast.methodName);
+			String args = "...";
+//			args = "";
+//			for (Ast param : ast.allArguments()) {
+//				args += ", " + visit(param, arg);
+//			}
+			
+			return String.format("%s.%s(%s)", str(ast.receiver()), ast.methodName, args);
 		}
 		
 		@Override
