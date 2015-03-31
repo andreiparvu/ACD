@@ -1,0 +1,29 @@
+class Main {
+    float pi() {
+        return 3.14;
+    }
+
+	void main() {
+        float f, g, h;
+        
+        f = pi();
+        writef(f); writeln();
+        
+        h = f + 1.0;
+        h = 1.0 + f;
+        writef(h); writeln();
+        
+        h = pi() * 10.0;
+        h = (f + h) + (h + f);
+        writef(h);
+        
+        g = f / 0.0 + f / 0.0;
+        if (g > 0.0) {
+            write(111);
+        } else {
+            write(222);
+        }
+        
+        writeln();
+	}
+}

@@ -21,7 +21,7 @@ public class Phi {
 	public List<Expr> rhs = new ArrayList<Expr>(); // Always an Ast.Var or an Ast.Const!
 	public boolean isConstant;
 	public boolean containsUninitalized;
-	
+
 	public Phi(VariableSymbol v0sym, int predCount) {
 		this.v0sym = v0sym;
 		this.lhs = v0sym;
@@ -30,53 +30,53 @@ public class Phi {
 		for (int i = 0; i < predCount; i++)
 			rhs.add(Ast.Var.withSym(v0sym));
 	}
-	
+
 	public void checkIfConstant(Map<String, LeafExpr> toPropagate) {
-	    if (rhs.size() == 1) {
-	        toPropagate.put(lhs.name, (LeafExpr)rhs.get(0));
-	        isConstant = true;
-	        return ;
-	    }
-	    
-	    for (Expr e : rhs) {
-	        if (e.isConstant() == 0) {
-	            return ;
-	        }
-	    }
-	    
-	    for (int i = 1; i < rhs.size(); i++) {
-	    	switch (rhs.get(0).isConstant()) {
-	    	case Expr.INT:
-	    		if (!rhs.get(0).compareTo((IntConst)rhs.get(i))) {
-		            return ;
-		        }
-	    		break;
-	    	case Expr.FLOAT:
-	    		if (!rhs.get(0).compareTo((FloatConst)rhs.get(i))) {
-		            return ;
-		        }
-	    		break;
-	    	case Expr.BOOL:
-	    		if (!rhs.get(0).compareTo((BooleanConst)rhs.get(i))) {
-		            return ;
-		        }
-	    		break;
-	    	}
-	    }
-	    
-	    isConstant = true;
-	    toPropagate.put(lhs.name, (LeafExpr)rhs.get(0));
+		if (rhs.size() == 1) {
+			toPropagate.put(lhs.name, (LeafExpr)rhs.get(0));
+			isConstant = true;
+			return ;
+		}
+
+		for (Expr e : rhs) {
+			if (e.isConstant() == 0) {
+				return ;
+			}
+		}
+
+		for (int i = 1; i < rhs.size(); i++) {
+			switch (rhs.get(0).isConstant()) {
+				case Expr.INT:
+					if (!rhs.get(0).compareTo((IntConst)rhs.get(i))) {
+						return ;
+					}
+					break;
+				case Expr.FLOAT:
+					if (!rhs.get(0).compareTo((FloatConst)rhs.get(i))) {
+						return ;
+					}
+					break;
+				case Expr.BOOL:
+					if (!rhs.get(0).compareTo((BooleanConst)rhs.get(i))) {
+						return ;
+					}
+					break;
+			}
+		}
+
+		isConstant = true;
+		toPropagate.put(lhs.name, (LeafExpr)rhs.get(0));
 	}
-	
+
 	public void detectUses(Set<String> usedVars) {
-	    for (Expr e : rhs) {
-	        if (e instanceof Var) {
-	            usedVars.add(((Var)e).sym.name);
-	        }
-	    }
+		for (Expr e : rhs) {
+			if (e instanceof Var) {
+				usedVars.add(((Var)e).sym.name);
+			}
+		}
 	}
-	
+
 	public String toString() {
-		return String.format("<%s = phi%s>", lhs, rhs); 
+		return String.format("<%s = phi%s>", lhs, rhs);
 	}
 }

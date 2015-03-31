@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -15,6 +14,7 @@ import cd.debug.AstOneLine;
 import cd.ir.Ast;
 import cd.ir.Ast.Assign;
 import cd.ir.Ast.BinaryOp;
+import cd.ir.Ast.BinaryOp.BOp;
 import cd.ir.Ast.BooleanConst;
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.FloatConst;
@@ -33,99 +33,73 @@ import cd.ir.Symbol.PrimitiveTypeSymbol;
 import cd.ir.Symbol.VariableSymbol;
 
 public class Optimizer {
-	
+
 	public final Main main;
 	public int changes = 0;
-	
+
 	private MethodDecl mdecl;
 	private int nrTemp = 0;
-	
+
 	public Optimizer(Main main) {
 		this.main = main;
 	}
-	
-	private class ExpressionManager {
- 	    public class Data {
-	        int position;
-	        Var substitute;
-	        Expr node;
-	        boolean isTemp;
-	        
-	        public Data(int position, Var substitute, Expr node, boolean isTemp) {
-	            this.position = position;
-	            this.substitute = substitute;
-	            this.node = node;
-	            this.isTemp = isTemp;
-	        }
-	    }
- 	    
-	    Map<String, Data> info = new HashMap<>();
-	    
-	    List<String> subexpressions;
-	    Set<String> isUsed = new HashSet<>();
-	    int curPosition;
-	    Var curVar = null;
-	}
-		
-	private Var newTempVar() {
-	    nrTemp++;
-	    String tempName = "$temp_" + nrTemp;
-	    VariableSymbol sym = new VariableSymbol(tempName,
-	            new PrimitiveTypeSymbol(tempName), VariableSymbol.Kind.LOCAL);
-	    mdecl.sym.locals.put(tempName, sym);
-	    return Var.withSym(sym);
-	}
-	
-	public void compute(MethodDecl md) {
-	    ControlFlowGraph cfg = md.cfg;
-	    mdecl = md;
 
-	    Map<String, LeafExpr> propagations = new HashMap<>();
+	private class ExpressionManager {
+		public class Data {
+			int position;
+			Var substitute;
+			Expr node;
+			boolean isTemp;
+
+			public Data(int position, Var substitute, Expr node, boolean isTemp) {
+				this.position = position;
+				this.substitute = substitute;
+				this.node = node;
+				this.isTemp = isTemp;
+			}
+		}
+
+		Map<String, Data> info = new HashMap<>();
+
+		List<String> subexpressions;
+		Set<String> isUsed = new HashSet<>();
+		int curPosition;
+		Var curVar = null;
+	}
+
+	private Var newTempVar() {
+		nrTemp++;
+		String tempName = "$temp_" + nrTemp;
+		VariableSymbol sym = new VariableSymbol(tempName,
+		                                        new PrimitiveTypeSymbol(tempName), VariableSymbol.Kind.LOCAL);
+		return Var.withSym(sym);
+	}
+
+	public void compute(MethodDecl md) {
+		ControlFlowGraph cfg = md.cfg;
+		mdecl = md;
+
+		Map<String, LeafExpr> propagations = new HashMap<>();
 		int oldChanges = 0;
 		do {
-		  LinkedList<BasicBlock> deadBlocks = new LinkedList<>();
 			oldChanges = changes;
 			for (BasicBlock blk : cfg.allBlocks) {
-			    for (Ast instr : blk.instructions) {
-			        constantFolding.visit(instr, null);
-			    }
-			    // might want to move this somewhere else
-			    if (blk.condition != null) {
-			        blk.condition = (Expr)constantFolding.visit(blk.condition, null);
-			        
-			        if (blk.condition.isConstant() == Ast.Expr.BOOL) {
-		                BooleanConst c = (BooleanConst)blk.condition;
-		                
-		                if (c.value) {
-		                    if (blk.falseSuccessor() != null) {
-		                        blk.falseSuccessor().deletePred(blk);
-		                    }
-		                    if (blk.falseSuccessor().isDead()) {
-		                        deadBlocks.add(blk.falseSuccessor());
-		                    }
-		                    blk.deleteFalseSuccessor();
-		                } else {
-		                    if (blk.trueSuccessor() != null) {
-		                        blk.trueSuccessor().deletePred(blk);
-		                    }
-		                    if (blk.trueSuccessor().isDead()) {
-		                        deadBlocks.add(blk.trueSuccessor());
-		                    }
-		                    blk.deleteTrueSuccessor();
-		                }
-		                blk.condition = null;
-		            }
-			    }
+				for (Ast instr : blk.instructions) {
+					constantFolding.visit(instr, null);
+				}
+				if (blk.condition != null) {
+					blk.condition = (Expr)constantFolding.visit(blk.condition, null);
+				}
 			}
-			
+
 			for (int i = 0; i < cfg.allBlocks.size(); i++) {
-			    for (Phi phi : cfg.allBlocks.get(i).phis.values()) {
-			        phi.checkIfConstant(propagations);
-			    }
+				for (Phi phi : cfg.allBlocks.get(i).phis.values()) {
+					phi.checkIfConstant(propagations);
+				}
 			}
-			
+
 			propagateCopies(cfg.start, propagations);
-			
+
 			identifySubexpression(cfg.start, new ExpressionManager());
 			System.err.println("Phase " + changes);
 		} while (changes != oldChanges);
@@ -134,56 +108,74 @@ public class Optimizer {
 		changes = 0;
 		
 		do {
-		    oldChanges = changes;
-    		Set<String> usedVars = new HashSet<>();
-    		Iterator<BasicBlock> bbIt = cfg.allBlocks.iterator();
-    		for (; bbIt.hasNext(); ) {
-    		    BasicBlock bb = bbIt.next();
-    		    
-    		    if (bb.isDead() && bb.index != 0) {
-    		        changes++;
-    		        for (BasicBlock succ : bb.successors) {
-                        succ.deletePred(bb);
-                    }
-    		    
-    		        bbIt.remove();
-    		        continue;
-    		    }
-    		    
-    		    for (Ast instr : bb.instructions) {
-    		        detectUses.visit(instr, usedVars);
-    		    }
-    		    if (bb.condition != null) {
-    		        detectUses.visit(bb.condition, usedVars);
-    		    }
-    		    for (Phi phi : bb.phis.values()) {
-    		        phi.detectUses(usedVars);
-    		    }
-    		}
-    
-    		for (BasicBlock bb : cfg.allBlocks) {
-    		    Iterator<Ast> it = bb.instructions.iterator();
-    		    for (; it.hasNext(); ) {
-    		        Ast curInstr = it.next();
-    		        String varName = detectUnused.visit(curInstr, usedVars);
-    		        if (varName != null) {
-    		            mdecl.sym.locals.remove(varName);
-    		            changes++;
-    		            it.remove();
-    		        }
-    		    }
-    		    Iterator<Map.Entry<VariableSymbol, Phi>> iter = bb.phis.entrySet().iterator();
-    		    for (; iter.hasNext(); ) {
-    		        if (usedVars.contains(iter.next().getValue().lhs.name) == false) {
-    		            changes++;
-    		            iter.remove();
-    		        }
-    		    }
-    		}
+			oldChanges = changes;
+			Set<String> usedVars = new HashSet<>();
+			Iterator<BasicBlock> bbIt = cfg.allBlocks.iterator();
+			for (; bbIt.hasNext(); ) {
+				BasicBlock blk = bbIt.next();
+
+				if (blk.condition.isConstant() == Ast.Expr.BOOL) {
+					BooleanConst c = (BooleanConst)blk.condition;
+
+					if (c.value) {
+						if (blk.falseSuccessor() != null) {
+							blk.falseSuccessor().deletePred(blk);
+						}
+						blk.deleteFalseSuccessor();
+					} else {
+						if (blk.trueSuccessor() != null) {
+							blk.trueSuccessor().deletePred(blk);
+						}
+						blk.deleteTrueSuccessor();
+					}
+					blk.condition = null;
+				}
+
+				if (blk.isDead() && blk.index != 0) {
+					changes++;
+					for (BasicBlock succ : blk.successors) {
+						succ.deletePred(blk);
+					}
+
+					bbIt.remove();
+					continue;
+				}
+
+				for (Ast instr : blk.instructions) {
+					detectUses.visit(instr, usedVars);
+				}
+				if (blk.condition != null) {
+					detectUses.visit(blk.condition, usedVars);
+				}
+				for (Phi phi : blk.phis.values()) {
+					phi.detectUses(usedVars);
+				}
+			}
+
+			for (BasicBlock blk : cfg.allBlocks) {
+				Iterator<Ast> it = blk.instructions.iterator();
+				for (; it.hasNext(); ) {
+					Ast curInstr = it.next();
+					String varName = detectUnused.visit(curInstr, usedVars);
+					if (varName != null) {
+						mdecl.sym.locals.remove(varName);
+						changes++;
+						it.remove();
+					}
+				}
+				Iterator<Map.Entry<VariableSymbol, Phi>> iter = blk.phis.entrySet().iterator();
+				for (; iter.hasNext(); ) {
+					if (usedVars.contains(iter.next().getValue().lhs.name) == false) {
+						changes++;
+						iter.remove();
+					}
+				}
+			}
+
 		} while (changes != oldChanges);
 	}
-	
-	private abstract class OptimizerAstRewriter<A>	extends AstRewriteVisitor<A> {
+
+	private abstract class OptimizerAstRewriter<A> extends AstRewriteVisitor<A> {
 		@Override
 		public Ast visitChildren(Ast ast, A arg) {
 			ListIterator<Ast> children = ast.rwChildren.listIterator();
@@ -194,78 +186,89 @@ public class Optimizer {
 					if (replace != child) {
 						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
 						changes++;
-						
+
 						children.set(replace);
 					}
 				}
 			}
 			return ast;
 		}
+
+		@Override
+		public Ast visitChildren(Expr expr, A arg) {
+			ListIterator<Ast> children = expr.rwChildren.listIterator();
+			while (children.hasNext()) {
+				Expr child = (Expr)children.next();
+				if (child != null) {
+					Ast replace = visit(child, arg);
+					if (replace != child) {
+						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
+						changes++;
+
+						children.set(replace);
+					}
+				}
+			}
+			return expr;
+		}
 	}
-	
+
 	private void identifySubexpression(BasicBlock curBB, ExpressionManager exprManager) {
-	    List<String> curExpressions = new ArrayList<>();
-	    exprManager.subexpressions = curExpressions;
-	    
+		List<String> curExpressions = new ArrayList<>();
+		exprManager.subexpressions = curExpressions;
+
 		for (int i = 0; i < curBB.instructions.size(); i++) {
-		    exprManager.curPosition = i;
-		    generateCanonicalForm.visit(curBB.instructions.get(i), null);
-		    if (curBB.index == 6) {
-		    	System.err.println(curBB.instructions.get(i));
-		    }
+			exprManager.curPosition = i;
+			generateCanonicalForm.visit(curBB.instructions.get(i), null);
 			canonicExpressionVisitor.visit(curBB.instructions.get(i), exprManager);
 		}
 		exprManager.curPosition = curBB.instructions.size();
 		if (curBB.condition != null) {
-		    generateCanonicalForm.visit(curBB.condition, null);
+			generateCanonicalForm.visit(curBB.condition, null);
 			canonicExpressionVisitor.visit(curBB.condition, exprManager);
 		}
-		
+
 		for (BasicBlock bb : curBB.dominatorTreeChildren) {
 			identifySubexpression(bb, exprManager);
 		}
-		
+
 		int nrAdded = 0;
 		for (String expr : curExpressions) {
-		    if (exprManager.isUsed.contains(expr)) {
-		        ExpressionManager.Data data = exprManager.info.get(expr);
-		        if (data.isTemp) {
-		            curBB.instructions.add(data.position + nrAdded,
-		                    new Assign(data.substitute, data.node));
-		            nrAdded++;
-		        }
-		    }
-		    exprManager.info.remove(expr);
+			if (exprManager.isUsed.contains(expr)) {
+				ExpressionManager.Data data = exprManager.info.get(expr);
+				if (data.isTemp) {
+					curBB.instructions.add(data.position + nrAdded,
+					                       new Assign(data.substitute, data.node));
+					mdecl.sym.locals.put(data.substitute.sym.name, data.substitute.sym);
+					nrAdded++;
+				}
+			}
+			exprManager.info.remove(expr);
 		}
-		        
+
 	}
-	
+
 	private AstVisitor<Void, Void> generateCanonicalForm = new AstVisitor<Void, Void>() {
 
 		@Override
+		protected Void dfltExpr(Expr ast, Void arg) {
+			if (ast.isCachable()) {
+				ast.canonicalForm = AstOneLine.toString(ast);
+			}
+
+			return null;
+		}
+
+		@Override
 		public Void binaryOp(BinaryOp ast, Void arg) {
-			if (ast.left() instanceof LeafExpr) {
-				LeafExpr left = (LeafExpr)ast.left();
-				if (left.isPropagatable) {
-					left.canonicalForm = AstOneLine.toString(left);
-				}
-			} else {
-				visit(ast.left(), arg);
-			}
-			
-			if (ast.right() instanceof LeafExpr) {
-				LeafExpr right = (LeafExpr)ast.right();
-				if (right.isPropagatable) {
-					right.canonicalForm = AstOneLine.toString(right);
-				}
-			} else {
-				visit(ast.right(), arg);
-			}
-			
+			visit(ast.left(), arg);
+			visit(ast.right(), arg);
+
 			String leftStr = ast.left().canonicalForm;
 			String rightStr = ast.right().canonicalForm;
-			
-			if (leftStr != null && rightStr != null) {
+
+			if (ast.isCachable()) {
+				assert leftStr != null && rightStr != null;
 				if (ast.isCommutative()) {
 					if (leftStr.compareTo(rightStr) > 0) {
 						String tmp = leftStr;
@@ -273,37 +276,49 @@ public class Optimizer {
 						rightStr = tmp;
 					}
 				}
-				
+
 				ast.canonicalForm = String.format("%s %s %s", ast.operator.repr, leftStr, rightStr);
 			}
-			
+
 			return null;
 		}
-		
+
+		@Override
+		public Void unaryOp(UnaryOp ast, Void arg) {
+			visit(ast.arg(), arg);
+
+			if (ast.arg().isCachable()) {
+				assert ast.arg().canonicalForm != null;
+				ast.canonicalForm = String.format("%s %s", ast.operator.repr, ast.arg().canonicalForm);
+			}
+			return null;
+		}
+
 	};
-	
+
 	private AstRewriteVisitor<ExpressionManager> canonicExpressionVisitor = new OptimizerAstRewriter<ExpressionManager>() {
 		@Override
 		public Ast assign(Ast.Assign ast, ExpressionManager exprManager) {
-		    if (ast.left() instanceof Var) {
-		        exprManager.curVar = (Var)ast.left();
-		        ast.setRight((Expr)visit(ast.right(), exprManager));
-		        
-		        return ast;
-		    }
-		    
-		    return visitChildren(ast, exprManager);
+			if (ast.left() instanceof Var) {
+				exprManager.curVar = (Var)ast.left();
+				ast.setRight((Expr)visit(ast.right(), exprManager));
+
+				return ast;
+			}
+
+			return visitChildren(ast, exprManager);
 		}
-		
+
 		@Override
 		public Ast dflt(Ast ast, ExpressionManager exprManager) {
-		    exprManager.curVar = null;
-		    return visitChildren(ast, exprManager);
+			exprManager.curVar = null;
+			return visitChildren(ast, exprManager);
 		}
-		
+
 		@Override
 		public Ast binaryOp(BinaryOp ast, ExpressionManager exprManager) {
 			if (ast.canonicalForm != null) {
+				assert ast.isCachable();
 				if (!exprManager.info.containsKey(ast.canonicalForm)) {
 					Var next;
 					boolean isTemp = false;
@@ -316,7 +331,7 @@ public class Optimizer {
 
 					exprManager.subexpressions.add(ast.canonicalForm);
 					exprManager.info.put(ast.canonicalForm,
-							(new ExpressionManager()).new Data(exprManager.curPosition, next, ast, isTemp));
+					                     (new ExpressionManager()).new Data(exprManager.curPosition, next, ast, isTemp));
 				} else {
 					changes++;
 					exprManager.isUsed.add(ast.canonicalForm);
@@ -327,32 +342,37 @@ public class Optimizer {
 			return dflt(ast, exprManager);
 		}
 	};
-	
+
 	private AstRewriteVisitor<Void> constantFolding = new OptimizerAstRewriter<Void>() {
 
 		@Override
 		public Ast binaryOp(BinaryOp ast, Void arg) {
-			Ast left = visit(ast.left(), arg);
-			Ast right = visit(ast.right(), arg);
-			
+			// make sure left() and right() are rewritten
+			visitChildren(ast, arg);
+
+			Expr left = ast.left(), right = ast.right();
+
 			if (left instanceof BooleanConst && right instanceof BooleanConst) {
 				return booleanConstOp(ast, (BooleanConst)left, (BooleanConst)right);
 			} else if (left instanceof IntConst && right instanceof IntConst) {
 				return intConstOp(ast, (IntConst)left, (IntConst)right);
 			} else if (left instanceof FloatConst && right instanceof FloatConst) {
 				return floatConstOp(ast, (FloatConst)left, (FloatConst)right);
+			} else if (ast.type.equals(main.intType)) {
+				return intBinOpSimplification(ast);
 			}
-			
-			
-			
+
 			return ast;
 		}
-		
-		private Ast intConstOp(BinaryOp op, IntConst left, IntConst right) {
+
+		private Expr intConstOp(BinaryOp op, IntConst left, IntConst right) {
 			switch(op.operator) {
-			case B_PLUS: 	return new IntConst(left.value + right.value);
-			case B_MINUS:	return new IntConst(left.value - right.value);
-			case B_TIMES:	return new IntConst(left.value * right.value);
+			case B_PLUS:
+				return new IntConst(left.value + right.value);
+			case B_MINUS:
+				return new IntConst(left.value - right.value);
+			case B_TIMES:
+				return new IntConst(left.value * right.value);
 			case B_DIV:
 				if (right.value != 0) {
 					// only do compile time evaluation of no division by zero
@@ -364,85 +384,179 @@ public class Optimizer {
 					// only do compile time evaluation of no division by zero
 					return new IntConst(left.value % right.value);
 				}
-				break;		
-			case B_EQUAL:				return new BooleanConst(left.value == right.value);
-			case B_GREATER_OR_EQUAL:	return new BooleanConst(left.value >= right.value);
-			case B_GREATER_THAN:		return new BooleanConst(left.value > right.value);
-			case B_LESS_OR_EQUAL:		return new BooleanConst(left.value <= right.value);
-			case B_LESS_THAN:			return new BooleanConst(left.value < right.value);
-			case B_NOT_EQUAL: 			return new BooleanConst(left.value != right.value);
-			default:	break;
+				break;
+			case B_EQUAL:
+				return new BooleanConst(left.value == right.value);
+			case B_GREATER_OR_EQUAL:
+				return new BooleanConst(left.value >= right.value);
+			case B_GREATER_THAN:
+				return new BooleanConst(left.value > right.value);
+			case B_LESS_OR_EQUAL:
+				return new BooleanConst(left.value <= right.value);
+			case B_LESS_THAN:
+				return new BooleanConst(left.value < right.value);
+			case B_NOT_EQUAL:
+				return new BooleanConst(left.value != right.value);
+			default:
+				break;
 			}
-			
+
 			return op;
 		}
-		
-		/*private Ast intSimplification(BinaryOp ast, Expr left, Expr right) {
-			if (left instanceof IntConst) {
-				IntConst child = (IntConst) expr;
-				if (child.value == 0) {
-					
+
+		private Expr intBinOpSimplification(BinaryOp ast) {
+			Expr left = ast.left();
+			Expr right = ast.right();
+
+			assert ast.type.equals(main.intType);
+			assert !(right instanceof IntConst && left instanceof IntConst);
+
+			String leftStr = AstOneLine.toString(left), rightStr = AstOneLine.toString(right);
+
+			// CachableExpr - CachableExpr
+			if (ast.operator == BOp.B_MINUS &&
+			        leftStr.equals(rightStr) &&
+			        left.isCachable() && right.isCachable()) {
+				return new IntConst(0);
+			} else if (right instanceof IntConst) {
+				int rightVal = ((IntConst)right).value;
+
+				// Expr - 0
+				if (ast.operator == BOp.B_MINUS && rightVal == 0) {
+					return left;
+				}
+
+				// Expr / 1
+				if (ast.operator == BOp.B_DIV && rightVal == 1) {
+					return left;
+				}
+
+				// Expr + IntConst | Expr * IntConst
+				return intBinOpAsymmetricSimplification(ast, (IntConst)right, left);
+			} else if (left instanceof IntConst) {
+				int leftVal = ((IntConst)left).value;
+
+				// 0 - Expr
+				if (ast.operator == BOp.B_MINUS && leftVal == 0) {
+					UnaryOp newAst = new UnaryOp(UOp.U_MINUS, right);
+					newAst.type = ast.type;
+					return newAst;
+				}
+
+				// IntConst + Expr | IntConst * Expr
+				return intBinOpAsymmetricSimplification(ast, (IntConst)left, right);
+			}
+
+
+			return ast;
+		}
+
+		private Expr intBinOpAsymmetricSimplification(BinaryOp ast, IntConst first, Expr second) {
+			// 0 + Expr
+			if (ast.operator == BOp.B_PLUS && first.value == 0) {
+				return second;
+			}
+
+			// 1 * Expr
+			if (ast.operator == BOp.B_TIMES && first.value == 1) {
+				return second;
+			}
+
+			// IntConst * CachableExpr
+			if (ast.operator == BOp.B_TIMES && second.isCachable()) {
+				switch (first.value) {
+				case 0:
+					return new IntConst(0);
+				case 2:
+					// make sure to keep type information
+					BinaryOp newAst = ast.deepCopy();
+					newAst.operator = BOp.B_PLUS;
+					newAst.setLeft(second);
+					newAst.setRight(second);
+					return newAst;
 				}
 			}
-		}*/
-		
-		private Ast booleanConstOp(BinaryOp op, BooleanConst left, BooleanConst right) {
+
+			return ast;
+		}
+
+		private Expr booleanConstOp(BinaryOp op, BooleanConst left, BooleanConst right) {
 			switch (op.operator) {
-			case B_OR:	return new BooleanConst(left.value || right.value);
-			case B_AND: return new BooleanConst(left.value && right.value);
-			default:	return op;
+			case B_OR:
+				return new BooleanConst(left.value || right.value);
+			case B_AND:
+				return new BooleanConst(left.value && right.value);
+			default:
+				return op;
 			}
 		}
 
 		/* This method uses the "strictfp" keyword to ensure that Java uses IEEE 754
 		 * compliant floating point arithmetic. This should not make a difference on
 		 * your average x86 with SSE2, but if some bored TA decides to run this on an
-		 * Intel 386, this should ensures correctness. 
-		 * 
+		 * Intel 386, this should ensures correctness.
+		 *
 		 * We also modify the code generator (which uses SSE2) to match Java semantics
 		 * i.e. for equality comparison with NaN and rounding modes of IEEE 754-1985.
 		 *
 		 * References:
 		 *  - http://math.nist.gov/javanumerics/reports/issues.html#Rounding
-		 *  - Muller, Jean-Michel, et al. Handbook of floating-point arithmetic. 
+		 *  - Muller, Jean-Michel, et al. Handbook of floating-point arithmetic.
 		 *    Springer Science & Business Media, 2009.
-		 *             
+		 *
 		 */
-		strictfp private Ast floatConstOp(BinaryOp op, FloatConst left, FloatConst right) {
+		strictfp private Expr floatConstOp(BinaryOp op, FloatConst left, FloatConst right) {
 			switch(op.operator) {
-			case B_PLUS: 				return new FloatConst(left.value + right.value);
-			case B_MINUS:				return new FloatConst(left.value - right.value);
-			case B_TIMES:				return new FloatConst(left.value * right.value);
-			case B_DIV:					return new FloatConst(left.value / right.value);
-			case B_EQUAL:				return new BooleanConst(left.value == right.value);
-			case B_GREATER_OR_EQUAL:	return new BooleanConst(left.value >= right.value);
-			case B_GREATER_THAN:		return new BooleanConst(left.value > right.value);
-			case B_LESS_OR_EQUAL:		return new BooleanConst(left.value <= right.value);
-			case B_LESS_THAN:			return new BooleanConst(left.value < right.value);
-			case B_NOT_EQUAL: 			return new BooleanConst(left.value != right.value);
-			default:					break;
+			case B_PLUS:
+				return new FloatConst(left.value + right.value);
+			case B_MINUS:
+				return new FloatConst(left.value - right.value);
+			case B_TIMES:
+				return new FloatConst(left.value * right.value);
+			case B_DIV:
+				return new FloatConst(left.value / right.value);
+			case B_EQUAL:
+				return new BooleanConst(left.value == right.value);
+			case B_GREATER_OR_EQUAL:
+				return new BooleanConst(left.value >= right.value);
+			case B_GREATER_THAN:
+				return new BooleanConst(left.value > right.value);
+			case B_LESS_OR_EQUAL:
+				return new BooleanConst(left.value <= right.value);
+			case B_LESS_THAN:
+				return new BooleanConst(left.value < right.value);
+			case B_NOT_EQUAL:
+				return new BooleanConst(left.value != right.value);
+			default:
+				break;
 			}
-			
+
 			return op;
 		}
-		
-		
+
+
 		@Override
-		public Ast unaryOp(UnaryOp op, Void arg) {
+		strictfp public Expr unaryOp(UnaryOp op, Void arg) {
 			Ast child = visit(op.arg(), arg);
 			if (child instanceof IntConst) {
 				IntConst val = (IntConst) child;
 				switch (op.operator) {
-				case U_MINUS:	return new IntConst(-val.value);
-				case U_PLUS:	return new IntConst(val.value);
-				default:		break;
+				case U_MINUS:
+					return new IntConst(-val.value);
+				case U_PLUS:
+					return new IntConst(val.value);
+				default:
+					break;
 				}
 			} else if (child instanceof FloatConst) {
 				FloatConst val = (FloatConst) child;
 				switch (op.operator) {
-				case U_MINUS:	return new FloatConst(-val.value);
-				case U_PLUS:	return new FloatConst(val.value);
-				default:		break;
+				case U_MINUS:
+					return new FloatConst(-val.value);
+				case U_PLUS:
+					return new FloatConst(val.value);
+				default:
+					break;
 				}
 			} else if (child instanceof BooleanConst) {
 				assert op.operator == UOp.U_BOOL_NOT;
@@ -453,158 +567,158 @@ public class Optimizer {
 			return op;
 		}
 	};
-	
+
 	void propagateCopies(BasicBlock bb, Map<String, LeafExpr> toPropagate) {
-	    for (Phi phi : bb.phis.values()) {
-	        for (int i = 0; i < phi.rhs.size(); i++) {
-	            phi.rhs.set(i, (Expr)new PropagateVisitor().visit(phi.rhs.get(i), toPropagate));
-	        }
-	    }
-	    Iterator<Map.Entry<VariableSymbol, Phi>> iter = bb.phis.entrySet().iterator();
-	    while (iter.hasNext()) {
-	        if ((iter.next()).getValue().isConstant) {
-	            iter.remove();
-	        }
-	    }
-	    
-	    for (Ast instr : bb.instructions) {
-	        new PropagateVisitor().visit(instr, toPropagate);
-	        new CollectVisitor().visit(instr, toPropagate);
-	    }
-	    if (bb.condition != null) {
-	        bb.condition = (Expr)new PropagateVisitor().visit(bb.condition, toPropagate);
-	    }
-	    
-	    for (BasicBlock next : bb.dominatorTreeChildren) {
-	        propagateCopies(next, toPropagate);
-	    }
-	}
-	
+		for (Phi phi : bb.phis.values()) {
+			for (int i = 0; i < phi.rhs.size(); i++) {
+				phi.rhs.set(i, (Expr)propagateVisitor.visit(phi.rhs.get(i), toPropagate));
+			}
+		}
+		Iterator<Map.Entry<VariableSymbol, Phi>> iter = bb.phis.entrySet().iterator();
+		while (iter.hasNext()) {
+			if ((iter.next()).getValue().isConstant) {
+				iter.remove();
+			}
+		}
 
-	private class PropagateVisitor extends OptimizerAstRewriter<Map<String, LeafExpr>> {
-	    public Ast var(Ast.Var ast, Map<String, LeafExpr> toPropagate) {
-	        if (toPropagate.containsKey(ast.sym.name)) {
-	            return toPropagate.get(ast.sym.name);
-	        }
-	        return dflt(ast, toPropagate);
-	    }
-	    
-	    public Ast assign(Ast.Assign ast, Map<String, LeafExpr> toPropagate) {
-	        ast.setRight((Expr)visit(ast.right(), toPropagate));
-	        
-	        if (!(ast.left() instanceof Ast.Var)) {
-	            ast.setLeft((Expr)visit(ast.left(), toPropagate));
-	        }
-	        
-	        return ast;
-	    }
-	}
-	
-	private class CollectVisitor extends AstVisitor<Void, Map<String, LeafExpr>> {
-	    public Void assign(Ast.Assign ast, Map<String, LeafExpr> toPropagate) {
-	        if (ast.left() instanceof Ast.Var && ast.right() instanceof LeafExpr) {
-	            System.err.println(ast);
-	        	if (((LeafExpr)ast.right()).isPropagatable) {
-	        		toPropagate.put(((Ast.Var)ast.left()).sym.name, (LeafExpr)ast.right());
-	        	}
-	        }
-	        
-	        return dfltStmt(ast, null);
-	    }
-	    
-	    public Void visitChildren(Ast ast, Map<String, LeafExpr> arg) {
-	        return null;
-	    }
-	}
-	
-	private AstVisitor<Boolean, Set<String>> detectUses = new AstVisitor<Boolean, Set<String>>() {
-	    public Boolean assign(Ast.Assign ast, Set<String> usedVars) {
-	        Boolean isUsed = visit(ast.right(), usedVars);
-	        if (!(ast.left() instanceof Ast.Var) || isUsed) {
-	            visit(ast.left(), usedVars);
-	        }
-	        
-	        return true;
-	    }
-	    
-	    public Boolean var(Ast.Var ast, Set<String> usedVars) {
-	        usedVars.add(ast.sym.name);
-	        
-	        return false;
-	    }
+		for (Ast instr : bb.instructions) {
+			propagateVisitor.visit(instr, toPropagate);
+			collectVisitor.visit(instr, toPropagate);
+		}
+		if (bb.condition != null) {
+			bb.condition = (Expr)propagateVisitor.visit(bb.condition, toPropagate);
+		}
 
-	    public Boolean visitChildren(Ast ast, Set<String> arg) {
-	        Boolean lastValue = false;
-	        for (Ast child : ast.children()) {
-	            if (visit(child, arg) == true) {
-	                lastValue = true;
-	            }
-	        }
-	        return lastValue;
-	    }
-	    
-	    public Boolean binaryOp(Ast.BinaryOp ast, Set<String> arg) {
-	        boolean ret, children = dfltExpr(ast, arg);
-	        if (ast.operator == Ast.BinaryOp.BOp.B_DIV) {
-	            // div may generate division by zero / don't eliminate
-	            ret = true;
-	        } else {
-	            ret = children;
-	        }
-	        
-	        return ret;
-	    }
-	    
-	    public Boolean newArray(Ast.NewArray ast, Set<String> arg) {
-	        // may generate error when provided with a negative size
-	        dfltExpr(ast, arg);
-	        
-	        return true;
-	    }
-	    
-	    public Boolean index(Ast.Index ast, Set<String> arg) {
-	        // may generate error when provided with a negative size
-	        dfltExpr(ast, arg);
-	        
-	        return true;
-	    }
-	        
-	    public Boolean cast(Ast.Cast ast, Set<String> arg) {
-	        dfltExpr(ast, arg);
-	        
-	        return true;
-	    }
-	    
-	    public Boolean builtInRead(Ast.BuiltInRead ast, Set<String> arg) {
-	        return true;
-	    }
-	    
-	    public Boolean builtInReadFloat(Ast.BuiltInReadFloat ast, Set<String> arg) {
-	        return true;
-	    }
-	    
-	    public Boolean methodCall(Ast.MethodCallExpr ast, Set<String> usedVars) {
-	        dfltExpr(ast, usedVars);
-	        
-	        return true;
-	    }
+		for (BasicBlock next : bb.dominatorTreeChildren) {
+			propagateCopies(next, toPropagate);
+		}
+	}
+
+	private OptimizerAstRewriter<Map<String, LeafExpr>> propagateVisitor =
+			new OptimizerAstRewriter<Map<String, LeafExpr>>() {
+		public Ast var(Ast.Var ast, Map<String, LeafExpr> toPropagate) {
+			if (toPropagate.containsKey(ast.sym.name)) {
+				return toPropagate.get(ast.sym.name);
+			}
+			return dflt(ast, toPropagate);
+		}
+
+		public Ast assign(Ast.Assign ast, Map<String, LeafExpr> toPropagate) {
+			ast.setRight((Expr)visit(ast.right(), toPropagate));
+
+			if (!(ast.left() instanceof Ast.Var)) {
+				ast.setLeft((Expr)visit(ast.left(), toPropagate));
+			}
+
+			return ast;
+		}
+	};
+
+	private AstVisitor<Void, Map<String, LeafExpr>> collectVisitor = 
+			new AstVisitor<Void, Map<String, LeafExpr>>() {
+		public Void assign(Ast.Assign ast, Map<String, LeafExpr> toPropagate) {
+			if (ast.left() instanceof Ast.Var && ast.right() instanceof LeafExpr) {
+				if (((LeafExpr)ast.right()).isCachable()) {
+					toPropagate.put(((Ast.Var)ast.left()).sym.name, (LeafExpr)ast.right());
+				}
+			}
+
+			return dfltStmt(ast, null);
+		}
+
+		public Void visitChildren(Ast ast, Map<String, LeafExpr> arg) {
+			return null;
+		}
 	};
 	
+	private AstVisitor<Boolean, Set<String>> detectUses = new AstVisitor<Boolean, Set<String>>() {
+		public Boolean assign(Ast.Assign ast, Set<String> usedVars) {
+			Boolean isUsed = visit(ast.right(), usedVars);
+			if (!(ast.left() instanceof Ast.Var) || isUsed) {
+				visit(ast.left(), usedVars);
+			}
+
+			return true;
+		}
+
+		public Boolean var(Ast.Var ast, Set<String> usedVars) {
+			usedVars.add(ast.sym.name);
+
+			return false;
+		}
+
+		public Boolean visitChildren(Ast ast, Set<String> arg) {
+			Boolean lastValue = false;
+			for (Ast child : ast.children()) {
+				if (visit(child, arg) == true) {
+					lastValue = true;
+				}
+			}
+			return lastValue;
+		}
+
+		public Boolean binaryOp(Ast.BinaryOp ast, Set<String> arg) {
+			boolean ret, children = dfltExpr(ast, arg);
+			if (ast.operator == Ast.BinaryOp.BOp.B_DIV) {
+				// div may generate division by zero / don't eliminate
+				ret = true;
+			} else {
+				ret = children;
+			}
+
+			return ret;
+		}
+
+		public Boolean newArray(Ast.NewArray ast, Set<String> arg) {
+			// may generate error when provided with a negative size
+			dfltExpr(ast, arg);
+
+			return true;
+		}
+
+		public Boolean index(Ast.Index ast, Set<String> arg) {
+			// may generate error when provided with a negative size
+			dfltExpr(ast, arg);
+
+			return true;
+		}
+
+		public Boolean cast(Ast.Cast ast, Set<String> arg) {
+			dfltExpr(ast, arg);
+
+			return true;
+		}
+
+		public Boolean builtInRead(Ast.BuiltInRead ast, Set<String> arg) {
+			return true;
+		}
+
+		public Boolean builtInReadFloat(Ast.BuiltInReadFloat ast, Set<String> arg) {
+			return true;
+		}
+
+		public Boolean methodCall(Ast.MethodCallExpr ast, Set<String> usedVars) {
+			dfltExpr(ast, usedVars);
+
+			return true;
+		}
+	};
+
 	private AstVisitor<String, Set<String>> detectUnused = new AstVisitor<String, Set<String>>() {
-        public String assign(Ast.Assign ast, Set<String> usedVars) {
-            if (ast.left() instanceof Ast.Var) {
-                Var v = (Var)ast.left();
-                
-                if (usedVars.contains(v.sym.name) == false) {
-                    return v.sym.name;
-                }
-            }
-            
-            return dfltStmt(ast, usedVars);
-        }
-        
-        protected String dflt(Ast ast, Set<String> usedVars) {
-            return null;
-        }
-    };
+		public String assign(Ast.Assign ast, Set<String> usedVars) {
+			if (ast.left() instanceof Ast.Var) {
+				Var v = (Var)ast.left();
+
+				if (usedVars.contains(v.sym.name) == false) {
+					return v.sym.name;
+				}
+			}
+
+			return dfltStmt(ast, usedVars);
+		}
+
+		protected String dflt(Ast ast, Set<String> usedVars) {
+			return null;
+		}
+	};
 }

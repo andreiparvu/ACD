@@ -40,13 +40,13 @@ abstract public class AbstractTestSamplePrograms {
 			warnAboutDiff(phase, exp, act);
 		}
 	}
-	
+
 	/**
 	 * Compare the output of two executions while ignoring
 	 * small differences due to floating point errors.
-	 * E.g. outputs "1.23456" and "1.23455" are OK even though 
-	 * they are slightly different. 
-	 * 
+	 * E.g. outputs "1.23456" and "1.23455" are OK even though
+	 * they are slightly different.
+	 *
 	 */
 	public void assertEqualOutput(String phase, String exp, String act) {
 		act = act.replace("\r\n", "\n"); // for windows machines
@@ -58,7 +58,7 @@ abstract public class AbstractTestSamplePrograms {
 				String expLine = expLines[lineNb];
 				String actLine = actLines[lineNb];
 				// assumption: all output w/ a dot is a floating point nb.
-				if (expLine.contains(".") && actLine.contains(".")) {  
+				if (expLine.contains(".") && actLine.contains(".")) {
 					// allow rounding differences when comparing floating points
 					// (known bug: this doesn't work if there are two floats on a single output line)
 					float expFloat = Float.valueOf(expLine);
@@ -77,7 +77,7 @@ abstract public class AbstractTestSamplePrograms {
 			err.println("Debug information for file: " + this.file);
 			err.println(this.main.debug.toString());
 			err.println(String.format(
-					"Phase %s failed because we expected to see:", phase));
+			                "Phase %s failed because we expected to see:", phase));
 			err.println(exp);
 			err.println("But we actually saw:");
 			err.println(act);
@@ -86,14 +86,14 @@ abstract public class AbstractTestSamplePrograms {
 			err.close();
 		} catch (FileNotFoundException exc) {
 			System.err.println("Unable to write debug output to " + errfile
-					+ ":");
+			                   + ":");
 			exc.printStackTrace();
 		}
 		Assert.assertEquals(
-				String.format("Phase %s for %s failed!", phase,
-						file.getPath()), exp, act);
+		    String.format("Phase %s for %s failed!", phase,
+		                  file.getPath()), exp, act);
 	}
-	
+
 	public static int counter = 0;
 
 	@Test
@@ -102,22 +102,22 @@ abstract public class AbstractTestSamplePrograms {
 
 		// ignore 64-bit-only tests when running 32-bit Java
 		if (new File(file.getAbsolutePath()+".64bitonly").exists() &&
-				Integer.valueOf(System.getProperty("sun.arch.data.model")) == 32) {
+		        Integer.valueOf(System.getProperty("sun.arch.data.model")) == 32) {
 			System.err.println("--> Ignoring test because it's 64-bit-only");
 		}
-        else {
+		else {
 			boolean hasWellDefinedOutput = !new File(file.getAbsolutePath()+".undefinedOutput").exists();
-			
+
 			try {
 				// Load the input and reference results:
 				// Note: this may use the network if no .ref files exist.
-	
+
 				// Delete intermediate files from previous runs:
 				if (sfile.exists())
 					sfile.delete();
 				if (binfile.exists())
 					binfile.delete();
-	
+
 				// Parse the file and check that the generated AST is correct,
 				// or if the parser failed that the correct message was generated:
 				List<ClassDecl> astRoots = testParser();
@@ -126,13 +126,13 @@ abstract public class AbstractTestSamplePrograms {
 						// Run the semantic check and check that errors
 						// are detected correctly, etc.
 						boolean passedSemanticAnalysis = testSemanticAnalyzer(astRoots);
-						
-						if (passedSemanticAnalysis) {
-                        	boolean passedCodeGen = testCodeGenerator(astRoots, hasWellDefinedOutput);
 
-                        	if (passedCodeGen)
-                            	testOptimizer(astRoots);
-                        }
+						if (passedSemanticAnalysis) {
+							boolean passedCodeGen = testCodeGenerator(astRoots, hasWellDefinedOutput);
+
+							if (passedCodeGen)
+								testOptimizer(astRoots);
+						}
 					}
 				}
 			} catch (org.junit.ComparisonFailure cf) {
@@ -147,7 +147,7 @@ abstract public class AbstractTestSamplePrograms {
 				e.printStackTrace(err);
 				throw e;
 			}
-	
+
 			// if we get here, then the test passed, so delete the errfile:
 			// (which has been accumulating debug output etc)
 			if (errfile.exists())
@@ -171,7 +171,7 @@ abstract public class AbstractTestSamplePrograms {
 		try {
 			{
 				astRoots = main.parse(file.getAbsolutePath(), new FileReader(
-						this.file), parserDebug);
+				                          this.file), parserDebug);
 			}
 			parserOut = AstDump.toString(astRoots);
 		} catch (ParseFailure pf) {
@@ -189,14 +189,14 @@ abstract public class AbstractTestSamplePrograms {
 			// do a detailed comparison of the AST, just check
 			// whether the parse succeeded or failed.
 			if (parserOut.equals(Reference.PARSE_FAILURE)
-					|| parserRef.equals(Reference.PARSE_FAILURE))
+			        || parserRef.equals(Reference.PARSE_FAILURE))
 				assertEquals("parser", parserRef, parserOut);
 		}
 		return astRoots;
 	}
 
 	public boolean testSemanticAnalyzer(List<ClassDecl> astRoots)
-			throws IOException {
+	throws IOException {
 		String semanticRef = findSemanticRef();
 
 		boolean passed;
@@ -214,7 +214,7 @@ abstract public class AbstractTestSamplePrograms {
 		assertEquals("semantic", semanticRef, result);
 		return passed;
 	}
-	
+
 	private void testOptimizer(List<ClassDecl> astRoots) throws IOException {
 		// Determine the input and expected operation counts.
 		String inFile = (infile.exists() ? FileUtil.read(infile) : "");
@@ -223,7 +223,7 @@ abstract public class AbstractTestSamplePrograms {
 		// Invoke the interpreter. Don't bother to save the output: we already
 		// verified that in testCodeGenerator().
 		Interpreter interp = new Interpreter(astRoots,
-				new StringReader(inFile), new StringWriter());
+		                                     new StringReader(inFile), new StringWriter());
 
 		// Hacky: refactor this try/catch along with the one in ReferenceServer
 		// somehow.
@@ -250,7 +250,7 @@ abstract public class AbstractTestSamplePrograms {
 	 * is well-defined) compare against the expected output.
 	 */
 	public boolean testCodeGenerator(List<ClassDecl> astRoots, boolean hasWellDefinedOutput)
-			throws IOException {
+	throws IOException {
 		// Determine the input and expected output.
 		String inFile = (infile.exists() ? FileUtil.read(infile) : "");
 		String execRef = findExecRef(inFile);
@@ -264,10 +264,11 @@ abstract public class AbstractTestSamplePrograms {
 		// it to a binary file. We need to call out to GCC or something
 		// to do this.
 		String asmOutput = FileUtil.runCommand(
-				Config.ASM_DIR,
-				Config.ASM,
-				new String[] { binfile.getAbsolutePath(),
-						sfile.getAbsolutePath() }, null, false);
+		                       Config.ASM_DIR,
+		                       Config.ASM,
+		                       new String[] { binfile.getAbsolutePath(),
+		                                      sfile.getAbsolutePath()
+		                                    }, null, false);
 
 		// To check if gcc succeeded, check if the binary file exists.
 		// We could use the return code instead, but this seems more
@@ -279,8 +280,8 @@ abstract public class AbstractTestSamplePrograms {
 		// capturing the output. Check the error code so see if the
 		// code signaled dynamic errors.
 		String execOut = FileUtil.runCommand(new File("."),
-				new String[] { binfile.getAbsolutePath() }, new String[] {},
-				inFile, true);
+		                                     new String[] { binfile.getAbsolutePath() }, new String[] {},
+		                                     inFile, true);
 
 		// Compute the output to what we expected to see.
 		if (execRef.equals(execOut))
@@ -378,7 +379,7 @@ abstract public class AbstractTestSamplePrograms {
 
 	private String fragmentBug(Throwable e) {
 		String res = String.format("** BUG IN REFERENCE SOLUTION: %s **",
-				e.toString());
+		                           e.toString());
 		main.debug(res);
 		e.printStackTrace(new PrintWriter(main.debug));
 		return res;
@@ -394,7 +395,7 @@ abstract public class AbstractTestSamplePrograms {
 		try {
 			registry = LocateRegistry.getRegistry("beholder.inf.ethz.ch");
 			Reference ref = (Reference) registry.lookup(Reference.class
-					.getName());
+			                .getName());
 			return ref;
 		} catch (RemoteException e) {
 			// No network connectivity or server not running?
@@ -405,5 +406,5 @@ abstract public class AbstractTestSamplePrograms {
 		}
 	}
 
-	
+
 }
