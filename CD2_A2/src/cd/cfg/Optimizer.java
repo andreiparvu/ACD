@@ -40,6 +40,8 @@ public class Optimizer {
 	private MethodDecl mdecl;
 	private int nrTemp = 0;
 
+	private final static boolean ADVANCED_OPT = true;
+	
 	public Optimizer(Main main) {
 		this.main = main;
 	}
@@ -104,6 +106,14 @@ public class Optimizer {
 			System.err.println("Phase " + changes);
 		} while (changes != oldChanges);
 		
+		if (ADVANCED_OPT) {
+			// this does dead code and dead basic block elimination
+			advancedOpts(cfg);
+		}
+	}
+
+	private void advancedOpts(ControlFlowGraph cfg) {
+		int oldChanges;
 		oldChanges = 0;
 		changes = 0;
 		
