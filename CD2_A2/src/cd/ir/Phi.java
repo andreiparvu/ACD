@@ -28,7 +28,7 @@ public class Phi {
 	}
 
 	public void checkIfConstant(Map<String, LeafExpr> toPropagate) {
-
+		// all expressions must be the same constant
 		for (Expr e : rhs) {
 			if (e.isConstant() == 0) {
 				return ;
@@ -56,6 +56,7 @@ public class Phi {
 		}
 
 		isConstant = true;
+		// we can further propagate this variable
 		toPropagate.put(lhs.name, (LeafExpr)rhs.get(0));
 	}
 

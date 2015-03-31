@@ -72,7 +72,6 @@ public class Optimizer {
 		String tempName = "$temp_" + nrTemp;
 		VariableSymbol sym = new VariableSymbol(tempName,
 		                                        new PrimitiveTypeSymbol(tempName), VariableSymbol.Kind.LOCAL);
-//	    mdecl.sym.locals.put(tempName, sym);
 		return Var.withSym(sym);
 	}
 
@@ -85,6 +84,7 @@ public class Optimizer {
 		do {
 			oldChanges = changes;
 
+			// constant fold instructions, conditions and phis
 			for (BasicBlock bb : cfg.allBlocks) {
 				for (Ast instr : bb.instructions) {
 					constantFolding.visit(instr, null);
@@ -152,7 +152,9 @@ public class Optimizer {
 
 		for (int i = 0; i < curBB.instructions.size(); i++) {
 			exprManager.curPosition = i;
+			// generate the polish form of all the expressions
 			generateCanonicalForm.visit(curBB.instructions.get(i), null);
+			// generate new temporary variables or replace expressions with existing variables
 			canonicExpressionVisitor.visit(curBB.instructions.get(i), exprManager);
 		}
 		exprManager.curPosition = curBB.instructions.size();
@@ -170,6 +172,8 @@ public class Optimizer {
 			if (exprManager.isUsed.contains(expr)) {
 				ExpressionManager.Data data = exprManager.info.get(expr);
 				if (data.isTemp) {
+					// have to insert a new temporary variable, right before
+					// the instruction in which is was created
 					curBB.instructions.add(data.position + nrAdded,
 					                       new Assign(data.substitute, data.node));
 					mdecl.sym.locals.put(data.substitute.sym.name, data.substitute.sym);
@@ -210,6 +214,7 @@ public class Optimizer {
 					}
 				}
 
+				// use Polish form: operator / left / right
 				ast.canonicalForm = String.format("%s %s %s", ast.operator.repr, leftStr, rightStr);
 			}
 
@@ -252,10 +257,10 @@ public class Optimizer {
 		public Ast binaryOp(BinaryOp ast, ExpressionManager exprManager) {
 			if (ast.canonicalForm != null) {
 				assert ast.isCachable();
-				System.err.println("here " + ast.canonicalForm);
 				if (!exprManager.info.containsKey(ast.canonicalForm)) {
 					Var next;
 					boolean isTemp = false;
+					// determine is we use the current variable, or create a temporary one
 					if (exprManager.curVar == null) {
 						next = newTempVar();
 						isTemp = true;
@@ -267,6 +272,7 @@ public class Optimizer {
 					exprManager.info.put(ast.canonicalForm,
 					                     (new ExpressionManager()).new Data(exprManager.curPosition, next, ast, isTemp));
 				} else {
+					// cache the expression
 					changes++;
 					exprManager.isUsed.add(ast.canonicalForm);
 					return exprManager.info.get(ast.canonicalForm).substitute;
@@ -505,11 +511,13 @@ public class Optimizer {
 	};
 
 	void propagateCopies(BasicBlock bb, Map<String, LeafExpr> toPropagate) {
+		// propagate copies in phi nodes
 		for (Phi phi : bb.phis.values()) {
 			for (int i = 0; i < phi.rhs.size(); i++) {
-				phi.rhs.set(i, (Expr)new PropagateVisitor().visit(phi.rhs.get(i), toPropagate));
+				phi.rhs.set(i, (Expr)propagateVisitor.visit(phi.rhs.get(i), toPropagate));
 			}
 		}
+		// remove if phi is constant - no matter from which basic block you come, we same result will be phi-ed
 		Iterator<Map.Entry<VariableSymbol, Phi>> iter = bb.phis.entrySet().iterator();
 		while (iter.hasNext()) {
 			if ((iter.next()).getValue().isConstant) {
@@ -518,11 +526,12 @@ public class Optimizer {
 		}
 
 		for (Ast instr : bb.instructions) {
-			new PropagateVisitor().visit(instr, toPropagate);
-			new CollectVisitor().visit(instr, toPropagate);
+			// propagate variables and collect new variables to propagate
+			propagateVisitor.visit(instr, toPropagate);
+			collectVisitor.visit(instr, toPropagate);
 		}
 		if (bb.condition != null) {
-			bb.condition = (Expr)new PropagateVisitor().visit(bb.condition, toPropagate);
+			bb.condition = (Expr)propagateVisitor.visit(bb.condition, toPropagate);
 		}
 
 		for (BasicBlock next : bb.dominatorTreeChildren) {
@@ -530,7 +539,7 @@ public class Optimizer {
 		}
 	}
 
-	private class PropagateVisitor extends OptimizerAstRewriter<Map<String, LeafExpr>> {
+	private OptimizerAstRewriter<Map<String, LeafExpr>> propagateVisitor = new OptimizerAstRewriter<Map<String, LeafExpr>>() {
 		public Ast var(Ast.Var ast, Map<String, LeafExpr> toPropagate) {
 			if (toPropagate.containsKey(ast.sym.name)) {
 				return toPropagate.get(ast.sym.name);
@@ -547,9 +556,9 @@ public class Optimizer {
 
 			return ast;
 		}
-	}
+	};
 
-	private class CollectVisitor extends AstVisitor<Void, Map<String, LeafExpr>> {
+	private AstVisitor<Void, Map<String, LeafExpr>> collectVisitor = new AstVisitor<Void, Map<String, LeafExpr>>() {
 		public Void assign(Ast.Assign ast, Map<String, LeafExpr> toPropagate) {
 			if (ast.left() instanceof Ast.Var && ast.right() instanceof LeafExpr) {
 				if (((LeafExpr)ast.right()).isCachable()) {
@@ -563,5 +572,5 @@ public class Optimizer {
 		public Void visitChildren(Ast ast, Map<String, LeafExpr> arg) {
 			return null;
 		}
-	}
+	};
 }
