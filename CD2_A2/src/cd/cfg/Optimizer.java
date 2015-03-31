@@ -114,7 +114,7 @@ public class Optimizer {
 			for (; bbIt.hasNext(); ) {
 				BasicBlock blk = bbIt.next();
 
-				if (blk.condition.isConstant() == Ast.Expr.BOOL) {
+				if (blk.condition != null && blk.condition.isConstant() == Ast.Expr.BOOL) {
 					BooleanConst c = (BooleanConst)blk.condition;
 
 					if (c.value) {
