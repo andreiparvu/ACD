@@ -40,7 +40,7 @@ public class Optimizer {
 	private MethodDecl mdecl;
 	private int nrTemp = 0;
 
-	private final static boolean ADVANCED_OPT = true;
+	private final static boolean ADVANCED_OPT = false;
 	
 	public Optimizer(Main main) {
 		this.main = main;
@@ -105,7 +105,7 @@ public class Optimizer {
 			propagateCopies(cfg.start, propagations);
 
 			identifySubexpression(cfg.start, new ExpressionManager());
-			System.err.println("Phase " + changes);
+//			System.err.println("Phase " + changes);
 		} while (changes != oldChanges);
 		
 		if (ADVANCED_OPT) {
@@ -200,7 +200,7 @@ public class Optimizer {
 				if (child != null) {
 					Ast replace = visit(child, arg);
 					if (replace != child) {
-						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
+//						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
 						changes++;
 
 						children.set(replace);
@@ -218,7 +218,7 @@ public class Optimizer {
 				if (child != null) {
 					Ast replace = visit(child, arg);
 					if (replace != child) {
-						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
+//						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
 						changes++;
 
 						children.set(replace);
@@ -658,6 +658,8 @@ public class Optimizer {
 	};
 	
 	private AstVisitor<Boolean, Set<String>> detectUses = new AstVisitor<Boolean, Set<String>>() {
+		// each method returns true or false, depending if we can eliminate this current statement
+		// or not
 		public Boolean assign(Ast.Assign ast, Set<String> usedVars) {
 			Boolean isUsed = visit(ast.right(), usedVars);
 			if (!(ast.left() instanceof Ast.Var) || isUsed) {
@@ -736,6 +738,7 @@ public class Optimizer {
 				Var v = (Var)ast.left();
 
 				if (usedVars.contains(v.sym.name) == false) {
+					// This variable is not marked as used, return it
 					return v.sym.name;
 				}
 			}

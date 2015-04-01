@@ -5,6 +5,15 @@ class Main {
     return 3;
   }
 
+  void f(int a, int b) {
+    int[] v;
+    int i;
+    v = new int[10];
+    i = a + b;
+
+    v[i] = 4;
+  }
+
   void main() {
     int a, x;
     int[] b;
