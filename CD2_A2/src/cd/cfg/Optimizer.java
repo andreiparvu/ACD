@@ -21,6 +21,7 @@ import cd.ir.Ast.FloatConst;
 import cd.ir.Ast.IntConst;
 import cd.ir.Ast.LeafExpr;
 import cd.ir.Ast.MethodDecl;
+import cd.ir.Ast.NullConst;
 import cd.ir.Ast.UnaryOp;
 import cd.ir.Ast.UnaryOp.UOp;
 import cd.ir.Ast.Var;
@@ -383,9 +384,22 @@ public class Optimizer {
 				return floatConstOp(ast, (FloatConst)left, (FloatConst)right);
 			} else if (ast.type.equals(main.intType)) {
 				return intBinOpSimplification(ast);
+			} else if (left instanceof NullConst && right instanceof NullConst) {
+				return nullConstBinOpSimplification(ast);
 			}
 
 			return ast;
+		}
+
+		private Ast nullConstBinOpSimplification(BinaryOp ast) {
+			switch (ast.operator) {
+			case B_EQUAL:
+				return new BooleanConst(true);
+			case B_NOT_EQUAL:
+				return new BooleanConst(false);
+			default:
+				return ast;
+			}
 		}
 
 		private Expr intConstOp(BinaryOp op, IntConst left, IntConst right) {
