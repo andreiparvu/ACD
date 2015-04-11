@@ -374,6 +374,12 @@ public class AstCodeGenerator {
 		emitLabel(MAIN);
 		emit("enter", "$8", "$0");
 		emit("and", -16, SP);
+		emit("push $1");
+		emit("mov %esp, %eax");
+		emit("sub $12, %eax");
+		emit("push %eax");
+		emit("call add_vars");
+		emit("add $8, %esp");
 		sdg.gen(callMain);
 		emit("movl", "$0", "%eax"); // normal termination:
 		emit("leave");
@@ -1657,6 +1663,7 @@ public class AstCodeGenerator {
 			emitComment(String.format("%-10s   %d", local, local.offset));
 		}
 
+		
 		// Round up stack size to make it a multiple of 16.
 		// The actual amount passed to the enter instruction is 8
 		// less, however, because it wants to know the amount
@@ -1672,14 +1679,28 @@ public class AstCodeGenerator {
 		
 		storeCalleeSaveRegs();
 
+		emit(String.format("push $%d", ast.sym.locals.size()));
+		emit("mov %ebp, %eax");
+		emit("sub $12, %eax");
+		emit("push %eax");
+		emit("call add_vars");
+		emit("add $8, %esp");
 	}
 
 	protected void emitMethodSuffix(boolean returnNull) {
-			if (returnNull)
-				emit("movl", "$0", "%eax");
-			restoreCalleeSaveRegs();
-			emit("leave");
-			emit("ret");
+		emit("mov %ebp, %eax");
+		emit("sub $12, %eax");
+		emit("push %eax");
+		emit("call delete_vars");
+		emit("add $4, %esp");
+
+		emit("call cleanup");
+
+		if (returnNull)
+			emit("movl", "$0", "%eax");
+		restoreCalleeSaveRegs();
+		emit("leave");
+		emit("ret");
 	}
 
 }

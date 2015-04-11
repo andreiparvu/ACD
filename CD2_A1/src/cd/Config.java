@@ -129,7 +129,7 @@ public class Config {
             MAIN = "main";
             PRINTF = "printf";
             SCANF = "scanf";
-            MALLOC = "malloc";
+            MALLOC = "myalloc";
             EXIT = "exit";
             ASM = new String[]{"gcc", "-m32", "-o", "$0", "$1"};
             ASM_DIR = new File(".");
