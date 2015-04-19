@@ -106,7 +106,6 @@ public class Optimizer {
 			propagateCopies(cfg.start, propagations);
 
 			identifySubexpression(cfg.start, new ExpressionManager());
-//			System.err.println("Phase " + changes);
 		} while (changes != oldChanges);
 		
 		if (ADVANCED_OPT) {
@@ -201,7 +200,6 @@ public class Optimizer {
 				if (child != null) {
 					Ast replace = visit(child, arg);
 					if (replace != child) {
-//						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
 						changes++;
 
 						children.set(replace);
@@ -219,7 +217,6 @@ public class Optimizer {
 				if (child != null) {
 					Ast replace = visit(child, arg);
 					if (replace != child) {
-//						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
 						changes++;
 
 						children.set(replace);
@@ -244,7 +241,7 @@ public class Optimizer {
 		exprManager.curPosition = curBB.instructions.size();
 		if (curBB.condition != null) {
 			generateCanonicalForm.visit(curBB.condition, null);
-			canonicExpressionVisitor.visit(curBB.condition, exprManager);
+			curBB.condition = (Ast.Expr)canonicExpressionVisitor.visit(curBB.condition, exprManager);
 		}
 
 		for (BasicBlock bb : curBB.dominatorTreeChildren) {
@@ -638,6 +635,7 @@ public class Optimizer {
 			new OptimizerAstRewriter<Map<String, LeafExpr>>() {
 		public Ast var(Ast.Var ast, Map<String, LeafExpr> toPropagate) {
 			if (toPropagate.containsKey(ast.sym.name)) {
+				changes++;
 				return toPropagate.get(ast.sym.name);
 			}
 			return dflt(ast, toPropagate);
