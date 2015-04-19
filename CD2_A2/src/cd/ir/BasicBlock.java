@@ -3,6 +3,7 @@ package cd.ir;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -97,6 +98,14 @@ public class BasicBlock {
 		this.index = index;
 	}
 	
+	public void deleteTrueSuccessor() {
+	    this.successors.remove(0);
+	}
+	
+	public void deleteFalseSuccessor() {
+	    this.successors.remove(1);
+	}
+	
 	public BasicBlock trueSuccessor() {
 		assert this.condition != null;
 		return this.successors.get(0);
@@ -106,6 +115,25 @@ public class BasicBlock {
 		assert this.condition != null;
 		return this.successors.get(1);
 	}
+	
+	public boolean isDead() {
+	    return predecessors.size() == 0;
+	}
+	
+	public void deletePred(BasicBlock bb) {
+	    Iterator<BasicBlock> it = predecessors.iterator();
+	    int pos = 0;
+        for (; it.hasNext(); pos++) {
+            if (it.next().index == bb.index) {
+                
+                for (Phi phi : phis.values()) {
+                    phi.rhs.remove(pos);
+                }
+                it.remove();
+                break;
+            }
+        }
+    }
 	
 	public String toString() {
 		return "BB"+index;

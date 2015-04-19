@@ -23,7 +23,7 @@ public class TestSamplePrograms extends AbstractTestSamplePrograms {
 	 * {@code justFile = new File("javali_tests/A2/Inheritance.javali")}.
 	 */
 
-//	public static final File justFile = new File("./javali_tests/CD2_A2/CommonSubExprArray.javali");
+//	public static final File justFile = new File("./javali_tests/CD2_A2/if_opt.javali");
 	public static final File justFile = null;
 
 	/**

@@ -16,7 +16,7 @@ class Main {
     }
 
     d = a;
-    write(p);
+    writef(p);
     write(a);
     write(b);
     write(d);
