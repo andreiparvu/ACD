@@ -4,10 +4,10 @@ CFLAGS += -m32
 
 .PHONY: all clean
 
-all: librt.a
+all: libjavali.a
 
-librt.a: $(OBJS) 
-	ar -rcs librt.a $(OBJS)
+libjavali.a: $(OBJS) 
+	ar -rcs libjavali.a $(OBJS)
 
 clean:
-	rm -f librt.a $(OBJS)
+	rm -f libjavali.a $(OBJS)
