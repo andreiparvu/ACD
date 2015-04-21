@@ -1,0 +1,21 @@
+class Main {
+  void doit(int a) {
+    int x, y, z;
+
+    x = 40;
+    if (x <= 2) {
+      y = a + 10;
+
+      write(y);
+    } else {
+      z = a + 30;
+      write(z);
+    }
+
+  }
+
+  void main() {
+    doit(10);
+  }
+}
+
