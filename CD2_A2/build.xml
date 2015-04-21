@@ -37,7 +37,7 @@
 	</target>
 	
 	<target name="compile-rt">
-		<exec executable="make" dir="${rt.dir}" />
+		<exec executable="make" dir="${rt.dir}" failonerror="true"/>
 	</target>
 	
 	<target name="clean-rt">

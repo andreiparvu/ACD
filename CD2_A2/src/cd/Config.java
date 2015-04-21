@@ -97,7 +97,7 @@ public class Config {
             EXIT = "_exit";
             // These are set up for a Cygwin installation on C:,
             // you can change as needed.
-            ASM = new String[]{"gcc", "-o", "$0", "$1"};
+            ASM = new String[]{"gcc", "-o", "$0", "$1", "-L$2", "-ljavali", "-lpthread"};
             ASM_DIR = new File("C:\\CYGWIN\\BIN");
             DOT_STRING = ".string";
             DOT_INT = ".int";
@@ -114,7 +114,7 @@ public class Config {
             SCANF = "_scanf";
             MALLOC = "_malloc";
             EXIT = "_exit";
-            ASM = new String[]{"gcc", "-m32", "-o", "$0", "$1"};
+            ASM = new String[]{"gcc", "-m32", "-o", "$0", "$1", "-L$2", "-ljavali", "-lpthread"};
             ASM_DIR = new File(".");
             DOT_STRING = ".asciz";
             DOT_INT = ".long";
@@ -131,7 +131,7 @@ public class Config {
             SCANF = "scanf";
             MALLOC = "malloc";
             EXIT = "exit";
-            ASM = new String[]{"gcc", "-m32", "-o", "$0", "$1"};
+            ASM = new String[]{"gcc", "-m32", "-o", "$0", "$1", "-L$2", "-ljavali", "-lpthread"};
             ASM_DIR = new File(".");
             DOT_STRING = ".string";
             DOT_INT = ".int";
