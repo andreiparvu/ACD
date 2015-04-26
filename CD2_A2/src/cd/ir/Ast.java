@@ -465,6 +465,8 @@ public abstract class Ast {
 
 		/** Name of the type to be created */
 		public String typeName;
+		
+		public boolean stackAlloc = false;
 
 		public NewObject(String typeName) {
 			this.typeName = typeName;

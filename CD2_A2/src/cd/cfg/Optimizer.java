@@ -41,7 +41,8 @@ public class Optimizer {
 	private MethodDecl mdecl;
 	private int nrTemp = 0;
 
-	private final static boolean ADVANCED_OPT = false;
+	private final static boolean ADVANCED_OPT = false,
+								 DO_OPTIMIZATIONS = true;
 	
 	public Optimizer(Main main) {
 		this.main = main;
@@ -82,6 +83,10 @@ public class Optimizer {
 		ControlFlowGraph cfg = md.cfg;
 		mdecl = md;
 
+		if (!DO_OPTIMIZATIONS) {
+			return ;
+		}
+		
 		Map<String, LeafExpr> propagations = new HashMap<>();
 		int oldChanges = 0;
 		do {

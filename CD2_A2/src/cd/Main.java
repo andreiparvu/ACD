@@ -19,6 +19,7 @@ import org.antlr.runtime.tree.CommonTreeNodeStream;
 import cd.cfg.CFGBuilder;
 import cd.cfg.DeSSA;
 import cd.cfg.Dominator;
+import cd.cfg.EscapeAnalyzer;
 import cd.cfg.Optimizer;
 import cd.cfg.SSA;
 import cd.codegen.CfgCodeGenerator;
@@ -206,6 +207,12 @@ public class Main {
 					for (MethodDecl md : cd.methods())
 						new Optimizer(this).compute(md);
 				CfgDump.toString(astRoots, ".opt", cfgdumpbase, false);				
+			}
+			
+			for (ClassDecl cd : astRoots) {
+				for (MethodDecl md : cd.methods()) {
+					new EscapeAnalyzer(this).compute(md);
+				}
 			}
 
 			// Remove SSA form.

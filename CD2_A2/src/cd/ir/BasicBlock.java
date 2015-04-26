@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import cd.cfg.EscapeAnalyzer;
 import cd.ir.Ast.Expr;
 import cd.ir.Symbol.VariableSymbol;
 
@@ -93,6 +94,8 @@ public class BasicBlock {
 	 * then {@code x0} would be the key under which {@code P} would be stored.
 	 */
 	public final Map<VariableSymbol, Phi> phis = new HashMap<VariableSymbol, Phi>();
+	
+	public EscapeAnalyzer.Graph escapeGraph;
 	
 	public BasicBlock(int index) {
 		this.index = index;

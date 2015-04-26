@@ -1129,11 +1129,18 @@ public class AstCodeGenerator {
 			{
 				ClassSymbol clssym = (ClassSymbol) ast.type;
 				String reg = getRegister();
-				int allocPadding = emitCallPrefix(reg, 1);
-				push(c(clssym.sizeof));
-				emit("call", ALLOC);
-				emitCallSuffix(reg, 1, allocPadding);
-				emitStore(c(vtable(clssym)), 0, reg);
+				
+				// hard-coded
+				if (ast.stackAlloc) {
+					emit("sub", "$" + clssym.sizeof, "%esp");
+					emit("mov", "%esp", reg);
+				} else {
+					int allocPadding = emitCallPrefix(reg, 1);
+					push(c(clssym.sizeof));
+					emit("call", ALLOC);
+					emitCallSuffix(reg, 1, allocPadding);
+					emitStore(c(vtable(clssym)), 0, reg);
+				}
 				return reg;
 			}
 		}
