@@ -1,0 +1,22 @@
+class Main {
+
+    void f() {
+        f();
+    }
+
+    void main() {
+        if (false) {
+            f();
+        }
+    }
+}
+
+class Child extends Main {
+    void f() {
+        g();
+    }
+    
+    void g() {
+        f();
+    }
+}

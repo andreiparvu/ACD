@@ -14,7 +14,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.antlr.runtime.ANTLRReaderStream;
 import org.antlr.runtime.CommonTokenStream;
@@ -22,7 +24,8 @@ import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
 
 import cd.analyze.CallGraphGenerator;
-import cd.analyze.CallGraphGenerator.CallGraphNode;
+import cd.analyze.CallGraphSCC;
+import cd.analyze.EscapeAnalysis;
 import cd.cfg.CFGBuilder;
 import cd.cfg.DeSSA;
 import cd.cfg.Dominator;
@@ -242,14 +245,7 @@ public class Main {
 			}
 			
 			{
-				HashMap<String, CallGraphNode> cg = new CallGraphGenerator(this).compute(astRoots);
-				for (Entry<String, CallGraphNode> method : cg.entrySet()) {
-					LinkedList<String> callees = new LinkedList<>();
-					for (CallGraphNode node : method.getValue().callees) {
-						callees.add(node.method.fullName());
-					}
-					System.out.println(method.getKey() + ":" + Arrays.toString(callees.toArray()));
-				}
+				new EscapeAnalysis(this).analyze(astRoots);
 			}
 
 			// Remove SSA form.
