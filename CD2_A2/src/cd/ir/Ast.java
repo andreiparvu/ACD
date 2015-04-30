@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import cd.cfg.EscapeAnalyzer;
 import cd.debug.AstOneLine;
 import cd.ir.Symbol.ClassSymbol;
 import cd.ir.Symbol.MethodSymbol;
@@ -1110,6 +1111,7 @@ public abstract class Ast {
 		public List<String> argumentNames;
 		public MethodSymbol sym;
 		public ControlFlowGraph cfg;
+		public int analyzedColor = EscapeAnalyzer.WHITE;
 
 		public MethodDecl(
 		    String returnType,

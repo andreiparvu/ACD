@@ -11,6 +11,10 @@ class C {
   int y;
 }
 
+class P {
+  P next;
+}
+
 class Main {
 
   B var;

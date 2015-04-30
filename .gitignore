@@ -8,4 +8,6 @@ bin/
 *.ref
 *.s
 *.err
+*.class
+*.png
 a.out

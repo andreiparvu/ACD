@@ -1,6 +1,7 @@
 package cd;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -209,10 +210,25 @@ public class Main {
 				CfgDump.toString(astRoots, ".opt", cfgdumpbase, false);				
 			}
 			
-			for (ClassDecl cd : astRoots) {
-				for (MethodDecl md : cd.methods()) {
-					new EscapeAnalyzer(this).compute(md);
+			try {
+				File f = new File(cfgdumpbase.getName() + ".escape.dot");
+				PrintWriter pw = new PrintWriter(f);
+				
+				EscapeAnalyzer analyzer = new EscapeAnalyzer(this);
+				
+				pw.write("digraph G {\ngraph [rankdir = \"LR\"];\n");
+				int ind = 0;
+				for (ClassDecl cd : astRoots) {
+					for (MethodDecl md : cd.methods()) {
+						pw.write(String.format("subgraph cluster_%d{\n", ind++));
+						analyzer.compute(md, pw);
+						pw.write("}\n");
+					}
 				}
+				pw.write("}\n");
+				pw.close();
+			} catch (FileNotFoundException ex) {
+				System.err.println(ex);
 			}
 
 			// Remove SSA form.
