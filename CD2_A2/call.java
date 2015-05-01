@@ -27,6 +27,14 @@ class Main {
     write(b.x);
   }
 
+  void loop() {
+    P p;
+    p = new P();
+    p.next = new P();
+
+    p.next.next = p;
+  }
+
   void main() {
     A a;
     B b;
