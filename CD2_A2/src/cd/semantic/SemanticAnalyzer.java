@@ -53,12 +53,17 @@ public class SemanticAnalyzer {
 		typeSymbols.add(main.floatType);
 		typeSymbols.add(main.voidType);
 		typeSymbols.add(main.objectType);
+		typeSymbols.add(main.threadType);
 		
 		// Add symbols for all declared classes.
 		for (ClassDecl ast : classDecls) {
 			// Check for classes named Object
-			if (ast.name.equals(main.objectType.name))
+			if (ast.name.equals(main.objectType.name)) {
 				throw new SemanticFailure(Cause.OBJECT_CLASS_DEFINED);
+			} else if (ast.name.equals(main.threadType.name)) {
+				// TODO special error for this?
+				throw new SemanticFailure(Cause.DOUBLE_DECLARATION);
+			}
 			ast.sym = new ClassSymbol(ast);
 			typeSymbols.add(ast.sym); 
 		}
@@ -74,7 +79,7 @@ public class SemanticAnalyzer {
 		SymbolCreator sc = new SymbolCreator(main, typeSymbols);
 		for (ClassDecl ast : classDecls)
 			sc.createSymbols(ast);
-		
+
 		return typeSymbols;
 	}
 	

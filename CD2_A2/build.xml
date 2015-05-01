@@ -9,18 +9,19 @@
 	<property name="test.dir" value="test"/>
 	<property name="parser.dir" value="${src.dir}/cd/parser"/>
 	<property name="build.dir" value="bin"/>
+	<property name="rt.dir" value="rt"/>
 	<property name="junit.jar" value="lib/junit-4.4.jar"/>		
 	<property name="antlr.jar" value="lib/antlr-3.5.2-complete.jar"/>
 	<property name="antlr.profile" value="false"/>
 	<property name="antlr.report" value="false"/>
 	
 	<!-- Cleans generated code, but NOT the parser source! -->
-	<target name="clean">
+	<target name="clean" depends="clean-rt">
 		<delete dir="${build.dir}"/>
 	</target>
 
 	<!-- Builds the compiler framework. -->
-	<target name="compile">
+	<target name="compile" depends="compile-rt">
 		<mkdir dir="${build.dir}"/>
 		<javac srcdir="${src.dir}" destdir="${build.dir}" debug="true">
 			<classpath>		    
@@ -33,6 +34,16 @@
 				<pathelement location="${antlr.jar}"/>		        
 			</classpath>			
 		</javac>
+	</target>
+	
+	<target name="compile-rt">
+		<exec executable="make" dir="${rt.dir}" failonerror="true"/>
+	</target>
+	
+	<target name="clean-rt">
+		<exec executable="make" dir="${rt.dir}">
+			<arg value="clean"/>
+		</exec>
 	</target>
 
 	<!-- Deletes all byproducts of running the tests except for ref files -->
