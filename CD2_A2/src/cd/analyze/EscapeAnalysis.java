@@ -27,6 +27,8 @@ public class EscapeAnalysis {
 	private Map<MethodSymbol, List<MethodSymbol>> callees;
 
 	class AliasSet {
+		public boolean escapes = false;
+
 		private final Map<String, AliasSet> fieldMap = new HashMap<>();
 		
 		public AliasSet fieldMap(String field) {
@@ -34,6 +36,10 @@ public class EscapeAnalysis {
 				fieldMap.put(field, new AliasSet());
 			}
 			return fieldMap.get(field);
+		}
+		
+		public AliasSet deepCopy() {
+			return null;
 		}
 	}
 	
@@ -59,6 +65,8 @@ public class EscapeAnalysis {
 		this.main = main;
 	}
 
+	Map<>
+	
 	public void analyze(List<ClassDecl> astRoots) {
 		// 3.3.1 Interprocedural analysis
 		
