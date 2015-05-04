@@ -1,6 +1,6 @@
 OBJS = threads.o
 
-CFLAGS += -m32
+CFLAGS += -m32 -Wall -Werror
 
 .PHONY: all clean
 

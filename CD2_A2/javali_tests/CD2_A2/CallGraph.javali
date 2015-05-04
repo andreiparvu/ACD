@@ -8,6 +8,12 @@ class Main {
         if (false) {
             f();
         }
+        
+        h();
+    }
+
+    void h() {
+    
     }
 }
 
@@ -18,5 +24,9 @@ class Child extends Main {
     
     void g() {
         f();
+    }
+    
+    void h() {
+        main();
     }
 }

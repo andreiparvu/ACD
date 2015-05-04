@@ -3,46 +3,80 @@
 #include <stdlib.h>
 #include <assert.h>
 
-struct thread_obj {
+struct object {
+    void *object_vtable;
+    pthread_mutex_t *mutex;
+};
+
+struct thread {
     struct thread_vtable *vtable;
-    pthread_t *pthread;
+    pthread_mutex_t *mutex;
+    pthread_t *thread;
 };
 
 struct thread_vtable {
     void *object_vtable;
-    void *(*thread_run) (struct thread_obj*);
-    void *(*thread_start) (struct thread_obj*);
-    void *(*thread_join) (struct thread_obj*);
+    void *(*object_lock) (struct object*);
+    void *(*object_unlock) (struct object*);
+    void *(*thread_run) (struct thread*);
+    void *(*thread_start) (struct thread*);
+    void *(*thread_join) (struct thread*);
 };
 
-
-
-void *thread_entry(void *arg)
+static void *thread_entry(void *arg)
 {
-    struct thread_obj *this = arg;
-    // call this.run()
-    this->vtable->thread_run(this);
+    struct thread *this = arg;
+    this->vtable->thread_run(this); // calls this.run()
     pthread_exit(NULL);
 }
 
-void Thread_start(struct thread_obj *this)
+void Object__init__(struct object *this) {
+    this->mutex = malloc(sizeof(pthread_mutex_t));
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    int rc = pthread_mutex_init(this->mutex, &attr);
+    if (rc) {
+        perror("pthread_mutex_init: ");
+        exit(1);
+    }
+    pthread_mutexattr_destroy(&attr);
+}
+
+void Object_lock(struct object *this) {
+    int rc = pthread_mutex_lock(this->mutex);
+    if (rc) {
+        perror("pthread_mutex_lock: ");
+        exit(1);
+    }
+}
+
+void Object_unlock(struct object *this) {
+    int rc = pthread_mutex_unlock(this->mutex);
+    if (rc) {
+        perror("pthread_mutex_unlock: ");
+        exit(1);
+    }
+}
+
+void Thread_start(struct thread *this)
 {
     assert (this != NULL);
 
-    this->pthread = malloc(sizeof(pthread_t));
-    int rc = pthread_create(this->pthread, NULL, thread_entry, (void *)this);
+    this->thread = malloc(sizeof(pthread_t));
+    int rc = pthread_create(this->thread, NULL, thread_entry, (void *)this);
     if (rc) {
         perror("pthread_create: ");
         exit(1);
     }
 }
 
-void Thread_run(struct thread_obj *this) {
+void Thread_run(struct thread *this) {
 
 }
 
-void Thread_join(struct thread_obj *this) {
-    int rc = pthread_join(*(this->pthread), NULL);
+void Thread_join(struct thread *this) {
+    int rc = pthread_join(*(this->thread), NULL);
     if (rc) {
         perror("pthread_join: ");
         exit(1);
