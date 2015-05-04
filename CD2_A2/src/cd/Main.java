@@ -242,15 +242,12 @@ public class Main {
 				File f = new File(cfgdumpbase.getName() + ".escape.dot");
 				PrintWriter pw = new PrintWriter(f);
 				
-				EscapeAnalyzer analyzer = new EscapeAnalyzer(this);
-				
 				pw.write("digraph G {\ngraph [rankdir = \"LR\"];\n");
-				int ind = 0;
 				for (ClassDecl cd : astRoots) {
 					for (MethodDecl md : cd.methods()) {
-						pw.write(String.format("subgraph cluster_%d{\n", ind++));
-						analyzer.compute(md, pw);
-						pw.write("}\n");
+						if (md.analyzedColor == EscapeAnalyzer.WHITE) {
+							(new EscapeAnalyzer(this)).compute(md, pw);
+						}
 					}
 				}
 				pw.write("}\n");

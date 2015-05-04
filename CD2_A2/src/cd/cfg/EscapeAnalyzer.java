@@ -1,7 +1,6 @@
 package cd.cfg;
 
 import java.io.PrintWriter;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -14,15 +13,21 @@ import cd.debug.AstOneLine;
 import cd.ir.Ast;
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.Field;
+import cd.ir.Ast.Index;
 import cd.ir.Ast.MethodCallExpr;
 import cd.ir.Ast.MethodDecl;
+import cd.ir.Ast.NewArray;
 import cd.ir.Ast.NewObject;
+import cd.ir.Ast.ThisRef;
 import cd.ir.Ast.Var;
 import cd.ir.AstVisitor;
 import cd.ir.BasicBlock;
 import cd.ir.ControlFlowGraph;
+import cd.ir.Symbol.ArrayTypeSymbol;
+import cd.ir.Symbol.ClassSymbol;
 import cd.ir.Symbol.TypeSymbol;
 import cd.ir.Symbol.VariableSymbol;
+import cd.util.Pair;
 
 public class EscapeAnalyzer {
 	public final Main main;
@@ -36,30 +41,35 @@ public class EscapeAnalyzer {
 		this.main = main;
 	}
 	
-	private int nodeCount = 0;
+	private static int nodeCount = 0;
+	private static int clusterInd = 0;
 	
 	private class GraphNode {
 		int index;
-		boolean isEscaped = false;
-		boolean isReturned = false;
-		boolean isRefParameter = false;
-		boolean dfsColor = false;
+		
+		final static String ARRAY = "array", REF_PARAM="ref_param", ESCAPED="escaped",
+				THREAD="thread", THIS="this", RETURNED = "returned";
+		
+		HashSet<String> properties = new HashSet<>();
+		
+		boolean dfsColor = false, writeColor = false;
 		
 		GraphNode copy = null;
 		
 		HashMap<String, HashMap<Integer, GraphNode>> outNodes = new HashMap<>();
 
-		GraphNode(boolean isEscaped, boolean isRefParameter) {
-			this.isEscaped = isEscaped;
-			this.isRefParameter = isRefParameter;
+		GraphNode(String... props) {
+			
+			for (String prop : props) {
+				properties.add(prop);
+			}
+			
 			index = ++nodeCount;
 		}
 		
-		GraphNode(int index, boolean isEscaped, boolean isRefParameter, boolean isReturned) {
+		GraphNode(int index, Set<String> properties) {
 			this.index = index;
-			this.isEscaped = isEscaped;
-			this.isRefParameter = isRefParameter;
-			this.isReturned = isReturned;
+			this.properties = new HashSet<>(properties);
 		}
 		
 		GraphNode() {
@@ -69,6 +79,23 @@ public class EscapeAnalyzer {
 		GraphNode addReference(String label) {
 			return addReference(label, null);
 		}
+		
+		public void setThread() {
+			properties.add(THREAD);
+		}
+		
+		public void setArray() {
+			properties.add(ARRAY);
+		}
+		
+		public void setEscaped() {
+			properties.add(ESCAPED);
+		}
+		
+		public void setReturned() {
+			properties.add(RETURNED);
+		}
+		
 		
 		GraphNode addReference(String label, GraphNode n) {
 			if (outNodes.containsKey(label) == false) {
@@ -90,9 +117,14 @@ public class EscapeAnalyzer {
 			}
 		}
 		
+		boolean notAlloc() {
+			return !(properties.size() == 0 ||
+					(properties.size() == 1 && properties.contains("thread"))); // might check this
+		}
+		
 		GraphNode deepCopy() {
 			if (copy == null) {
-				copy = new GraphNode(index, isEscaped, isRefParameter, isReturned);
+				copy = new GraphNode(index, properties);
 				
 				for (String label : outNodes.keySet()) {
 					HashMap<Integer, GraphNode> list = new HashMap<>();
@@ -123,7 +155,6 @@ public class EscapeAnalyzer {
 		void merge(GraphNode node) {
 			for (String label : node.outNodes.keySet()) {
 				if (outNodes.containsKey(label)) {
-					
 					for (GraphNode n : node.outNodes.get(label).values()) {
 						if (outNodes.get(label).containsKey(n.index)) {
 							outNodes.get(label).get(n.index).merge(n);
@@ -138,77 +169,113 @@ public class EscapeAnalyzer {
 		}
 
 		void buildNodes(String path, Set<GraphNode> results) {
-			if (path.length() == 0) {
-				results.add(this);
-				return ;
+			Pair<Integer> next = computeNextLabel(path);
+			boolean addArray = false;
+			
+			if (next.a != path.length() && path.charAt(next.a) == '[') {
+				// we need to add the array property if we encounter the indexing parameter
+				addArray = true;
 			}
 			
-			int x = path.indexOf('.');
-			HashMap<Integer, GraphNode> list;
-			
-			if (x == -1) {
-				x = path.length();
-			}
-			
-			list = outNodes.get(path.substring(0, x));
+			HashMap<Integer, GraphNode> list = outNodes.get(path.substring(0, next.a));
 			
 			if (list == null) {
-				addReference(path.substring(0, x));
-				list = outNodes.get(path.substring(0, x));
+				addReference(path.substring(0, next.a));
+				list = outNodes.get(path.substring(0, next.a));
 			}
 			
-			for (GraphNode next : list.values()) {
-				if (x == path.length()) {
-					results.add(next);
+			for (GraphNode nextNode : list.values()) {
+				if (addArray) {
+					nextNode.properties.add(ARRAY);
+				}
+				
+				if (next.b == path.length()) {
+					results.add(nextNode);
 				} else {
-					next.buildNodes(path.substring(x + 1), results);
+					nextNode.buildNodes(path.substring(next.b + 1), results);
 				}
 			}
 		}
 		
 		boolean updateState(GraphNode predecessor) {
-			boolean old1 = isReturned, old2 = isEscaped, old3 = isRefParameter;
+			boolean modified = false;
 			
-			isReturned = isReturned || predecessor.isReturned;
-			isEscaped = isEscaped || predecessor.isEscaped;
-			isRefParameter = isRefParameter || predecessor.isRefParameter;
+			for (String prop : predecessor.properties) {
+				if (properties.contains(prop) == false) {
+					properties.add(prop);
+					modified = true;
+				}
+			}
 			
-			return isReturned != old1 || isEscaped != old2 || isRefParameter != old3;
+			return modified;
+		}
+		
+		private void printProperties() {
+			System.err.println(index);
+			
+			for (String x : properties) {
+				System.err.println(x);
+			}
 		}
 		
 		void dfs() {
+			dfsColor = true;
+//			printProperties();
+			
 			for (String label : outNodes.keySet()) {
+//				System.err.println("label " + label);
 				for (GraphNode next : outNodes.get(label).values()) {
-					if (next.updateState(this)) {
+					if (next.updateState(this) || !next.dfsColor) {
 						next.dfs();
 					}
-					
-					next.dfs();
 				}
 			}
 		}
 		
 		void write(String name, PrintWriter out) {
-			dfsColor = !dfsColor;
+			writeColor = true;
+			
+			out.write(String.format("%d[label=\"", index));
+			for (String prop : properties) {
+				out.write(prop + " ");
+			}
+			printProperties();
+			
+			out.write("\"];\n");
 			
 			for (String label : outNodes.keySet()) {
 				for (GraphNode next : outNodes.get(label).values()) {
 					out.write(String.format("%d -> %d[label=%s];\n", index, next.index, label));
 					
-					if (next.dfsColor == dfsColor) {
-						continue;
+					if (!next.writeColor) {
+						next.write(name + "." + label, out);
 					}
-					
-					next.write(name + "." + label, out);
 				}
 			}
 		}
-	};
+		
+		void checkThread(Graph threadGraph, String prefix) {
+			// does not support cycles
+			
+			for (GraphNode threadNode : threadGraph.buildNodes(prefix)) {
+				System.err.println("-- " + prefix + " " + threadNode.properties);
+				if (threadNode.properties.size() > 1) { // they must have the 'this' property
+					this.properties.add("escaped");
+					return ;
+				}
+			}
+
+			for (String label : outNodes.keySet()) {
+				for (GraphNode nextNode : outNodes.get(label).values()) {
+					nextNode.checkThread(threadGraph, prefix + "." + label);
+				}
+			}
+		}
+	}
 	
 	public class Graph {
 		Map<String, GraphNode> nodes = new HashMap<>();
 		Set<GraphNode> returnSet = new HashSet<>();
-		boolean dfsColor = false;
 		
 		Graph deepCopy() {
 			Graph g = new Graph();
@@ -243,19 +310,14 @@ public class EscapeAnalyzer {
 		}
 		
 		void buildNodes(String path, Set<GraphNode> results) {
-			int x = path.indexOf('.');
-			GraphNode n;
+			Pair<Integer> next = computeNextLabel(path);
 			
-			if (x == -1) {
-				x = path.length();
-			}
+			GraphNode n = nodes.get(path.substring(0, next.a));
 			
-			n = nodes.get(path.substring(0, x));
-			
-			if (x == path.length()) {
+			if (next.b == path.length()) {
 				results.add(n);
 			} else {
-				n.buildNodes(path.substring(x + 1), results);
+				n.buildNodes(path.substring(next.b + 1), results);
 			}
 		}
 		
@@ -265,19 +327,46 @@ public class EscapeAnalyzer {
 			}
 		}
 		
+		void checkThread(String path, Graph threadGraph) {
+			nodes.get(path).checkThread(threadGraph, "this");
+		}
+		
 		void write(PrintWriter out) {
-			dfsColor = !dfsColor;
-			
 			for (String  n : nodes.keySet()) {
-				out.write(String.format("%s_%s -> %d;\n", mdecl.sym.name, n, nodes.get(n).index));
-				if (nodes.get(n).dfsColor != dfsColor) {
+				out.write(String.format("%s_%s_%s -> %d;\n", mdecl.sym.owner, mdecl.sym.name, n, nodes.get(n).index));
+				if (!nodes.get(n).writeColor) {
 					nodes.get(n).write(n, out);
 				}
 			}
 		}
 	}
 	
+	public Pair<Integer> computeNextLabel(String path) {
+		int x = path.indexOf('.'), y = path.indexOf('[');
+		
+		if (x == -1) {
+			x = path.length();
+		}
+		if (y == -1) {
+			y = path.length();
+		}
+		
+		int last = x;
+		if (y < x) {
+			x = y;
+		}
+		
+		return new Pair<Integer>(x, last);
+	}
+	
+	private boolean isThreadClass(ClassSymbol cs) {
+		return cs.superClass.name.equals("Thread");
+	}
+	
 	public void compute(MethodDecl md, PrintWriter pw) {
+		System.err.println("Checking " + md.name);
+		
+		
 		this.mdecl = md;
 		this.pw = pw;
 		
@@ -291,21 +380,48 @@ public class EscapeAnalyzer {
 		
 		worklist.add(cfg.start);
 		
-		for (String arg : md.argumentNames) {
-			cfg.start.escapeGraph.nodes.put(arg, new GraphNode(false, true));
+		Graph g = cfg.start.escapeGraph;
+		
+		for (int i = 0; i < md.argumentNames.size(); i++) {
+			if (!isScalarType(md.argumentTypes.get(i))) {
+				// should not put scalar types
+				g.nodes.put(md.argumentNames.get(i), new GraphNode(GraphNode.REF_PARAM));
+			}
 		}
+		
+		LinkedList<String> threadVars = new LinkedList<>();
+		
 		for (String var : md.sym.locals.keySet()) {
 			if (var.contains("_") == false) { // the pre-SSA variables are not removed from the locals :(
 				continue;
 			}
-			cfg.start.escapeGraph.nodes.put(var, new GraphNode());
+			TypeSymbol type = md.sym.locals.get(var).type;
+			
+			if (isScalarType(type)) {
+				continue;
+			}
+			g.nodes.put(var, new GraphNode());
+			
+			if (type instanceof ClassSymbol) {
+				if (((ClassSymbol)type).superClass.name.equals("Thread")) {
+					System.err.println("alloc thread");
+					// we should also consider the other threads (fields)
+					
+					g.nodes.get(var).setThread();
+					
+					threadVars.add(var);
+				}
+			}
+			if (type instanceof ArrayTypeSymbol) { // we should also consider the other arrays
+				g.nodes.get(var).setArray();
+			}
 		}
 		
-		cfg.start.escapeGraph.nodes.put("this", new GraphNode(true, false));
+		g.nodes.put("this", new GraphNode(GraphNode.THIS));
 		
 		int cnt = 0;
 		while (worklist.size() > 0) {
-			if (cnt == 5 * cfg.allBlocks.size()) {
+			if (cnt == 5 * cfg.allBlocks.size()) { // this is a hack
 				break;
 			}
 			cnt++;
@@ -316,6 +432,7 @@ public class EscapeAnalyzer {
 			if (curBB.predecessors.size() == 0) {
 				curGraph = curBB.escapeGraph;
 			} else {
+				// merge the graphs of the predecessors
 				curGraph = curBB.predecessors.get(0).escapeGraph.deepCopy();
 				
 				for (int i = 1; i < curBB.predecessors.size(); i++) {
@@ -330,6 +447,7 @@ public class EscapeAnalyzer {
 				for (Expr e : curBB.phis.get(phiSym).rhs) {
 					if (e instanceof Var) {
 						Var v = (Var)e;
+						// we should watch out this - might not work
 						node.addReference("phi", curGraph.nodes.get(v.sym.name));
 					}
 				}
@@ -347,19 +465,42 @@ public class EscapeAnalyzer {
 			}
 		}
 		
-		Graph g = cfg.end.escapeGraph;
+		g = cfg.end.escapeGraph;
 
+		for (String thread : threadVars) {
+			ClassSymbol type = (ClassSymbol)md.sym.locals.get(thread).type;
+			
+			// we should be sure that 'join' is called
+			MethodDecl threadMethod = type.methods.get("start").ast;
+			if (threadMethod.analyzedColor == BLACK) {
+				g.checkThread(thread, threadMethod.cfg.end.escapeGraph);
+			}
+		}
+
+		g.dfs();
+		
+		pw.write(String.format("subgraph cluster_%d{\n", EscapeAnalyzer.clusterInd++));
 		g.write(pw);
+		pw.write("}\n");
 		
 		for (BasicBlock curBB : cfg.allBlocks) {
 			for (Ast instr : curBB.instructions) {
 				allocOnStackVisitor.visit(instr, g);
 			}
 		}
+		
+		mdecl.analyzedColor = BLACK;
+		
+		System.err.println("Finished checking " + md.name);
 	}
 	
 	private boolean isScalarType(TypeSymbol type) {
-		if (type.name.equals("int") || type.name == "float" || type.name == "boolean") {
+		return isScalarType(type.name);
+	}
+	
+	private boolean isScalarType(String type) {
+		if (type.equals("int") || type.equals("float") ||
+				type.equals("boolean")) {
 			return true;
 		}
 		
@@ -369,6 +510,9 @@ public class EscapeAnalyzer {
 	private AstVisitor<List<GraphNode>, Graph> addToGraph = 
 			new AstVisitor<List<GraphNode>, Graph>() {
 		public List<GraphNode> assign(Ast.Assign ast, Graph g) {
+			visit(ast.left(), g);
+			visit(ast.right(), g);
+			
 			if (ast.left() instanceof Var ) {
 				Var v = (Var)ast.left();
 				if (isScalarType(v.type)) {
@@ -376,22 +520,40 @@ public class EscapeAnalyzer {
 				}
 				
 				if (ast.right() instanceof NewObject) {
-					g.nodes.put(v.sym.name, new GraphNode());
+					// we already created nodes for variabiles, can skip this
+					return null;
 				}
+				
 				if (ast.right() instanceof Field) {
 					Field f = (Field)ast.right();
 					
 					for (GraphNode n : g.buildNodes(AstOneLine.toString(f))) {
+						// must be careful if the nod already exists
 						g.nodes.put(v.sym.name, n);
 					}
 				}
 				if (ast.right() instanceof MethodCallExpr) {
 					visit(ast.right(), g);
 					
-					g.nodes.put(v.sym.name, new GraphNode(true, false));
+					// must be careful if the node already exists
+					g.nodes.put(v.sym.name, new GraphNode(GraphNode.ESCAPED));
 				}
 			}
 			
+			// we do not have array! UPDATE: we do now
+			if (ast.left() instanceof Index) {
+				Index i = (Index)ast.left();
+				
+				if (!isScalarType(i.type)) {
+					if (ast.right() instanceof Field || ast.right() instanceof Var ||
+							ast.right() instanceof ThisRef) {
+						for (GraphNode node : g.buildNodes(AstOneLine.toString(ast.right()))) {
+							node.properties.add(GraphNode.ARRAY);
+						}
+					}
+				}
+			}
+							
 			if (ast.left() instanceof Field) {
 				Field f = (Field)ast.left();
 				
@@ -400,7 +562,7 @@ public class EscapeAnalyzer {
 				}
 				
 				GraphNode obj = null;
-				if (ast.right() instanceof NewObject) {
+				if (ast.right() instanceof NewObject || ast.right() instanceof NewArray) {
 					obj = new GraphNode();
 				}
 						
@@ -413,7 +575,7 @@ public class EscapeAnalyzer {
 					}
 			
 					if (ast.right() instanceof MethodCallExpr) {
-						node.isEscaped = true; // we should check this
+						node.properties.add(GraphNode.ESCAPED); // we should check this
 						continue;
 					}
 					
@@ -429,47 +591,60 @@ public class EscapeAnalyzer {
 			return null;
 		}
 		
-		public List<GraphNode> methodCall(Ast.MethodCall ast, Graph g) {
-			MethodDecl method = ast.sym.ast;
+		private void analyzeMethod(List<Expr> arguments, List<VariableSymbol> params,
+				Expr caller, MethodDecl method, Graph g) {
 			
-			System.err.println(method);
 			if (method.analyzedColor == EscapeAnalyzer.WHITE) {
-				EscapeAnalyzer.this.compute(method, pw);
+				(new EscapeAnalyzer(main)).compute(method, pw);
 			}
+			
+			for (GraphNode node : g.buildNodes(AstOneLine.toString(caller))) {
+				if (isThreadClass(method.sym.owner) && method.name.equals("start") && arguments.size() == 0) {
+					node.setThread();
+				} else {
+					node.setEscaped();
+				}
+			}
+			
+			for (int i = 0; i < arguments.size(); i++) {
+				Expr arg = arguments.get(i);
+				VariableSymbol var = params.get(i);
 
-			for (int i = 0; i < ast.argumentsWithoutReceiver().size(); i++) {
-				Expr arg = ast.argumentsWithoutReceiver().get(i);
-				VariableSymbol var = ast.sym.parameters.get(i);
-				
 				if (isScalarType(var.type)) {
 					continue;
 				}
 				
-				if (method.analyzedColor == EscapeAnalyzer.GREY ||
-						method.cfg.end.escapeGraph.nodes.get(var.name).isEscaped) {
-					for (GraphNode node : g.buildNodes(AstOneLine.toString(arg))) {
-						node.isEscaped = true;
+				if (arg instanceof Var || arg instanceof Field) {
+					// we are only interested in vars or fields
+					if (method.analyzedColor == EscapeAnalyzer.GREY ||
+							method.cfg.end.escapeGraph.nodes.get(var.name).properties.contains("escaped")) {
+						for (GraphNode node : g.buildNodes(AstOneLine.toString(arg))) {
+							node.setEscaped();
+						}
 					}
 				}
 			}
+		}
 			
-			return null;
+		public List<GraphNode> methodCall(Ast.MethodCallExpr ast, Graph g) {
+			analyzeMethod(ast.argumentsWithoutReceiver(), ast.sym.parameters,
+					ast.allArguments().get(0), ast.sym.ast, g);
+			
+			return dflt(ast, g);
+		}
+		
+		public List<GraphNode> methodCall(Ast.MethodCall ast, Graph g) {
+			analyzeMethod(ast.argumentsWithoutReceiver(), ast.sym.parameters,
+					ast.allArguments().get(0), ast.sym.ast, g);
+			
+			return dflt(ast, g);
 		}
 		
 		public List<GraphNode> returnStmt(Ast.ReturnStmt ast, Graph g) {
-			List<GraphNode> x = visit(ast.arg(), g);
-			
-			if (x != null) {
-				for (GraphNode node : x) {
-					node.isReturned = true;
-					g.returnSet.add(node);
-				}
+			for (GraphNode x : g.buildNodes(AstOneLine.toString(ast.arg()))) {
+				x.setReturned();
 			}
 			
-			return null;
-		}
-		
-		public List<GraphNode> dflt(Ast ast, Graph g) {
 			return null;
 		}
 		
@@ -480,8 +655,7 @@ public class EscapeAnalyzer {
 		public List<GraphNode> assign(Ast.Assign ast, Graph g) {
 			if (ast.right() instanceof NewObject) {
 				for (GraphNode node : g.buildNodes(AstOneLine.toString(ast.left()))) {
-					System.err.println(node.index + ":" + node.isEscaped);
-					if (node.isEscaped || node.isReturned || node.isRefParameter) {
+					if (node.notAlloc()) {
 						return null;
 					}
 				}
