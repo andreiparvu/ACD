@@ -1,4 +1,5 @@
 package cd.analyze;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -12,6 +13,7 @@ import cd.Main;
 import cd.ir.Ast.ClassDecl;
 import cd.ir.Ast.MethodCall;
 import cd.ir.Ast.MethodCallExpr;
+import cd.ir.Ast.WhileLoop;
 import cd.ir.AstVisitor;
 import cd.ir.Symbol.ClassSymbol;
 import cd.ir.Symbol.MethodSymbol;
@@ -32,12 +34,18 @@ public class CallGraphGenerator {
 	public static class CallGraph {
 		public final Map<MethodSymbol, Set<MethodSymbol>> graph;
 		public final Map<MethodSymbol, Set<MethodSymbol>> targets;
+		public final Map<MethodSymbol, Boolean> calledInLoop;
+		public final List<MethodSymbol> roots;
 		
 		public CallGraph(
 				Map<MethodSymbol, Set<MethodSymbol>> graph,
-				Map<MethodSymbol, Set<MethodSymbol>> targets) {
+				Map<MethodSymbol, Set<MethodSymbol>> targets,
+				Map<MethodSymbol, Boolean> calledInLoop,
+				List<MethodSymbol> roots) {
 			this.graph = graph;
 			this.targets = targets;
+			this.calledInLoop = calledInLoop;
+			this.roots = roots;
 		}
 		
 		public void debugPrint() {
@@ -55,14 +63,17 @@ public class CallGraphGenerator {
 		final Map<MethodSymbol, Set<MethodSymbol>> targets = computeTargets(astRoots);
 		final HashMap<MethodSymbol, Set<MethodSymbol>> reachableMethods = new HashMap<>();
 		final LinkedList<MethodSymbol> worklist = new LinkedList<>();
+		final ArrayList<MethodSymbol> roots = new ArrayList<>();
+		final HashMap<MethodSymbol, Boolean> calledInLoop = new HashMap<>();
 		
 		// Add all entry points as roots
-		MethodSymbol root = main.mainType.getMethod("main");
-		addToWorklist(reachableMethods, worklist, root);
-
+		roots.add(main.mainType.getMethod("main"));
 		MethodSymbol threadRun = main.threadType.getMethod("run");
-		for (MethodSymbol threadRoot : targets.get(threadRun)) {
-			addToWorklist(reachableMethods, worklist, threadRoot);
+		roots.addAll(targets.get(threadRun));
+
+		for (MethodSymbol root : roots) {
+			addToWorklist(reachableMethods, worklist, root);
+			calledInLoop.put(root, false);
 		}
 
 		// currently implements CHA
@@ -70,29 +81,42 @@ public class CallGraphGenerator {
 			final MethodSymbol caller = worklist.poll();
 			final Set<MethodSymbol> callees = reachableMethods.get(caller);
 
-			caller.ast.body().accept(new AstVisitor<Void, Void>() {
-				private void traverseMethod(MethodSymbol sym) {
+			caller.ast.body().accept(new AstVisitor<Void, Boolean>() {
+				private void traverseMethod(MethodSymbol sym, boolean inLoop) {
 					for (MethodSymbol target : targets.get(sym)) {
 						addToWorklist(reachableMethods, worklist, target);
+
 						callees.add(target);
+
+						Boolean alreadyInLoop = false;
+						if (calledInLoop.containsKey(target)) {
+							alreadyInLoop = calledInLoop.get(target);
+						}
+						calledInLoop.put(target, inLoop || alreadyInLoop);
 					}
 				}
 
 				@Override
-				public Void methodCall(MethodCall ast, Void arg) {
-					traverseMethod(ast.sym);
-					return arg;
+				public Void methodCall(MethodCall ast, Boolean inLoop) {
+					traverseMethod(ast.sym, inLoop);
+					return super.methodCall(ast, inLoop);
 				}
 
 				@Override
-				public Void methodCall(MethodCallExpr ast, Void arg) {
-					traverseMethod(ast.sym);
-					return arg;
+				public Void methodCall(MethodCallExpr ast, Boolean inLoop) {
+					traverseMethod(ast.sym, inLoop);
+					return super.methodCall(ast, inLoop);
 				}
-			}, null);
+
+				@Override
+				public Void whileLoop(WhileLoop ast, Boolean inLoop) {
+					return super.whileLoop(ast, true);
+				}
+
+			}, false);
 		}
 
-		return new CallGraph(reachableMethods, targets);
+		return new CallGraph(reachableMethods, targets, calledInLoop, roots);
 	}
 
 	private void addToWorklist(

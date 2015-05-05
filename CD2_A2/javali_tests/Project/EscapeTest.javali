@@ -1,0 +1,62 @@
+class Custom extends Thread {
+    Box arg;
+    void run() {
+        write(arg.val); writeln();
+    }
+}
+
+class BoxThread extends Thread {
+    Box box;
+    void run() {
+        write(box.val);
+    }
+}
+
+class Box {
+    int val;
+}
+
+class Main {
+    Thread escapeOne(Box b, Box e) {
+        Custom t;
+        write(b.val); writeln();
+        t = new Custom();
+        t.arg = e;
+
+        t.start();
+        
+        return t;
+    }
+    
+    Thread escapeTwo(Box b, Box e) {
+        Custom ct;
+        BoxThread bt;
+        
+        ct = new Custom();
+        ct.arg = e;
+        ct.start();
+        ct.join();
+
+        bt = new BoxThread();
+        bt.box = b;
+        bt.start();
+        
+        return bt;
+    }
+
+    void main() {
+        Thread t;
+        Box b, e;
+        
+        b = new Box();
+        e = new Box();
+        b.val = 23;
+        e.val = 42;
+        
+        t = escapeOne(b, e);
+        t.join();
+
+        t = escapeTwo(b, e);
+        t.join();
+     }
+}

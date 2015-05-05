@@ -1,8 +1,10 @@
 package cd.analyze;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -19,6 +21,7 @@ import cd.ir.Ast.MethodCall;
 import cd.ir.Ast.MethodCallExpr;
 import cd.ir.Ast.ReturnStmt;
 import cd.ir.Ast.Var;
+import cd.ir.Ast.WhileLoop;
 import cd.ir.AstVisitor;
 import cd.ir.BasicBlock;
 import cd.ir.Phi;
@@ -49,12 +52,12 @@ public class EscapeAnalysis {
 
 		void unify(AliasSet other) {
 			if (this.ref == other.ref) return;
-			
+
 			Map<String, AliasSet> thisFields = this.ref.fieldMap;
 			Map<String, AliasSet> otherFields = other.ref.fieldMap;
-			
+
 			this.ref.escapes |= other.ref.escapes;
-			
+
 			Set<String> fieldUnion = new HashSet<>(thisFields.keySet());
 			fieldUnion.addAll(otherFields.keySet());
 
@@ -63,9 +66,11 @@ public class EscapeAnalysis {
 				AliasSet otherSet = otherFields.get(field);
 				if (thisSet != null && otherSet != null) {
 					// field in both maps, unify them
+					thisSet.setEscapes(this.ref.escapes);
 					thisSet.unify(otherSet);
 				} else if (thisSet == null) {
 					// missing in this
+					otherSet.setEscapes(this.ref.escapes);
 					thisFields.put(field, otherSet);
 				}
 				// we don't care if otherSet is null, `other` will be deleted
@@ -73,6 +78,21 @@ public class EscapeAnalysis {
 
 			// `this` is the unified alias set
 			other.ref = this.ref;
+		}
+		
+		void unifyEscapes(AliasSet other) {		
+			if (this.ref == other.ref) return;
+			this.ref.escapes |= other.ref.escapes;
+
+			Map<String, AliasSet> thisFields = this.ref.fieldMap;
+			Map<String, AliasSet> otherFields = other.ref.fieldMap;
+
+			Set<String> intersection = new HashSet<>(thisFields.keySet());
+			intersection.retainAll(otherFields.keySet());
+
+			for (String field : intersection) {
+				thisFields.get(field).unifyEscapes(otherFields.get(field));
+			}
 		}
 		
 		public AliasSet deepCopy() {
@@ -97,12 +117,23 @@ public class EscapeAnalysis {
 			return this.ref.fieldMap.get(key);
 		}
 		
+		public boolean escapes() {
+			return this.ref == null ? false : this.ref.escapes;
+		}
+		
+		public void setEscapes(boolean value) {
+			this.ref.escapes = value;
+			for (AliasSet children : this.ref.fieldMap.values()) {
+				children.setEscapes(value);
+			}
+		}
+		
 		@Override
 		public String toString() {
 			if (isBottom()) {
 				return "⊥";
 			} else {
-				return String.format("<%s, %s>", ref.escapes, ref.fieldMap.keySet());
+				return String.format("<%s, %s>", ref.escapes, ref.fieldMap);
 			}
 		}
 	}
@@ -111,6 +142,14 @@ public class EscapeAnalysis {
 		public AliasSet receiver;
 		public ArrayList<AliasSet> parameters;
 		public AliasSet result;
+
+		public AliasContext(AliasSet receiver, ArrayList<AliasSet> parameters,
+				AliasSet result) {
+			super();
+			this.receiver = receiver;
+			this.parameters = parameters;
+			this.result = result;
+		}
 
 		public AliasContext(MethodSymbol method) {
 			receiver = new AliasSet();
@@ -138,6 +177,18 @@ public class EscapeAnalysis {
 				parameters.get(i).unify(other.parameters.get(i));
 			}
 		}
+		
+		public void unifyEscapes(AliasContext other) {
+			System.out.println(this.toString());
+			System.out.println(other.toString());
+			
+			this.receiver.unifyEscapes(other.receiver);
+			this.result.unifyEscapes(other.result);
+			assert (parameters.size() == other.parameters.size());
+			for (int i=0; i < parameters.size(); i++) {
+				parameters.get(i).unifyEscapes(other.parameters.get(i));
+			}
+		}
 
 		public AliasContext deepCopy() {
 			return new AliasContext(this);
@@ -151,12 +202,12 @@ public class EscapeAnalysis {
 	}
 	
 	private Main main;
-	private Map<MethodSymbol, Set<MethodSymbol>> callGraph;
 	private CallGraphSCC scc;
 	
 	private Map<MethodSymbol, AliasContext> methodContexts;
 	private Map<Ast, AliasContext> siteContexts;
-	private Map<MethodSymbol, Set<MethodSymbol>> callees;
+	private CallGraph callGraph;
+	private Map<Ast, Boolean> multiSites;
 
 	public EscapeAnalysis(Main main) {
 		this.main = main;
@@ -166,24 +217,36 @@ public class EscapeAnalysis {
 		//// Phase 1 ////
 		
 		// generate call graph
-		CallGraph res = new CallGraphGenerator(main).compute(astRoots);
-		callGraph = res.graph;
-		callees = res.targets;
+		callGraph = new CallGraphGenerator(main).compute(astRoots);
+		//callGraph = cg.graph;
+		//callees = cg.targets;
 		
-		res.debugPrint();
+		callGraph.debugPrint();
 
 		// generate scc
 		scc = new CallGraphSCC(callGraph);
 		scc.debugPrint();
 		
 		// find multiply executed thread allocation sites
-		// TODO
+		multiSites = findThreadAllocationSites();
 
 		//// Phase 2 ////
 		methodContexts = new HashMap<MethodSymbol, AliasContext>();
 		siteContexts = new HashMap<Ast, AliasContext>();
 
 		// traverse SCC methods in bottom-up topological order
+		analyzeBottomUp();
+		//// Phase 3 ////
+		// top-down traversal to unify method contexts
+		mergeTopDown();
+		
+		// debug print
+		for (Entry<MethodSymbol, AliasContext> entry : methodContexts.entrySet()) {
+			System.err.println(entry.getKey().fullName() + ": " + entry.getValue());
+		}
+	}
+
+	private void analyzeBottomUp() {
 		for (Set<MethodSymbol> component : scc.getSortedComponents()) {
 			// create method context for all methods in component
 			for (MethodSymbol method : component) {
@@ -200,9 +263,64 @@ public class EscapeAnalysis {
 				}
 			}
 		}
+	}
+	
+	private void mergeTopDown() {
+		List<Set<MethodSymbol>> reversed = new LinkedList<>(scc.getSortedComponents());
+		Collections.reverse(reversed);
+		for (Set <MethodSymbol> component : reversed) {
+			for (MethodSymbol method : component) {
+				new AstVisitor<Void, Void>() {
+					@Override
+					public Void methodCall(MethodCall ast, Void arg) {
+						AliasContext mc = methodContexts.get(ast.sym);
+						AliasContext sc = siteContexts.get(ast);
+						sc.unifyEscapes(mc);
+						return super.methodCall(ast, arg);
+					}
+
+					@Override
+					public Void methodCall(MethodCallExpr ast, Void arg) {
+						AliasContext mc = methodContexts.get(ast.sym);
+						AliasContext sc = siteContexts.get(ast);
+						sc.unifyEscapes(mc);
+						return super.methodCall(ast, arg);
+					}
+				}.visit(method.ast, null);
+			}
+		}
+	}
+
+
+	private Map<Ast, Boolean> findThreadAllocationSites() {
+		final MethodSymbol threadStart = main.threadType.getMethod("start");
+		final Map<Ast, Boolean> multiSite = new HashMap<>();
+		for (MethodSymbol sym : callGraph.graph.keySet()) {
+			if (sym.owner == main.objectType || sym.owner == main.threadType) {
+				continue;
+			}
+			
+			final boolean calleeInLoop = callGraph.calledInLoop.get(sym);
+			final boolean calleeInMultiSCC = scc.getComponent(sym).size() > 1;
+			new AstVisitor<Void, Boolean>() {
+
+				@Override
+				public Void methodCall(MethodCall ast, Boolean stmtInLoop) {
+					if (ast.sym == threadStart) {
+						multiSite.put(ast, stmtInLoop || calleeInLoop || calleeInMultiSCC);
+					}
+					return null;
+				}
+
+				@Override
+				public Void whileLoop(WhileLoop ast, Boolean stmtInLoop) {
+					return super.whileLoop(ast, true);
+				}
+
+			}.visit(sym.ast, false);
+		}
 		
-		// debug print
-		System.err.println(methodContexts);
+		return multiSite;
 	}
 
 	private class MethodAnalayzer extends AstVisitor<Void, Void> {
@@ -256,7 +374,7 @@ public class EscapeAnalysis {
 		@Override
 		public Void assign(Assign ast, Void arg) {
 			AliasSet asLeft = null, asRight = null;
-			
+
 			if (!ast.left().type.isReferenceType()) return null;
 			if (!ast.right().type.isReferenceType()) return null;
 
@@ -290,7 +408,7 @@ public class EscapeAnalysis {
 					// v1.f = v2;
 					Ast.Field field = (Ast.Field) ast.left();
 					if (field.arg() instanceof Var) {
-						asRight = getAS( ((Var)field.arg()).sym ).fieldMap(field.fieldName);
+						asLeft = getAS( ((Var)field.arg()).sym ).fieldMap(field.fieldName);
 					}
 				} else if (ast.left() instanceof Ast.Index) {
 					// v1[..] = v2;
@@ -300,11 +418,15 @@ public class EscapeAnalysis {
 					}
 				}
 			}
-			
+
 			if (asLeft != null && asRight != null) {
+				System.err.println(asLeft);
+				System.err.println(asRight);
+
 				asLeft.unify(asRight);
 			}
-			return null;
+
+			return super.assign(ast, arg);
 		}
 
 		@Override
@@ -318,8 +440,10 @@ public class EscapeAnalysis {
 			if (ast.arg() instanceof Var) {
 				VariableSymbol v = ((Var)ast.arg()).sym;
 				getAS(v).unify(this.result);
+				return null;
+			} else {
+				return super.returnStmt(ast, arg);
 			}
-			return null;
 		}
 		
 		// TODO deal with return value
@@ -337,11 +461,12 @@ public class EscapeAnalysis {
 					ctx.parameters.set(i, getAS(varSym));
 				}
 			}
+
 			return ctx;
 		}
 		
 		private void methodInvocation(MethodSymbol m, AliasContext sc) {
-			for (MethodSymbol p : callees.get(m)) {
+			for (MethodSymbol p : callGraph.targets.get(m)) {
 				AliasContext mc = methodContexts.get(p);
 				if (scc.stronglyConnected(method, p)) {
 					sc.unify(mc);
@@ -361,7 +486,7 @@ public class EscapeAnalysis {
 				methodInvocation(ast.sym, sc);
 			}
 
-			return null;
+			return super.methodCall(ast, arg);
 		}
 
 		@Override
@@ -370,14 +495,30 @@ public class EscapeAnalysis {
 			siteContexts.put(ast, sc);
 
 			methodInvocation(ast.sym, sc);
-			return null;
+			return super.methodCall(ast, arg);
 		}
 		
 		public void visitThreadStart() {
 			for (MethodCall call : threadStarts) {
-				
+				AliasContext mc = methodContexts.get(call.sym);
+				boolean multiExec = multiSites.get(call);
+
+				AliasSet receiver = new AliasSet();
+				if (call.receiver() instanceof Var) {
+					receiver = getAS(((Var)call.receiver()).sym);
+				}
+
+				receiver.setEscapes(true);
+
+				AliasContext sc = new AliasContext(receiver, new ArrayList<AliasSet>(), AliasSet.BOTTOM);
+				siteContexts.put(call, sc);
+
+				sc.unify(mc.deepCopy());
+
+				if (multiExec) {
+					sc.unify(sc);
+				}
 			}
-			// TODO Auto-generated method stub
 			
 		}
 	}

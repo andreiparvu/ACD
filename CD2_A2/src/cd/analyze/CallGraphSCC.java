@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 
+import cd.analyze.CallGraphGenerator.CallGraph;
 import cd.ir.Symbol.MethodSymbol;
 
 public class CallGraphSCC {
@@ -23,11 +24,11 @@ public class CallGraphSCC {
 
 		private List<Set<MethodSymbol>> components = new ArrayList<>();
 
-		public CallGraphSCC(Map<MethodSymbol, Set<MethodSymbol>> cg) {
+		public CallGraphSCC(CallGraph cg) {
 			// find strongly connected components
-			for (MethodSymbol vertex : cg.keySet()) {
+			for (MethodSymbol vertex : cg.graph.keySet()) {
 				if (!marked.contains(vertex)) {
-					dfs(cg, vertex);
+					dfs(cg.graph, vertex);
 				}
 			}
 			
@@ -37,7 +38,7 @@ public class CallGraphSCC {
 				components.add(new HashSet<MethodSymbol>());
 			}
 			
-			for (MethodSymbol method : cg.keySet()) {
+			for (MethodSymbol method : cg.graph.keySet()) {
 				int index = id.get(method);
 				components.get(index).add(method);
 			}
@@ -90,8 +91,8 @@ public class CallGraphSCC {
 			return count;
 		}
 		
-		public int getComponentId(MethodSymbol v) {
-			return id.get(v);
+		public Set<MethodSymbol> getComponent(MethodSymbol v) {
+			return components.get(id.get(v));
 		}
 		
 		public boolean stronglyConnected(MethodSymbol v, MethodSymbol w) {
