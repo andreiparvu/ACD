@@ -17,9 +17,15 @@ import cd.ir.Ast;
 import cd.ir.Ast.Assign;
 import cd.ir.Ast.ClassDecl;
 import cd.ir.Ast.Expr;
+import cd.ir.Ast.Field;
+import cd.ir.Ast.Index;
 import cd.ir.Ast.MethodCall;
 import cd.ir.Ast.MethodCallExpr;
+import cd.ir.Ast.NewArray;
+import cd.ir.Ast.NewObject;
+import cd.ir.Ast.NullConst;
 import cd.ir.Ast.ReturnStmt;
+import cd.ir.Ast.ThisRef;
 import cd.ir.Ast.Var;
 import cd.ir.Ast.WhileLoop;
 import cd.ir.AstVisitor;
@@ -35,7 +41,7 @@ public class EscapeAnalysis {
 	static class AliasSet {
 		static class AliasSetData {
 			private boolean escapes = false;
-			private Map<String, AliasSet> fieldMap = new HashMap<>();
+			private final Map<String, AliasSet> fieldMap = new HashMap<>();
 		}
 		
 		private AliasSetData ref = new AliasSetData();
@@ -66,11 +72,13 @@ public class EscapeAnalysis {
 				AliasSet otherSet = otherFields.get(field);
 				if (thisSet != null && otherSet != null) {
 					// field in both maps, unify them
-					thisSet.setEscapes(this.ref.escapes);
+					//thisSet.setEscapes(this.ref.escapes);
+					thisSet.ref.escapes |= this.ref.escapes;
 					thisSet.unify(otherSet);
 				} else if (thisSet == null) {
 					// missing in this
-					otherSet.setEscapes(this.ref.escapes);
+					//otherSet.setEscapes(this.ref.escapes);
+					otherSet.ref.escapes |= this.ref.escapes;
 					thisFields.put(field, otherSet);
 				}
 				// we don't care if otherSet is null, `other` will be deleted
@@ -80,7 +88,7 @@ public class EscapeAnalysis {
 			other.ref = this.ref;
 		}
 		
-		void unifyEscapes(AliasSet other) {		
+		void unifyEscapes(AliasSet other) {
 			if (this.ref == other.ref) return;
 			this.ref.escapes |= other.ref.escapes;
 
@@ -101,7 +109,14 @@ public class EscapeAnalysis {
 			AliasSet copy = new AliasSet();
 			copy.ref.escapes = this.ref.escapes;
 			for (Entry<String, AliasSet> entry : ref.fieldMap.entrySet()) {
-				copy.ref.fieldMap.put(entry.getKey(), entry.getValue().deepCopy());
+				AliasSet sub = entry.getValue();
+				if (sub == this) {
+					sub = copy;
+				} else {
+					sub = sub.deepCopy();
+				}
+					// TODO this is probably not enough to deal with selfcontaining sets
+				copy.ref.fieldMap.put(entry.getKey(), sub);
 			}
 			return copy;
 		}
@@ -133,15 +148,15 @@ public class EscapeAnalysis {
 			if (isBottom()) {
 				return "⊥";
 			} else {
-				return String.format("<%s, %s>", ref.escapes, ref.fieldMap);
+				return String.format("<%s, %s>", ref.escapes, ref.fieldMap.keySet());
 			}
 		}
 	}
 
 	class AliasContext {
-		public AliasSet receiver;
-		public ArrayList<AliasSet> parameters;
-		public AliasSet result;
+		public final AliasSet receiver;
+		public final ArrayList<AliasSet> parameters;
+		public final AliasSet result;
 
 		public AliasContext(AliasSet receiver, ArrayList<AliasSet> parameters,
 				AliasSet result) {
@@ -179,6 +194,7 @@ public class EscapeAnalysis {
 		}
 		
 		public void unifyEscapes(AliasContext other) {
+			// TODO there sees to be a bug here!
 			System.out.println(this.toString());
 			System.out.println(other.toString());
 			
@@ -323,15 +339,15 @@ public class EscapeAnalysis {
 		return multiSite;
 	}
 
-	private class MethodAnalayzer extends AstVisitor<Void, Void> {
+	private class MethodAnalayzer extends AstVisitor<AliasSet, Void> {
 		private final HashMap<VariableSymbol, AliasSet> as = new HashMap<>();
-		private final AliasSet result;
+		private final AliasContext methodContext;
 		private final MethodSymbol method;
 		private final List<MethodCall> threadStarts = new ArrayList<>();	
 		
 		public MethodAnalayzer(MethodSymbol method) {
 			AliasContext mc = methodContexts.get(method);
-			this.result = mc.result;
+			this.methodContext = mc;
 			this.method = method;
 
 			// add alias sets of parameter to lookup for variables
@@ -340,15 +356,26 @@ public class EscapeAnalysis {
 			}
 		}
 		
+		private AliasSet lookup(VariableSymbol var) {
+			AliasSet varSet = as.get(var);
+			if (varSet == null) {
+				if (var.type.isReferenceType()) {
+					varSet = new AliasSet();
+				} else {
+					varSet = AliasSet.BOTTOM;
+				}
+				as.put(var, varSet);
+			}
+			return varSet;
+		}
+		
 		public void analyize() {
 			for(BasicBlock bb : method.ast.cfg.allBlocks) {
 				for (Phi phi : bb.phis.values()) {
-					AliasSet asV = getAS(phi.lhs);
+					AliasSet setV = lookup(phi.lhs);
 					for (Expr expr : phi.rhs) {
-						if (expr instanceof Var) {
-							VariableSymbol vi = ((Var)expr).sym;
-							asV.unify(getAS(vi));
-						}
+						AliasSet setVi = visit(expr, null);
+						setV.unify(setVi);
 					}
 				}
 
@@ -359,112 +386,131 @@ public class EscapeAnalysis {
 				for (Ast ast : bb.instructions) {
 					visit(ast, null);
 				}
-
-				visitThreadStart();
 			}
-		}
-
-		private AliasSet getAS(VariableSymbol var) {
-			if (!as.containsKey(var)) {
-				as.put(var, AliasSet.forType(var.type));
-			}
-			return as.get(var);
 		}
 
 		@Override
-		public Void assign(Assign ast, Void arg) {
-			AliasSet asLeft = null, asRight = null;
-
-			if (!ast.left().type.isReferenceType()) return null;
-			if (!ast.right().type.isReferenceType()) return null;
-
-			if (ast.left() instanceof Var) {
-				asLeft = getAS( ((Var)ast.left()).sym );
-				if (ast.right() instanceof Var) {
-					// v1 = v2
-					asRight = getAS( ((Var)ast.right()).sym );
-				} else if (ast.right() instanceof Ast.Cast) {
-					// v1 = (T) v2;
-					Ast.Cast cast = (Ast.Cast) ast.right();
-					if (cast.arg() instanceof Var) {
-						asRight = getAS( ((Var)cast.arg()).sym );
-					}
-				} else if (ast.right() instanceof Ast.Field) {
-					// v1 = v2.f
-					Ast.Field field = (Ast.Field) ast.right();
-					if (field.arg() instanceof Var) {
-						asRight = getAS( ((Var)field.arg()).sym ).fieldMap(field.fieldName);
-					}
-				} else if (ast.right() instanceof Ast.Index) {
-					// v1 = v2[..]
-					Ast.Index index = (Ast.Index) ast.right();
-					if (index.left() instanceof Var) {
-						asRight = getAS( ((Var)index.left()).sym ).fieldMap("$ELT");
-					}
-				}
-			} else if (ast.right() instanceof Var) {
-				asRight = getAS( ((Var)ast.right()).sym );
-				if (ast.left() instanceof Ast.Field) {
-					// v1.f = v2;
-					Ast.Field field = (Ast.Field) ast.left();
-					if (field.arg() instanceof Var) {
-						asLeft = getAS( ((Var)field.arg()).sym ).fieldMap(field.fieldName);
-					}
-				} else if (ast.left() instanceof Ast.Index) {
-					// v1[..] = v2;
-					Ast.Index index = (Ast.Index) ast.left();
-					if (index.left() instanceof Var) {
-						asLeft = getAS( ((Var)index.left()).sym ).fieldMap("$ELT");
-					}
-				}
+		protected AliasSet dfltExpr(Expr ast, Void arg) {
+			// make sure to return any alias symbol
+			AliasSet set = visitChildren(ast, arg);
+			if (set != null) {
+				return set;
+			} else if(ast.type != null && ast.type.isReferenceType()) {
+				return new AliasSet();
+			} else {
+				return AliasSet.BOTTOM;
 			}
-
-			if (asLeft != null && asRight != null) {
-				System.err.println(asLeft);
-				System.err.println(asRight);
-
-				asLeft.unify(asRight);
-			}
-
-			return super.assign(ast, arg);
 		}
 
 		@Override
-		public Void visit(Ast ast, Void arg) {
+		public AliasSet nullConst(NullConst ast, Void arg) {
+			// technically we should return ⊥, but we might unify it later with an object
+			return new AliasSet();
+		}
+
+		@Override
+		public AliasSet newObject(NewObject ast, Void arg) {
+			return new AliasSet();
+		}
+
+		@Override
+		public AliasSet newArray(NewArray ast, Void arg) {
+			return new AliasSet();
+		}
+
+		@Override
+		public AliasSet visit(Ast ast, Void arg) {
+			System.err.println(AstOneLine.toString(ast));
+			return super.visit(ast, arg);
+		}
+		
+		@Override
+		public AliasSet visit(Expr ast, Void arg) {
 			System.err.println(AstOneLine.toString(ast));
 			return super.visit(ast, arg);
 		}
 
 		@Override
-		public Void returnStmt(ReturnStmt ast, Void arg) {
-			if (ast.arg() instanceof Var) {
-				VariableSymbol v = ((Var)ast.arg()).sym;
-				getAS(v).unify(this.result);
-				return null;
+		public AliasSet field(Field ast, Void arg) {
+			AliasSet set = visit(ast.arg(), null);
+			if (ast.type.isReferenceType()) {
+				return set.fieldMap(ast.fieldName);
 			} else {
-				return super.returnStmt(ast, arg);
+				return AliasSet.BOTTOM;
 			}
 		}
-		
-		// TODO deal with return value
-		private AliasContext createSiteContext(MethodSymbol sym, Expr receiver, List<Expr> arguments) {
-			AliasContext ctx = new AliasContext(sym);
-			
-			if (receiver instanceof Var) {
-				VariableSymbol varSym = ((Var)receiver).sym;
-				ctx.receiver = getAS(varSym);
+
+		@Override
+		public AliasSet index(Index ast, Void arg) {
+			AliasSet setLeft = visit(ast.left(), arg);
+			AliasSet setRight = visit(ast.right(), arg);
+			assert (setRight.isBottom());
+
+			if (ast.type.isReferenceType()) {
+				return setLeft.fieldMap("$ELT");
+			} else {
+				return AliasSet.BOTTOM;
 			}
-			
-			for (int i=0; i < arguments.size(); i++) {
-				if (arguments.get(i) instanceof Var) {
-					VariableSymbol varSym = ((Var)arguments.get(i)).sym;
-					ctx.parameters.set(i, getAS(varSym));
+		}
+
+		@Override
+		public AliasSet thisRef(ThisRef ast, Void arg) {
+			return methodContext.receiver;
+		}
+
+		@Override
+		public AliasSet var(Var ast, Void arg) {
+			return lookup(ast.sym);
+		}
+		
+		@Override
+		public AliasSet assign(Assign ast, Void arg) {
+			AliasSet setLeft = visit(ast.left(), null);
+			AliasSet setRight = visit(ast.right(), null);
+
+			setLeft.unify(setRight);
+
+			return null;
+		}
+
+		@Override
+		public AliasSet returnStmt(ReturnStmt ast, Void arg) {
+			AliasSet result = visitChildren(ast, null);
+			if (result != null) {
+				result.unify(methodContext.result);
+			}
+			return null;
+		}
+
+		private AliasContext createSiteContext(Ast call) {
+			AliasSet receiver, result;
+			ArrayList<AliasSet> parameters = new ArrayList<>();
+
+			if (call instanceof MethodCall) {
+				result = AliasSet.BOTTOM;
+				receiver = visit(((MethodCall) call).receiver(), null);
+				for (Expr param : ((MethodCall) call).argumentsWithoutReceiver()) {
+					parameters.add(visit(param, null));
 				}
+			} else if (call instanceof MethodCallExpr) {
+				if (((MethodCallExpr) call).sym.returnType.isReferenceType()) {
+					result = new AliasSet();
+				} else {
+					result = AliasSet.BOTTOM;
+				}
+				receiver = visit(((MethodCallExpr) call).receiver(), null);
+				for (Expr param : ((MethodCallExpr) call).argumentsWithoutReceiver()) {
+					parameters.add(visit(param, null));
+				}
+			} else {
+				throw new IllegalArgumentException("argument must be method call");
 			}
 
-			return ctx;
+			AliasContext sc = new AliasContext(receiver, parameters, result);
+			siteContexts.put(call, sc);
+			return sc;
 		}
-		
+
 		private void methodInvocation(MethodSymbol m, AliasContext sc) {
 			for (MethodSymbol p : callGraph.targets.get(m)) {
 				AliasContext mc = methodContexts.get(p);
@@ -477,49 +523,39 @@ public class EscapeAnalysis {
 		}
 		
 		@Override
-		public Void methodCall(MethodCall ast, Void arg) {
+		public AliasSet methodCall(MethodCall ast, Void arg) {
+			AliasContext sc = createSiteContext(ast);
+			methodInvocation(ast.sym, sc);
+			
 			if (ast.sym == main.threadType.getMethod("start")) {
-				threadStarts.add(ast);
-			} else {
-				AliasContext sc = createSiteContext(ast.sym, ast.receiver(), ast.argumentsWithoutReceiver());
-				siteContexts.put(ast, sc);
-				methodInvocation(ast.sym, sc);
+				sc.receiver.setEscapes(true);
+				if (multiSites.get(ast))  {
+					sc.unify(sc);
+				}
 			}
-
-			return super.methodCall(ast, arg);
+			return null;
 		}
 
 		@Override
-		public Void methodCall(MethodCallExpr ast, Void arg) {
-			AliasContext sc = createSiteContext(ast.sym, ast.receiver(), ast.argumentsWithoutReceiver());
-			siteContexts.put(ast, sc);
-
+		public AliasSet methodCall(MethodCallExpr ast, Void arg) {
+			AliasContext sc = createSiteContext(ast);
 			methodInvocation(ast.sym, sc);
-			return super.methodCall(ast, arg);
+			return sc.result;
 		}
 		
-		public void visitThreadStart() {
+		/*public void visitThreadStart() {
 			for (MethodCall call : threadStarts) {
 				AliasContext mc = methodContexts.get(call.sym);
-				boolean multiExec = multiSites.get(call);
 
-				AliasSet receiver = new AliasSet();
-				if (call.receiver() instanceof Var) {
-					receiver = getAS(((Var)call.receiver()).sym);
-				}
+				sc.receiver.setEscapes(true);
 
-				receiver.setEscapes(true);
-
-				AliasContext sc = new AliasContext(receiver, new ArrayList<AliasSet>(), AliasSet.BOTTOM);
-				siteContexts.put(call, sc);
-
+				// no method can be strongly connected to Thread.start()
 				sc.unify(mc.deepCopy());
-
 				if (multiExec) {
 					sc.unify(sc);
 				}
 			}
 			
-		}
+		}*/
 	}
 }

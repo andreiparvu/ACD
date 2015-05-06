@@ -382,7 +382,7 @@ class ListMatrix extends AbstractMatrix {
 
     float getValue(int row, int col) {
         ListVector v;
-        v = (ListVector) matrix.find(col).payload;
+        v = (ListVector) matrix.find(col).payload; // as(v1).unify( result.fieldMap(playload) )
         return v.getValue(row);
     }
     
