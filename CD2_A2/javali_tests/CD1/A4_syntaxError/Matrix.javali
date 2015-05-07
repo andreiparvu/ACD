@@ -291,6 +291,7 @@ class LinkedList {
         curr = head;
         while(s != index) {
             curr = curr.next;
+            curr.next = curr.next;
             
             s = s + 1;
         }

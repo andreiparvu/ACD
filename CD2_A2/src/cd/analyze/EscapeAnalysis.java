@@ -1,9 +1,12 @@
 package cd.analyze;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +66,7 @@ public class EscapeAnalysis {
 			Map<String, AliasSet> otherFields = other.ref.fieldMap;
 
 			this.ref.escapes |= other.ref.escapes;
+			other.ref = this.ref;
 
 			Set<String> fieldUnion = new HashSet<>(thisFields.keySet());
 			fieldUnion.addAll(otherFields.keySet());
@@ -85,10 +89,9 @@ public class EscapeAnalysis {
 			}
 
 			// `this` is the unified alias set
-			other.ref = this.ref;
 		}
 		
-		void unifyEscapes(AliasSet other) {
+		public void unifyEscapes(AliasSet other) {
 			if (this.ref == other.ref) return;
 			this.ref.escapes |= other.ref.escapes;
 
@@ -137,18 +140,48 @@ public class EscapeAnalysis {
 		}
 		
 		public void setEscapes(boolean value) {
+			setEscapeRecursive(value, new HashSet<AliasSet>());
+		}
+		
+		private void setEscapeRecursive(boolean value, Set<AliasSet> marked) {
 			this.ref.escapes = value;
-			for (AliasSet children : this.ref.fieldMap.values()) {
-				children.setEscapes(value);
+			marked.add(this);
+			for (AliasSet child : this.ref.fieldMap.values()) {
+				if (!marked.contains(child)) {
+					child.setEscapeRecursive(value, marked);
+				}
 			}
 		}
 		
 		@Override
 		public String toString() {
+			StringWriter out = new StringWriter();
+			toStringRecursive(new PrintWriter(out), new HashSet<AliasSet>());
+			return out.toString();
+		}
+		
+		private void toStringRecursive(PrintWriter out, Set<AliasSet> marked) {
+			marked.add(this);
 			if (isBottom()) {
-				return "⊥";
+				out.print("⊥");
 			} else {
-				return String.format("<%s, %s>", ref.escapes, ref.fieldMap.keySet());
+				out.format("<%s, {", ref.escapes);
+				Iterator<Entry<String, AliasSet>> iter = ref.fieldMap.entrySet().iterator();
+				while (iter.hasNext()) {
+					Entry<String, AliasSet> entry = iter.next();
+					out.format("%s:", entry.getKey());
+					AliasSet child = entry.getValue();
+					if (!marked.contains(child)) {
+						child.toStringRecursive(out, marked);
+					} else {
+						out.print("<..>");
+					}
+
+					if (iter.hasNext()) {
+						out.print(", ");
+					}
+				}
+				out.print("}>");
 			}
 		}
 	}
@@ -291,7 +324,8 @@ public class EscapeAnalysis {
 					public Void methodCall(MethodCall ast, Void arg) {
 						AliasContext mc = methodContexts.get(ast.sym);
 						AliasContext sc = siteContexts.get(ast);
-						sc.unifyEscapes(mc);
+						// sc.unifyEscapes(mc); TODO
+						sc.unify(mc);
 						return super.methodCall(ast, arg);
 					}
 
@@ -299,7 +333,8 @@ public class EscapeAnalysis {
 					public Void methodCall(MethodCallExpr ast, Void arg) {
 						AliasContext mc = methodContexts.get(ast.sym);
 						AliasContext sc = siteContexts.get(ast);
-						sc.unifyEscapes(mc);
+						//sc.unifyEscapes(mc);
+						sc.unify(mc);
 						return super.methodCall(ast, arg);
 					}
 				}.visit(method.ast, null);
