@@ -1139,8 +1139,8 @@ public class AstCodeGenerator {
 					push(c(clssym.sizeof));
 					emit("call", ALLOC);
 					emitCallSuffix(reg, 1, allocPadding);
-					emitStore(c(vtable(clssym)), 0, reg);
 				}
+				emitStore(c(vtable(clssym)), 0, reg);
 				return reg;
 			}
 		}

@@ -1,6 +1,7 @@
 package cd.cfg;
 
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -14,6 +15,7 @@ import cd.ir.Ast;
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.Field;
 import cd.ir.Ast.Index;
+import cd.ir.Ast.MethodCall;
 import cd.ir.Ast.MethodCallExpr;
 import cd.ir.Ast.MethodDecl;
 import cd.ir.Ast.NewArray;
@@ -41,8 +43,12 @@ public class EscapeAnalyzer {
 		this.main = main;
 	}
 	
+	static int prt = 0;
+	
 	private static int nodeCount = 0;
 	private static int clusterInd = 0;
+	
+	private final static String THREAD_START = "start", THREAD_RUN = "run", THREAD_JOIN = "join";
 	
 	private class GraphNode {
 		int index;
@@ -96,6 +102,15 @@ public class EscapeAnalyzer {
 			properties.add(RETURNED);
 		}
 		
+		boolean containsProps(String... props) {
+			for (String prop : props) {
+				if (properties.contains(prop)) {
+					return true;
+				}
+			}
+			
+			return false;
+		}
 		
 		GraphNode addReference(String label, GraphNode n) {
 			if (outNodes.containsKey(label) == false) {
@@ -152,20 +167,37 @@ public class EscapeAnalyzer {
 			}
 		}
 		
-		void merge(GraphNode node) {
+		boolean merge(GraphNode node, HashSet<Integer> visited) {
+			boolean ret = false;
+		
+			if (visited.contains(node.index)) {
+				return false;
+			}
+		
+			visited.add(node.index);
+			
 			for (String label : node.outNodes.keySet()) {
 				if (outNodes.containsKey(label)) {
 					for (GraphNode n : node.outNodes.get(label).values()) {
 						if (outNodes.get(label).containsKey(n.index)) {
-							outNodes.get(label).get(n.index).merge(n);
+							ret = outNodes.get(label).get(n.index).merge(n, visited) || ret;
 						} else {
-							outNodes.get(label).put(n.index, n);
+							outNodes.get(label).put(n.index, n.deepCopy());
+							ret = true;
 						}
 					}
 				} else {
-					outNodes.put(label, node.outNodes.get(label));
+					ret = true;
+					HashMap<Integer, GraphNode> list = new HashMap<>();
+					
+					for (GraphNode n : node.outNodes.get(label).values()) {
+						list.put(n.index, n.deepCopy());
+					}
+					outNodes.put(label, list);
 				}
 			}
+			
+			return ret;
 		}
 
 		void buildNodes(String path, Set<GraphNode> results) {
@@ -235,11 +267,11 @@ public class EscapeAnalyzer {
 		void write(String name, PrintWriter out) {
 			writeColor = true;
 			
-			out.write(String.format("%d[label=\"", index));
+			out.write(String.format("%d[label=\"%d: ", index, index));
 			for (String prop : properties) {
 				out.write(prop + " ");
 			}
-			printProperties();
+//			printProperties();
 			
 			out.write("\"];\n");
 			
@@ -258,7 +290,7 @@ public class EscapeAnalyzer {
 			// does not support cycles
 			
 			for (GraphNode threadNode : threadGraph.buildNodes(prefix)) {
-				System.err.println("-- " + prefix + " " + threadNode.properties);
+//				System.err.println("-- " + prefix + " " + threadNode.properties);
 				if (threadNode.properties.size() > 1) { // they must have the 'this' property
 					this.properties.add("escaped");
 					return ;
@@ -274,31 +306,73 @@ public class EscapeAnalyzer {
 	}
 	
 	public class Graph {
-		Map<String, GraphNode> nodes = new HashMap<>();
+		Map<String, List<GraphNode>> nodes = new HashMap<>();
 		Set<GraphNode> returnSet = new HashSet<>();
+		int curBB; // used for processing
 		
 		Graph deepCopy() {
 			Graph g = new Graph();
 			
 			for (String n : nodes.keySet()) {
-				g.nodes.put(n, nodes.get(n).deepCopy());
+				for (GraphNode node : nodes.get(n)) {
+					g.put(n, node.deepCopy());
+				}
 			}
 			
 			for (String n : nodes.keySet()) {
-				nodes.get(n).eraseCopy();
+				for (GraphNode node : nodes.get(n)) {
+					node.eraseCopy();
+				}
 			}
 			
 			return g;
 		}
 		
-		void merge(Graph g) {
+		void clearName(String name) {
+			nodes.get(name).clear();
+		}
+		
+		void put(String name, GraphNode n) {
+			if (!nodes.containsKey(name)) {
+				nodes.put(name, new ArrayList<GraphNode>());
+			}
+			nodes.get(name).add(n);
+		}
+		
+		boolean nodeHasProp(String name, String... props) {
+			boolean rez = false;
+			
+			for (GraphNode node : nodes.get(name)) {
+				rez = node.containsProps(props) || rez;
+			}
+			
+			return rez;
+		}
+			
+		boolean merge(Graph g) {
+			boolean ret = false;
+			
 			for (String n : g.nodes.keySet()) {
 				if (nodes.containsKey(n)) {
-					nodes.get(n).merge(g.nodes.get(n));
+					List<GraphNode> glist = g.nodes.get(n), list = nodes.get(n);
+					
+					for (int i = 0; i < glist.size(); i++) {
+						if (glist.size() > list.size()) {
+							list.add(glist.get(i));
+							ret = true;
+						} else {
+							ret = list.get(i).merge(glist.get(i), new HashSet<Integer>()) || ret;
+						}
+					}
 				} else {
-					nodes.put(n, g.nodes.get(n));
+					for (GraphNode node : g.nodes.get(n)) {
+						put(n, node.deepCopy());
+					}
+					ret = true;
 				}
 			}
+			
+			return ret;
 		}
 		
 		Set<GraphNode> buildNodes(String path) {
@@ -312,30 +386,36 @@ public class EscapeAnalyzer {
 		void buildNodes(String path, Set<GraphNode> results) {
 			Pair<Integer> next = computeNextLabel(path);
 			
-			GraphNode n = nodes.get(path.substring(0, next.a));
-			
-			if (next.b == path.length()) {
-				results.add(n);
-			} else {
-				n.buildNodes(path.substring(next.b + 1), results);
+			for (GraphNode n : nodes.get(path.substring(0, next.a))) {
+				if (next.b == path.length()) {
+					results.add(n);
+				} else {
+					n.buildNodes(path.substring(next.b + 1), results);
+				}
 			}
 		}
 		
 		void dfs() {
 			for (String  n : nodes.keySet()) {
-				nodes.get(n).dfs();
+				for (GraphNode node : nodes.get(n)) {
+					node.dfs();
+				}
 			}
 		}
 		
 		void checkThread(String path, Graph threadGraph) {
-			nodes.get(path).checkThread(threadGraph, "this");
+			for (GraphNode node : nodes.get(path)) {
+				node.checkThread(threadGraph, "this");
+			}
 		}
 		
 		void write(PrintWriter out) {
-			for (String  n : nodes.keySet()) {
-				out.write(String.format("%s_%s_%s -> %d;\n", mdecl.sym.owner, mdecl.sym.name, n, nodes.get(n).index));
-				if (!nodes.get(n).writeColor) {
-					nodes.get(n).write(n, out);
+			for (String n : nodes.keySet()) {
+				for (GraphNode node : nodes.get(n)) {
+					out.write(String.format("%s_%s_%s -> %d;\n", mdecl.sym.owner, mdecl.sym.name, n, node.index));
+					if (!node.writeColor) {
+						node.write(n, out);
+					}
 				}
 			}
 		}
@@ -363,29 +443,34 @@ public class EscapeAnalyzer {
 		return cs.superClass.name.equals("Thread");
 	}
 	
+	private boolean inheritsThread(ClassSymbol curClass) {
+		
+		for (; curClass != null; curClass = curClass.superClass) {
+			if (curClass.name.equals("Thread")) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	private HashMap<Integer, HashSet<String>> joins = new HashMap<>();
+	
 	public void compute(MethodDecl md, PrintWriter pw) {
 		System.err.println("Checking " + md.name);
-		
 		
 		this.mdecl = md;
 		this.pw = pw;
 		
 		mdecl.analyzedColor = GREY;
 		ControlFlowGraph cfg = md.cfg;
-		LinkedList<BasicBlock> worklist = new LinkedList<>();
 		
-		for (BasicBlock curBB : cfg.allBlocks) {
-			curBB.escapeGraph = new Graph();
-		}
-		
-		worklist.add(cfg.start);
-		
-		Graph g = cfg.start.escapeGraph;
+		Graph g = new Graph(); //cfg.start.escapeGraph;
 		
 		for (int i = 0; i < md.argumentNames.size(); i++) {
 			if (!isScalarType(md.argumentTypes.get(i))) {
 				// should not put scalar types
-				g.nodes.put(md.argumentNames.get(i), new GraphNode(GraphNode.REF_PARAM));
+				g.put(md.argumentNames.get(i), new GraphNode(GraphNode.REF_PARAM));
 			}
 		}
 		
@@ -400,70 +485,138 @@ public class EscapeAnalyzer {
 			if (isScalarType(type)) {
 				continue;
 			}
-			g.nodes.put(var, new GraphNode());
+			g.put(var, new GraphNode());
 			
 			if (type instanceof ClassSymbol) {
-				if (((ClassSymbol)type).superClass.name.equals("Thread")) {
+				if (inheritsThread((ClassSymbol)type)) {
 					System.err.println("alloc thread");
 					// we should also consider the other threads (fields)
 					
-					g.nodes.get(var).setThread();
+					for (GraphNode node : g.nodes.get(var)) {
+						node.setThread();
+					}
 					
 					threadVars.add(var);
 				}
 			}
 			if (type instanceof ArrayTypeSymbol) { // we should also consider the other arrays
-				g.nodes.get(var).setArray();
+				for (GraphNode node : g.nodes.get(var)) {
+					node.setArray();
+				}
 			}
 		}
 		
-		g.nodes.put("this", new GraphNode(GraphNode.THIS));
+		g.put("this", new GraphNode(GraphNode.THIS));
 		
-		int cnt = 0;
+		mdecl.cfg.start.escapeGraph = g;
+		
+		LinkedList<BasicBlock> worklist = new LinkedList<>();
+		worklist.add(cfg.end);
+		Set<Integer> usedBBs = new HashSet<>();
+		usedBBs.add(cfg.end.index);
+		
 		while (worklist.size() > 0) {
-			if (cnt == 5 * cfg.allBlocks.size()) { // this is a hack
-				break;
-			}
-			cnt++;
-			
 			BasicBlock curBB = worklist.poll();
-			Graph curGraph;
 			
-			if (curBB.predecessors.size() == 0) {
-				curGraph = curBB.escapeGraph;
-			} else {
-				// merge the graphs of the predecessors
-				curGraph = curBB.predecessors.get(0).escapeGraph.deepCopy();
+			HashSet<String> curJoins = new HashSet<>();
+			if (curBB.successors.size() > 0) {
+				curJoins = new HashSet<>(joins.get(curBB.successors.get(0).index));
 				
-				for (int i = 1; i < curBB.predecessors.size(); i++) {
-					curGraph.merge(curBB.predecessors.get(i).escapeGraph);
+				for (int i = 1; i < curBB.successors.size(); i++) {
+					curJoins.retainAll(joins.get(curBB.successors.get(i).index));
 				}
 			}
 			
+			for (Ast instr : curBB.instructions) {
+				if (instr instanceof MethodCall) {
+					getJoins.visit(instr, curJoins);
+				}
+			}
+			
+			joins.put(curBB.index, curJoins);
+			
+			for (BasicBlock nextBB : curBB.predecessors) {
+				if (!usedBBs.contains(nextBB.index)) {
+					usedBBs.add(nextBB.index);
+					worklist.add(nextBB);
+				}
+			}
+		}
+		
+		
+		worklist.add(mdecl.cfg.start);
+		usedBBs.clear();
+		usedBBs.add(mdecl.cfg.start.index);
+		
+		while (worklist.size() > 0) {
+			BasicBlock curBB = worklist.poll();
+			
+			if (curBB.predecessors.size() > 0) {
+				curBB.escapeGraph = new Graph();
+				
+				for (BasicBlock pred : curBB.predecessors) {
+					if (pred.escapeGraph != null) {
+						curBB.escapeGraph.merge(pred.escapeGraph);
+					}
+				}
+			}
 			
 			for (VariableSymbol phiSym : curBB.phis.keySet()) {
-				GraphNode node = new GraphNode();
+				if (isScalarType(phiSym.type)) {
+					continue;
+				}
+				
+				String varName = curBB.phis.get(phiSym).lhs.name;
+				
+				curBB.escapeGraph.clearName(varName);
 				
 				for (Expr e : curBB.phis.get(phiSym).rhs) {
 					if (e instanceof Var) {
 						Var v = (Var)e;
+						if (isScalarType(v.type)) {
+							continue;
+						}
 						// we should watch out this - might not work
-						node.addReference("phi", curGraph.nodes.get(v.sym.name));
+						if (curBB.escapeGraph.nodes.containsKey(v.sym.name)) {
+							for (GraphNode rightNode : curBB.escapeGraph.nodes.get(v.sym.name)) {
+								curBB.escapeGraph.put(varName, rightNode);
+							}
+						}
 					}
 				}
-				curGraph.nodes.put(curBB.phis.get(phiSym).lhs.name, node);
 			}
 			
+			curBB.escapeGraph.curBB = curBB.index;
 			for (Ast instr : curBB.instructions) {
-				addToGraph.visit(instr, curGraph);
+				addToGraph.visit(instr, curBB.escapeGraph);
 			}
-			
-			curBB.escapeGraph = curGraph;
 			
 			for (BasicBlock nextBB : curBB.successors) {
-				worklist.add(nextBB);
+				if (!usedBBs.contains(nextBB.index)) {
+					usedBBs.add(nextBB.index);
+					worklist.add(nextBB);
+				}
 			}
 		}
+		
+		while (true) {
+			boolean cont = false;
+			
+			for (BasicBlock curBB : md.cfg.allBlocks) {
+				if (curBB.predecessors.size() > 0) {
+					for (BasicBlock pred : curBB.predecessors) {
+						cont = curBB.escapeGraph.merge(pred.escapeGraph) || cont;
+					}
+				}
+			}
+
+			if (!cont) {
+				break;
+			}
+		}
+		
+		
+		
 		
 		g = cfg.end.escapeGraph;
 
@@ -471,8 +624,8 @@ public class EscapeAnalyzer {
 			ClassSymbol type = (ClassSymbol)md.sym.locals.get(thread).type;
 			
 			// we should be sure that 'join' is called
-			MethodDecl threadMethod = type.methods.get("start").ast;
-			if (threadMethod.analyzedColor == BLACK) {
+			MethodDecl threadMethod = type.getMethod(THREAD_RUN).ast;
+			if (threadMethod != null && threadMethod.analyzedColor == BLACK) {
 				g.checkThread(thread, threadMethod.cfg.end.escapeGraph);
 			}
 		}
@@ -500,13 +653,32 @@ public class EscapeAnalyzer {
 	
 	private boolean isScalarType(String type) {
 		if (type.equals("int") || type.equals("float") ||
-				type.equals("boolean")) {
+			type.equals("boolean") || type.equals("<null>")) {
 			return true;
 		}
 		
 		return false;
 	}
 	
+	private AstVisitor<Void, Set<String>> getJoins =
+			new AstVisitor<Void, Set<String>>() {
+		public Void methodCall(Ast.MethodCall ast, Set<String> joins) {
+			if (isScalarType(ast.allArguments().get(0).type)) {
+				// caller may be <null> due to constant propagation
+				return null;
+			}
+			
+			ClassSymbol caller = (ClassSymbol)(ast.allArguments().get(0).type);
+			
+			if (inheritsThread(caller) && ast.methodName.equals(THREAD_JOIN)) {
+				joins.add(AstOneLine.toString(ast.allArguments().get(0)));
+			}
+			
+			return null;
+		}
+	};
+			
+			
 	private AstVisitor<List<GraphNode>, Graph> addToGraph = 
 			new AstVisitor<List<GraphNode>, Graph>() {
 		public List<GraphNode> assign(Ast.Assign ast, Graph g) {
@@ -526,17 +698,18 @@ public class EscapeAnalyzer {
 				
 				if (ast.right() instanceof Field) {
 					Field f = (Field)ast.right();
-					
+
+					g.clearName(v.sym.name);
 					for (GraphNode n : g.buildNodes(AstOneLine.toString(f))) {
-						// must be careful if the nod already exists
-						g.nodes.put(v.sym.name, n);
+						g.put(v.sym.name, n);
 					}
 				}
 				if (ast.right() instanceof MethodCallExpr) {
 					visit(ast.right(), g);
 					
+					g.clearName(v.sym.name);
 					// must be careful if the node already exists
-					g.nodes.put(v.sym.name, new GraphNode(GraphNode.ESCAPED));
+					g.put(v.sym.name, new GraphNode(GraphNode.ESCAPED));
 				}
 			}
 			
@@ -594,12 +767,28 @@ public class EscapeAnalyzer {
 		private void analyzeMethod(List<Expr> arguments, List<VariableSymbol> params,
 				Expr caller, MethodDecl method, Graph g) {
 			
+			if (isScalarType(caller.type)) {
+				// caller may be <null> due to constant propagation
+				return ;
+			}
+			
+			ClassSymbol callClass = (ClassSymbol)caller.type;
+			
+			if (inheritsThread(callClass) && method.name.equals(THREAD_JOIN)) {
+				return ;
+			}
+			
+			if (inheritsThread(callClass) && method.name.equals(THREAD_START)) {
+				method = callClass.getMethod(THREAD_RUN).ast;
+			}
+			
 			if (method.analyzedColor == EscapeAnalyzer.WHITE) {
 				(new EscapeAnalyzer(main)).compute(method, pw);
 			}
-			
+
 			for (GraphNode node : g.buildNodes(AstOneLine.toString(caller))) {
-				if (isThreadClass(method.sym.owner) && method.name.equals("start") && arguments.size() == 0) {
+				if (isThreadClass(method.sym.owner) && method.name.equals(THREAD_RUN) &&
+						joins.get(g.curBB).contains(AstOneLine.toString(caller))) {
 					node.setThread();
 				} else {
 					node.setEscaped();
@@ -617,7 +806,7 @@ public class EscapeAnalyzer {
 				if (arg instanceof Var || arg instanceof Field) {
 					// we are only interested in vars or fields
 					if (method.analyzedColor == EscapeAnalyzer.GREY ||
-							method.cfg.end.escapeGraph.nodes.get(var.name).properties.contains("escaped")) {
+							method.cfg.end.escapeGraph.nodeHasProp(var.name, "escaped")) {
 						for (GraphNode node : g.buildNodes(AstOneLine.toString(arg))) {
 							node.setEscaped();
 						}
@@ -634,6 +823,7 @@ public class EscapeAnalyzer {
 		}
 		
 		public List<GraphNode> methodCall(Ast.MethodCall ast, Graph g) {
+			
 			analyzeMethod(ast.argumentsWithoutReceiver(), ast.sym.parameters,
 					ast.allArguments().get(0), ast.sym.ast, g);
 			
@@ -641,8 +831,22 @@ public class EscapeAnalyzer {
 		}
 		
 		public List<GraphNode> returnStmt(Ast.ReturnStmt ast, Graph g) {
-			for (GraphNode x : g.buildNodes(AstOneLine.toString(ast.arg()))) {
-				x.setReturned();
+			
+			if (ast.arg() == null) {
+				return null;
+			}
+			
+			visit(ast.arg(), g);
+			
+					
+			if (isScalarType(ast.arg().type)) {
+				return null;
+			}
+			
+			if (ast.arg() instanceof Var || ast.arg() instanceof Field || ast.arg() instanceof ThisRef) {
+				for (GraphNode x : g.buildNodes(AstOneLine.toString(ast.arg()))) {
+					x.setReturned();
+				}
 			}
 			
 			return null;

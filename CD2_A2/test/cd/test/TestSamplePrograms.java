@@ -32,8 +32,8 @@ public class TestSamplePrograms extends AbstractTestSamplePrograms {
 	 * particular directory, use sth. like:
 	 * {@code testDir = new File("javali_tests/A2/")}.
 	 */
-//	public static final File testDir = new File("javali_tests/");
-	public static final File testDir = null;
+	public static final File testDir = new File("javali_tests/");
+//	public static final File testDir = null;
 
 	@Parameters
 	public static Collection<Object[]> testFiles() {
