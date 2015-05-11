@@ -1,7 +1,6 @@
 package cd;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -10,8 +9,6 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import org.antlr.runtime.ANTLRReaderStream;
@@ -22,28 +19,22 @@ import org.antlr.runtime.tree.CommonTreeNodeStream;
 import cd.cfg.CFGBuilder;
 import cd.cfg.DeSSA;
 import cd.cfg.Dominator;
-import cd.cfg.EscapeAnalyzer;
 import cd.cfg.Optimizer;
 import cd.cfg.SSA;
 import cd.codegen.CfgCodeGenerator;
 import cd.debug.AstDump;
 import cd.debug.CfgDump;
 import cd.exceptions.ParseFailure;
-import cd.ir.Ast;
 import cd.ir.Ast.ClassDecl;
 import cd.ir.Ast.MethodDecl;
-import cd.ir.Ast.Seq;
 import cd.ir.BasicBlock;
 import cd.ir.Symbol;
-import cd.ir.Symbol.MethodSymbol;
 import cd.ir.Symbol.PrimitiveTypeSymbol;
 import cd.ir.Symbol.TypeSymbol;
-import cd.ir.Symbol.VariableSymbol;
 import cd.parser.JavaliLexer;
 import cd.parser.JavaliParser;
 import cd.parser.JavaliWalker;
 import cd.semantic.SemanticAnalyzer;
-import cd.util.Pair;
 
 /** 
  * The main entrypoint for the compiler.  Consists of a series
@@ -64,7 +55,7 @@ public class Main {
 	public PrimitiveTypeSymbol intType, floatType, voidType, booleanType;
 
 	/** Symbols for the built-in Object and null types */
-	public Symbol.ClassSymbol objectType, nullType, threadType;
+	public Symbol.ClassSymbol objectType, nullType;
 	
 	/** Symbol for the Main type */
 	public Symbol.ClassSymbol mainType;
@@ -126,27 +117,6 @@ public class Main {
 			objectType = new Symbol.ClassSymbol("Object");
 			nullType = new Symbol.ClassSymbol("<null>");
 		}
-
-		// create thread symbol manually
-		Seq emptySeq = new Seq(Collections.<Ast>emptyList());
-		List<Pair<String>> emptyParams = Collections.emptyList();
-		threadType = new Symbol.ClassSymbol("Thread");
-		threadType.superClass = objectType;
-		
-		threadType.fields.put("$pthread", new VariableSymbol("$pthread", objectType));
-		threadType.sizeof = Config.SIZEOF_PTR * 2;
-		threadType.totalFields = 1;
-		
-		int methodCount = 0;
-		for(String methodName : Arrays.asList("run", "start", "join")) {
-			MethodSymbol methodSymbol = new MethodSymbol(
-					new MethodDecl("void", methodName, emptyParams, emptySeq, emptySeq));
-			methodSymbol.returnType = voidType;
-			methodSymbol.owner = threadType;
-			methodSymbol.vtableIndex = methodCount++;
-			threadType.methods.put(methodName, methodSymbol);
-		}
-		threadType.totalMethods = methodCount;
 	}
 
 	public List<ClassDecl> parse(Reader file, boolean debugParser)  throws IOException {
@@ -236,24 +206,6 @@ public class Main {
 					for (MethodDecl md : cd.methods())
 						new Optimizer(this).compute(md);
 				CfgDump.toString(astRoots, ".opt", cfgdumpbase, false);				
-			}
-			
-			try {
-				File f = new File(cfgdumpbase.getName() + ".escape.dot");
-				PrintWriter pw = new PrintWriter(f);
-				
-				pw.write("digraph G {\ngraph [rankdir = \"LR\"];\n");
-				for (ClassDecl cd : astRoots) {
-					for (MethodDecl md : cd.methods()) {
-						if (md.analyzedColor == EscapeAnalyzer.WHITE) {
-							(new EscapeAnalyzer(this)).compute(md, pw);
-						}
-					}
-				}
-				pw.write("}\n");
-				pw.close();
-			} catch (FileNotFoundException ex) {
-				System.err.println(ex);
 			}
 
 			// Remove SSA form.

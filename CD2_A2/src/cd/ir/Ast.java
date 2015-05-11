@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import cd.cfg.EscapeAnalyzer;
 import cd.debug.AstOneLine;
 import cd.ir.Symbol.ClassSymbol;
 import cd.ir.Symbol.MethodSymbol;
@@ -466,8 +465,6 @@ public abstract class Ast {
 
 		/** Name of the type to be created */
 		public String typeName;
-		
-		public boolean stackAlloc = false;
 
 		public NewObject(String typeName) {
 			this.typeName = typeName;
@@ -1111,7 +1108,6 @@ public abstract class Ast {
 		public List<String> argumentNames;
 		public MethodSymbol sym;
 		public ControlFlowGraph cfg;
-		public int analyzedColor = EscapeAnalyzer.WHITE;
 
 		public MethodDecl(
 		    String returnType,

@@ -1,0 +1,10 @@
+class Main {
+    void main() {
+        int i;
+
+        if (i == 0) {
+            write(23); writeln();
+        }
+        
+    }
+}

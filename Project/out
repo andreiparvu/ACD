@@ -1,0 +1,370 @@
+AST Resulting From Parsing Stage:
+ClassDecl (name: Main, superClass: Object)
+| VarDecl (name: list, type: LinkedList)
+| VarDecl (name: size, type: int)
+| MethodDecl (analyzedColor: 0, argumentNames: [size], argumentTypes: [int], name: init, returnType: void)
+| | Seq ()
+| | | VarDecl (name: s, type: int)
+| | | VarDecl (name: curr, type: Node)
+| | | VarDecl (name: f, type: FloatBox)
+| | Seq ()
+| | | Assign ()
+| | | | Field (BOOL: 3, FLOAT: 1, INT: 2, fieldName: size)
+| | | | | ThisRef (BOOL: 3, FLOAT: 1, INT: 2)
+| | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: size)
+| | | Assign ()
+| | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: list)
+| | | | NewObject (BOOL: 3, FLOAT: 1, INT: 2, stackAlloc: false, typeName: LinkedList)
+| | | Assign ()
+| | | | Field (BOOL: 3, FLOAT: 1, INT: 2, fieldName: head)
+| | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: list)
+| | | | NewObject (BOOL: 3, FLOAT: 1, INT: 2, stackAlloc: false, typeName: Node)
+| | | Assign ()
+| | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: s)
+| | | | IntConst (BOOL: 3, FLOAT: 1, INT: 2, value: 0)
+| | | Assign ()
+| | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: curr)
+| | | | Field (BOOL: 3, FLOAT: 1, INT: 2, fieldName: head)
+| | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: list)
+| | | WhileLoop ()
+| | | | BinaryOp (BOOL: 3, FLOAT: 1, INT: 2, operator: B_LESS_THAN)
+| | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: s)
+| | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: size)
+| | | | Seq ()
+| | | | | Assign ()
+| | | | | | Field (BOOL: 3, FLOAT: 1, INT: 2, fieldName: next)
+| | | | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: curr)
+| | | | | | NewObject (BOOL: 3, FLOAT: 1, INT: 2, stackAlloc: false, typeName: Node)
+| | | | | Assign ()
+| | | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: f)
+| | | | | | NewObject (BOOL: 3, FLOAT: 1, INT: 2, stackAlloc: false, typeName: FloatBox)
+| | | | | Assign ()
+| | | | | | Field (BOOL: 3, FLOAT: 1, INT: 2, fieldName: value)
+| | | | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: f)
+| | | | | | FloatConst (BOOL: 3, FLOAT: 1, INT: 2, value: 0.0)
+| | | | | Assign ()
+| | | | | | Field (BOOL: 3, FLOAT: 1, INT: 2, fieldName: payload)
+| | | | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: curr)
+| | | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: f)
+| | | | | Assign ()
+| | | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: curr)
+| | | | | | Field (BOOL: 3, FLOAT: 1, INT: 2, fieldName: next)
+| | | | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: curr)
+| | | | | Assign ()
+| | | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: s)
+| | | | | | BinaryOp (BOOL: 3, FLOAT: 1, INT: 2, operator: B_PLUS)
+| | | | | | | Var (BOOL: 3, FLOAT: 1, INT: 2, name: s)
+| | | | | | | IntConst (BOOL: 3, FLOAT: 1, INT: 2, value: 1)
+| MethodDecl (analyzedColor: 0, argumentNames: [], argumentTypes: [], name: main, returnType: void)
+| | Seq ()
+| | Seq ()
+| | | MethodCall (methodName: init)
+| | | | ThisRef (BOOL: 3, FLOAT: 1, INT: 2)
+| | | | IntConst (BOOL: 3, FLOAT: 1, INT: 2, value: 3)
+ClassDecl (name: LinkedList, superClass: Object)
+| VarDecl (name: head, type: Node)
+ClassDecl (name: Node, superClass: Object)
+| VarDecl (name: next, type: Node)
+| VarDecl (name: payload, type: FloatBox)
+ClassDecl (name: FloatBox, superClass: Object)
+| VarDecl (name: value, type: float)
+Computing dominators of init
+blk=BB0 preds=[]
+blk=BB1 preds=[BB4]
+blk=BB1(BB4) pblk=BB4
+blk=BB2 preds=[BB0, BB3]
+blk=BB2(BB0) pblk=BB0
+blk=BB2(BB0) pblk=BB3
+blk=BB3 preds=[BB2]
+blk=BB3(BB2) pblk=BB2
+blk=BB4 preds=[BB2]
+blk=BB4(BB2) pblk=BB2
+  BB0 df [] of init
+  BB1 df [] of init
+  BB2 df [BB2] of init
+  BB3 df [BB2] of init
+  BB4 df [] of init
+Computing dominators of main
+blk=BB0 preds=[]
+blk=BB1 preds=[BB0]
+blk=BB1(BB0) pblk=BB0
+  BB0 df [] of main
+  BB1 df [] of main
+Computing SSA form for init
+  Adding Phis for BB0 of init
+    df=[]
+    idf=[]
+Introducing phis for s at []
+Introducing phis for curr at []
+  Adding Phis for BB1 of init
+    df=[]
+    idf=[]
+  Adding Phis for BB2 of init
+    df=[BB2]
+    idf=[BB2]
+  Adding Phis for BB3 of init
+    df=[BB2]
+    idf=[BB2]
+Introducing phis for f at [BB2]
+  New phi created <f = phi[(f)@78538773, (f)@33e1ccbc]> at BB2
+Introducing phis for curr at [BB2]
+  New phi created <curr = phi[(curr)@6bef63f9, (curr)@318ca7cb]> at BB2
+Introducing phis for s at [BB2]
+  New phi created <s = phi[(s)@7da4770d, (s)@388436ec]> at BB2
+  Adding Phis for BB4 of init
+    df=[]
+    idf=[]
+Computing SSA form for main
+  Adding Phis for BB0 of main
+    df=[]
+    idf=[]
+  Adding Phis for BB1 of main
+    df=[]
+    idf=[]
+Checking init
+(this.list)@1f08bef4
+(this.list.head)@168c147c
+(this.list)@1f08bef4
+(this.list.head)@168c147c
+f
+f_2
+curr_1
+curr_3
+(curr_2.next)@7d8637cc
+(curr_2.payload)@76b97275
+assign (curr_2.payload = f_2)@9099c38
+1
+---- 0
+---- 1
+1
+3
+6
+9
+10
+4
+11
+1
+3
+3
+2
+4
+11
+1
+3
+4
+11
+1
+3
+10
+4
+11
+1
+3
+---- 2
+1
+6
+9
+10
+3
+2
+4
+10
+1
+3
+6
+9
+10
+4
+3
+11
+4
+11
+1
+3
+10
+4
+11
+1
+3
+---- 3
+1
+3
+2
+3
+6
+9
+10
+4
+11
+1
+3
+4
+11
+1
+3
+10
+4
+11
+1
+3
+---- 4
+1
+3
+2
+4
+11
+1
+3
+3
+6
+9
+10
+4
+11
+1
+3
+4
+11
+1
+3
+10
+4
+11
+1
+3
+---- 0
+---- 1
+1
+3
+6
+9
+10
+4
+11
+1
+3
+3
+2
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+11
+4
+---- 2
+---- 3
+---- 4
+1
+this
+3
+this
+2
+4
+this
+11
+this
+6
+this
+9
+this
+10
+this
+Finished checking init
+Checking main
+---- 0
+---- 1
+---- 0
+---- 1
+12
+escaped
+this
+Finished checking main

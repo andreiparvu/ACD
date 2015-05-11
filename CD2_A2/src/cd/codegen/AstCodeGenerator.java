@@ -192,7 +192,7 @@ public class AstCodeGenerator {
 			String faillbl = uniqueLabel();
 			emitCommentSection(CHECK_CAST + " function");
 			emitLabel(CHECK_CAST);
-			emitEnter(c(8));
+			emit("enter", "$8", "$0");
 			emit("and", c(-16), SP);
 			emit("sub", c(16), SP);
 			emitLoad(SIZEOF_PTR * 2, BP, cls);
@@ -220,7 +220,7 @@ public class AstCodeGenerator {
 			String oknulllbl = uniqueLabel();
 			emitCommentSection(CHECK_NULL + " function");
 			emitLabel(CHECK_NULL);
-			emitEnter(c(8));
+			emit("enter", "$8", "$0");
 			emit("and", c(-16), SP);
 			emit("sub", c(16), SP);
 			emit("cmpl", c(0), o(SIZEOF_PTR * 2, BP));
@@ -237,7 +237,7 @@ public class AstCodeGenerator {
 			String oknzlbl = uniqueLabel();
 			emitCommentSection(CHECK_NON_ZERO + " function");
 			emitLabel(CHECK_NON_ZERO);
-			emitEnter(c(8));
+			emit("enter", "$8", "$0");
 			emit("and", c(-16), SP);
 			emit("sub", c(16), SP);
 			emit("cmpl", c(0), o(SIZEOF_PTR * 2, BP));
@@ -254,7 +254,7 @@ public class AstCodeGenerator {
 			String okunqlbl = uniqueLabel();
 			emitCommentSection(CHECK_ARRAY_SIZE + " function");
 			emitLabel(CHECK_ARRAY_SIZE);
-			emitEnter(c(8));
+			emit("enter", "$8", "$0");
 			emit("and", c(-16), SP);
 			emit("sub", c(16), SP);
 			emit("cmpl", c(0), o(SIZEOF_PTR * 2, BP));
@@ -271,7 +271,7 @@ public class AstCodeGenerator {
 			String size = callerSave[0];
 			emitCommentSection(ALLOC + " function");
 			emitLabel(ALLOC);
-			emitEnter(c(8));
+			emit("enter", "$8", "$0");
 			emit("and", c(-16), SP);
 			emit("sub", c(16), SP);
 			emitLoad(8, BP, size);
@@ -285,7 +285,7 @@ public class AstCodeGenerator {
 		{
 			emitCommentSection(PRINT_NEW_LINE + " function");
 			emitLabel(PRINT_NEW_LINE);
-			emitEnter(c(8));
+			emit("enter", "$8", "$0");
 			emit("and", c(-16), SP);
 			emit("sub", c(16), SP);
 			emitStore("$STR_NL", 0, SP);
@@ -298,7 +298,7 @@ public class AstCodeGenerator {
 		{
 			emitCommentSection(PRINT_FLOAT + " function");
 			emitLabel(PRINT_FLOAT);
-			emitEnter(c(8));
+			emit("enter", "$8", "$0");
 			emit("and", c(-16), SP);
 			emit("sub", c(16), SP);
 			emitMoveFloat(o(8, BP), FLOAT_REG_0);
@@ -315,7 +315,7 @@ public class AstCodeGenerator {
 			String temp = callerSave[0];
 			emitCommentSection(PRINT_INTEGER + " function");
 			emitLabel(PRINT_INTEGER);
-			emitEnter(c(8));
+			emit("enter", "$8", "$0");
 			emit("and", c(-16), SP);
 			emit("sub", c(16), SP);
 			emitLoad(8, BP, temp);
@@ -331,7 +331,7 @@ public class AstCodeGenerator {
 			String number = callerSave[0];
 			emitCommentSection(READ_INTEGER + " function");
 			emitLabel(READ_INTEGER);
-			emitEnter(c(8));
+			emit("enter", "$8", "$0");
 			emit("and", c(-16), SP);
 			emit("sub", c(16), SP);
 			emit("leal", o(8, SP), number);
@@ -348,7 +348,7 @@ public class AstCodeGenerator {
 			String floatNumber = callerSave[0];
 			emitCommentSection(READ_FLOAT + " function");
 			emitLabel(READ_FLOAT);
-			emitEnter(c(8));
+			emit("enter", "$8", "$0");
 			emit("and", c(-16), SP);
 			emit("sub", c(16), SP);
 			emit("leal", o(8, SP), floatNumber);
@@ -372,7 +372,7 @@ public class AstCodeGenerator {
 		emitCommentSection("main() function");
 		emit(".globl " + MAIN);
 		emitLabel(MAIN);
-		emitEnter(c(8));
+		emit("enter", "$8", "$0");
 		emit("and", -16, SP);
 		sdg.gen(callMain);
 		emit("movl", "$0", "%eax"); // normal termination:
@@ -1129,17 +1129,10 @@ public class AstCodeGenerator {
 			{
 				ClassSymbol clssym = (ClassSymbol) ast.type;
 				String reg = getRegister();
-				
-				// hard-coded
-				if (ast.stackAlloc) {
-					emit("sub", "$" + clssym.sizeof, "%esp");
-					emit("mov", "%esp", reg);
-				} else {
-					int allocPadding = emitCallPrefix(reg, 1);
-					push(c(clssym.sizeof));
-					emit("call", ALLOC);
-					emitCallSuffix(reg, 1, allocPadding);
-				}
+				int allocPadding = emitCallPrefix(reg, 1);
+				push(c(clssym.sizeof));
+				emit("call", ALLOC);
+				emitCallSuffix(reg, 1, allocPadding);
 				emitStore(c(vtable(clssym)), 0, reg);
 				return reg;
 			}
@@ -1629,13 +1622,6 @@ public class AstCodeGenerator {
 		}
 	}
 
-	protected void emitEnter(String stackSize) {
-		//emit("enter", stackSize, "$0");
-		emit("pushl", "%ebp");
-		emit("mov", "%esp", "%ebp");
-		emit("sub", stackSize, "%esp");
-	}
-
 	protected String mthdlbl(MethodSymbol msym) {
 		return msym.owner.name + "_" + msym.name;
 	}
@@ -1725,7 +1711,7 @@ public class AstCodeGenerator {
 
 		emitComment(String.format("implicit=%d localSlot=%d sum=%d", implicit, localSlot, implicit + localSlot));
 
-		emitEnter(c(stackSize));
+		emit(String.format("enter $%d, $0", stackSize));
 		emit("and", -16, SP);
 
 		storeCalleeSaveRegs();

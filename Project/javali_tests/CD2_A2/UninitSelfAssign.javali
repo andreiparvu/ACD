@@ -1,0 +1,14 @@
+class Main {
+    void main() {
+        int i;
+
+        if (true) {
+
+        } else {
+            i = 1;
+        }
+        i = i;
+        
+        write(i); writeln();
+    }
+}

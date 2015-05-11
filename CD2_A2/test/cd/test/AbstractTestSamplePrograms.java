@@ -263,15 +263,12 @@ abstract public class AbstractTestSamplePrograms {
 		// At this point, we have generated a .s file and we have to compile
 		// it to a binary file. We need to call out to GCC or something
 		// to do this.
-		String rtPath = new File("./rt").getAbsolutePath();
 		String asmOutput = FileUtil.runCommand(
-				Config.ASM_DIR,
-				Config.ASM,
-				new String[] {
-						binfile.getAbsolutePath(),
-						sfile.getAbsolutePath(),
-						rtPath
-				}, null, false);
+		                       Config.ASM_DIR,
+		                       Config.ASM,
+		                       new String[] { binfile.getAbsolutePath(),
+		                                      sfile.getAbsolutePath()
+		                                    }, null, false);
 
 		// To check if gcc succeeded, check if the binary file exists.
 		// We could use the return code instead, but this seems more

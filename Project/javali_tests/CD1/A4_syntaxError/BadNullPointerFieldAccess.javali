@@ -1,0 +1,12 @@
+// access field of null pointer
+class Main {
+    int field;
+
+    void main() {
+        Main m;
+        
+        m = null;
+        
+        write(m.field);
+    }
+}

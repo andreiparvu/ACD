@@ -1,0 +1,20 @@
+class Main {
+  void main() {
+    int a, b, c, d, e, f, g;
+
+    a = read();
+    b = read();
+    c = read();
+
+    d = a + b + c;
+    e = a + b + c;
+    
+    if (false) {
+        f = c + (b + a);
+    }
+
+    write(e);
+    write(d);
+  }
+}
+

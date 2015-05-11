@@ -69,8 +69,6 @@ public class Phi {
 		isConstant = true;
 		// we can further propagate this variable
 		toPropagate.put(lhs.name, (LeafExpr)rhs.get(0));
-		
-		return ;
 	}
 
 	public void detectUses(Set<String> usedVars) {

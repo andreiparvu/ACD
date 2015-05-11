@@ -1,0 +1,66 @@
+class Main {
+  int f() {
+    write(11111);
+    return 23;
+  }
+  
+  int field;
+
+  void main() {
+    int x, y, z;
+    float a, b, c;
+
+    x = read();
+    y = read();
+    z = read();    
+
+    write(0 + x); writeln();
+    write(y + 0); writeln();
+    
+    write(x * 1); writeln();
+    write(1 * y); writeln();
+
+    write(0 + f()); writeln();
+    write(f() + 0); writeln();
+    
+    write(f() * 1); writeln();
+    write(f() * y); writeln();
+    
+    write(2 * x); writeln();
+    write(y * 2); writeln();
+    write(2 * f()); writeln();
+    
+    write(0 * x); writeln();
+    write(0 * f()); writeln();
+    write(y * 0); writeln();
+    
+    write(x / 1); writeln();
+    write(y - 0); writeln();
+    
+    write(f() / 1); writeln();
+    write(f() - 0); writeln();
+    
+    write(x - x); writeln();
+    write(y - y - y); writeln();
+    write(f() - f()); writeln();
+
+    write(f() + f() + f() + f()); writeln();
+
+    this.field = 3;
+    write(this.field - this.field); writeln();
+    write(this.field - 0); writeln();
+    write(2 * this.field); writeln();
+    
+    write((x/x) - (x/x)); writeln();
+    
+    // float simplificiation currently not implemented
+    a = readf();
+    b = readf();
+    c = readf();
+    
+    writef(a - a);
+    writef(a + 0.0);
+    writef(0.0 - b);
+    writef(2.0 * a);
+  }
+}

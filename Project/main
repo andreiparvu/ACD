@@ -1,0 +1,12 @@
+#!/bin/sh
+# A handy script for running your compiler from the command line.
+M=$(dirname $0)
+CP=$M/bin:$CLASSPATH
+for jarfile in $M/lib/*.jar; do CP="$jarfile:$CP"; done
+java -Dcd.meta_hidden.Version=REFERENCE -cp $CP cd.Main "$@"
+
+for infile in "$@"; do
+    if [ -e "${infile}.s" ] ; then
+        gcc -m32 -o "${infile}.bin" "${infile}.s" "-L${M}/rt" -ljavali -lpthread
+    fi
+done

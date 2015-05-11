@@ -1,0 +1,26 @@
+class Custom extends Thread {
+    int arg;
+    void run() {
+        write(arg); writeln();
+    }
+}
+
+class Pair {
+    int a;
+    int b;
+    
+    void f() { write(b); }
+}
+
+class Main {
+    void main() {
+        Custom t;
+        Pair p;
+        
+        p = new Pair();
+        t = new Custom();
+        t.arg = 42;
+        t.start();
+        //t.join();
+     }
+}

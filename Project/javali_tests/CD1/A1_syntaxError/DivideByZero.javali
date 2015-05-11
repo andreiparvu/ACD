@@ -1,0 +1,10 @@
+// this tests the division by zero
+class Main {
+	void main() {
+	    int i;
+	    
+        i = 0;
+        write(42 / i);
+        writeln();
+	}
+}
