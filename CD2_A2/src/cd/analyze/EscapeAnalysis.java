@@ -102,9 +102,11 @@ public class EscapeAnalysis {
 	private Map<Ast, AliasContext> siteContexts;
 	private CallGraph callGraph;
 	private Map<Ast, Boolean> multiSites;
+	private MethodSymbol threadStart;
 
 	public EscapeAnalysis(Main main) {
 		this.main = main;
+		this.threadStart = main.threadType.getMethod("start");
 	}
 	
 	public void analyze(List<ClassDecl> astRoots) {
@@ -189,7 +191,6 @@ public class EscapeAnalysis {
 
 
 	private Map<Ast, Boolean> findThreadAllocationSites() {
-		final MethodSymbol threadStart = main.threadType.getMethod("start");
 		final Map<Ast, Boolean> multiSite = new HashMap<>();
 		for (MethodSymbol sym : callGraph.graph.keySet()) {
 			if (sym.owner == main.objectType || sym.owner == main.threadType) {
@@ -400,7 +401,7 @@ public class EscapeAnalysis {
 			AliasContext sc = createSiteContext(ast);
 			methodInvocation(ast.sym, sc);
 			
-			if (ast.sym == main.threadType.getMethod("start")) {
+			if (ast.sym == threadStart) {
 				sc.receiver.setEscapes(true);
 				if (multiSites.get(ast))  {
 					sc.unify(sc);
