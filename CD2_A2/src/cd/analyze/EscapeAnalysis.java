@@ -15,7 +15,6 @@ import java.util.Set;
 
 import cd.Main;
 import cd.analyze.CallGraphGenerator.CallGraph;
-import cd.debug.AstOneLine;
 import cd.ir.Ast;
 import cd.ir.Ast.Assign;
 import cd.ir.Ast.ClassDecl;
@@ -92,7 +91,7 @@ public class EscapeAnalysis {
 		}
 		
 		public void unifyEscapes(AliasSet other) {
-			if (this.ref == other.ref) return;
+			if (this.ref == other.ref || ref.escapes == other.ref.escapes) return;
 			this.ref.escapes |= other.ref.escapes;
 
 			Map<String, AliasSet> thisFields = this.ref.fieldMap;
@@ -227,10 +226,6 @@ public class EscapeAnalysis {
 		}
 		
 		public void unifyEscapes(AliasContext other) {
-			// TODO there sees to be a bug here!
-			System.out.println(this.toString());
-			System.out.println(other.toString());
-			
 			this.receiver.unifyEscapes(other.receiver);
 			this.result.unifyEscapes(other.result);
 			assert (parameters.size() == other.parameters.size());
@@ -257,6 +252,8 @@ public class EscapeAnalysis {
 	private Map<Ast, AliasContext> siteContexts;
 	private CallGraph callGraph;
 	private Map<Ast, Boolean> multiSites;
+	private Map<Expr, AliasSet> exprSet;
+
 
 	public EscapeAnalysis(Main main) {
 		this.main = main;
@@ -282,6 +279,7 @@ public class EscapeAnalysis {
 		//// Phase 2 ////
 		methodContexts = new HashMap<MethodSymbol, AliasContext>();
 		siteContexts = new HashMap<Ast, AliasContext>();
+		exprSet = new HashMap<Expr, AliasSet>();
 
 		// traverse SCC methods in bottom-up topological order
 		analyzeBottomUp();
@@ -320,21 +318,21 @@ public class EscapeAnalysis {
 		for (Set <MethodSymbol> component : reversed) {
 			for (MethodSymbol method : component) {
 				new AstVisitor<Void, Void>() {
+					private void merge(Ast ast, MethodSymbol sym) {
+						AliasContext mc = methodContexts.get(sym);
+						AliasContext sc = siteContexts.get(ast);
+						sc.unifyEscapes(mc);
+					}
+
 					@Override
 					public Void methodCall(MethodCall ast, Void arg) {
-						AliasContext mc = methodContexts.get(ast.sym);
-						AliasContext sc = siteContexts.get(ast);
-						// sc.unifyEscapes(mc); TODO
-						sc.unify(mc);
+						merge(ast, ast.sym);
 						return super.methodCall(ast, arg);
 					}
 
 					@Override
 					public Void methodCall(MethodCallExpr ast, Void arg) {
-						AliasContext mc = methodContexts.get(ast.sym);
-						AliasContext sc = siteContexts.get(ast);
-						//sc.unifyEscapes(mc);
-						sc.unify(mc);
+						merge(ast, ast.sym);
 						return super.methodCall(ast, arg);
 					}
 				}.visit(method.ast, null);
@@ -378,7 +376,6 @@ public class EscapeAnalysis {
 		private final HashMap<VariableSymbol, AliasSet> as = new HashMap<>();
 		private final AliasContext methodContext;
 		private final MethodSymbol method;
-		private final List<MethodCall> threadStarts = new ArrayList<>();	
 		
 		public MethodAnalayzer(MethodSymbol method) {
 			AliasContext mc = methodContexts.get(method);
@@ -425,6 +422,13 @@ public class EscapeAnalysis {
 		}
 
 		@Override
+		public AliasSet visit(Expr ast, Void arg) {
+			AliasSet set = super.visit(ast, arg);
+			exprSet.put(ast, set);
+			return set;
+		}
+
+		@Override
 		protected AliasSet dfltExpr(Expr ast, Void arg) {
 			// make sure to return any alias symbol
 			AliasSet set = visitChildren(ast, arg);
@@ -451,18 +455,6 @@ public class EscapeAnalysis {
 		@Override
 		public AliasSet newArray(NewArray ast, Void arg) {
 			return new AliasSet();
-		}
-
-		@Override
-		public AliasSet visit(Ast ast, Void arg) {
-			System.err.println(AstOneLine.toString(ast));
-			return super.visit(ast, arg);
-		}
-		
-		@Override
-		public AliasSet visit(Expr ast, Void arg) {
-			System.err.println(AstOneLine.toString(ast));
-			return super.visit(ast, arg);
 		}
 
 		@Override
@@ -577,20 +569,5 @@ public class EscapeAnalysis {
 			methodInvocation(ast.sym, sc);
 			return sc.result;
 		}
-		
-		/*public void visitThreadStart() {
-			for (MethodCall call : threadStarts) {
-				AliasContext mc = methodContexts.get(call.sym);
-
-				sc.receiver.setEscapes(true);
-
-				// no method can be strongly connected to Thread.start()
-				sc.unify(mc.deepCopy());
-				if (multiExec) {
-					sc.unify(sc);
-				}
-			}
-			
-		}*/
 	}
 }
