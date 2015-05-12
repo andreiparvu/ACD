@@ -37,7 +37,7 @@ public class EscapeAnalyzer {
 	public final static int WHITE = 0, GREY = 1, BLACK = 2;
 	
 	private MethodDecl mdecl;
-	private PrintWriter pw;
+	private PrintWriter pw, pr;
 	
 	public EscapeAnalyzer(Main main) {
 		this.main = main;
@@ -412,7 +412,8 @@ public class EscapeAnalyzer {
 		void write(PrintWriter out) {
 			for (String n : nodes.keySet()) {
 				for (GraphNode node : nodes.get(n)) {
-					out.write(String.format("%s_%s_%s -> %d;\n", mdecl.sym.owner, mdecl.sym.name, n, node.index));
+					out.write(String.format("%d[label=%s]\n", ++nodeCount, n));
+					out.write(String.format("%d -> %d;\n", nodeCount, node.index));
 					if (!node.writeColor) {
 						node.write(n, out);
 					}
@@ -456,11 +457,12 @@ public class EscapeAnalyzer {
 	
 	private HashMap<Integer, HashSet<String>> joins = new HashMap<>();
 	
-	public void compute(MethodDecl md, PrintWriter pw) {
+	public void compute(MethodDecl md, PrintWriter pw, PrintWriter pr) {
 		System.err.println("Checking " + md.name);
 		
 		this.mdecl = md;
 		this.pw = pw;
+		this.pr = pr;
 		
 		mdecl.analyzedColor = GREY;
 		ControlFlowGraph cfg = md.cfg;
@@ -520,7 +522,9 @@ public class EscapeAnalyzer {
 			
 			HashSet<String> curJoins = new HashSet<>();
 			if (curBB.successors.size() > 0) {
-				curJoins = new HashSet<>(joins.get(curBB.successors.get(0).index));
+				if (joins.containsKey(curBB.successors.get(0).index)) {
+					curJoins = new HashSet<>(joins.get(curBB.successors.get(0).index));
+				}
 				
 				for (int i = 1; i < curBB.successors.size(); i++) {
 					curJoins.retainAll(joins.get(curBB.successors.get(i).index));
@@ -633,6 +637,7 @@ public class EscapeAnalyzer {
 		g.dfs();
 		
 		pw.write(String.format("subgraph cluster_%d{\n", EscapeAnalyzer.clusterInd++));
+		pw.write(String.format("label=\"%s.%s\"\n", mdecl.sym.owner, mdecl.name));
 		g.write(pw);
 		pw.write("}\n");
 		
@@ -783,7 +788,7 @@ public class EscapeAnalyzer {
 			}
 			
 			if (method.analyzedColor == EscapeAnalyzer.WHITE) {
-				(new EscapeAnalyzer(main)).compute(method, pw);
+				(new EscapeAnalyzer(main)).compute(method, pw, pr);
 			}
 
 			for (GraphNode node : g.buildNodes(AstOneLine.toString(caller))) {
@@ -866,6 +871,7 @@ public class EscapeAnalyzer {
 				
 				((NewObject)ast.right()).stackAlloc = true;
 				System.err.println("stack " + AstOneLine.toString(ast.left()));
+				pr.write("stack " + AstOneLine.toString(ast.left()) + "\n");
 			}
 			
 			return null;

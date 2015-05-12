@@ -239,19 +239,22 @@ public class Main {
 			}
 			
 			try {
-				File f = new File(cfgdumpbase.getName() + ".escape.dot");
-				PrintWriter pw = new PrintWriter(f);
+				File f = new File(cfgdumpbase.getName() + ".escape.dot"),
+					 rez = new File(cfgdumpbase.getName() + ".stack");
+				PrintWriter pw = new PrintWriter(f),
+							pr = new PrintWriter(rez);
 				
 				pw.write("digraph G {\ngraph [rankdir = \"LR\"];\n");
 				for (ClassDecl cd : astRoots) {
 					for (MethodDecl md : cd.methods()) {
 						if (md.analyzedColor == EscapeAnalyzer.WHITE) {
-							(new EscapeAnalyzer(this)).compute(md, pw);
+							(new EscapeAnalyzer(this)).compute(md, pw, pr);
 						}
 					}
 				}
 				pw.write("}\n");
 				pw.close();
+				pr.close();
 			} catch (FileNotFoundException ex) {
 				System.err.println(ex);
 			}

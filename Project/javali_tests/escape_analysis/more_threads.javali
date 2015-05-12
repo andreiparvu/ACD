@@ -1,0 +1,50 @@
+class Pair {
+  int x, y;
+}
+
+class T1 extends Thread {
+  Pair p1, p2;
+
+  void run() {
+    Pair r;
+    T2 tnew;
+
+    r = new Pair();
+    r.x = p1.x + 10;
+    r.y = p1.y + 10;
+
+    tnew = new T2();
+    tnew.p1 = r;
+    tnew.p2 = p2;
+
+    tnew.start();
+    tnew.join();
+  }
+}
+
+class T2 extends Thread {
+  Pair p1, p2;
+
+  void run() {
+    write(p1.x + p2.x + p1.y + p2.y);
+  }
+}
+
+class Main {
+  void main() {
+    T1 t;
+
+    t = new T1();
+
+    t.p1 = new Pair();
+    t.p2 = new Pair();
+
+    t.p1.x = 10;
+    t.p1.y = 20;
+
+    t.start();
+
+    t.join();
+  }
+}
+

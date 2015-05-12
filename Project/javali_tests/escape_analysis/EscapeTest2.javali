@@ -10,18 +10,17 @@ class Box {
 }
 
 class Main {
-    Thread escapeOne(Box b, Box e) {
-        Custom t, t2;
+    void escapeOne(Custom t, Box b, Box e) {
         write(b.val); writeln();
-        t = new Custom();
         t.arg = e;
         t.start();
         
-        return t;
+        t.join();
+        //return t;
     }
 
     void main() {
-        Thread t;
+        Custom t;
         Box b, e;
         
         b = new Box();
@@ -29,8 +28,7 @@ class Main {
         b.val = 23;
         e.val = 42;
         
-        t = escapeOne(b, e);
-
-        t.join();
+        t = new Custom();
+        escapeOne(t, b, e);
      }
 }
