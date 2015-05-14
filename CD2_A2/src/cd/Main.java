@@ -146,13 +146,22 @@ public class Main {
 		VariableSymbol mutexField = new VariableSymbol("$mutex", objectType, Kind.FIELD);
 		mutexField.offset = 0;
 		objectType.fields.put(mutexField.name, mutexField);
-		objectType.totalFields = 1;
+
+		VariableSymbol condMutexField = new VariableSymbol("$cond_mutex", objectType, Kind.FIELD);
+		condMutexField.offset = 1;
+		objectType.fields.put(condMutexField.name, condMutexField);
+
+		VariableSymbol condField = new VariableSymbol("$condition", objectType, Kind.FIELD);
+		condField.offset = 2;
+		objectType.fields.put(condField.name, condField);
+
+		objectType.totalFields = 3;
 		objectType.sizeof = Config.SIZEOF_PTR * (objectType.totalFields + 1);
 
 		VariableSymbol threadField = new VariableSymbol("$thread", objectType, Kind.FIELD);
-		threadField.offset = 1;
+		threadField.offset = 3;
 		threadType.fields.put(threadField.name, threadField);
-		threadType.totalFields = 2;
+		threadType.totalFields = 4;
 		threadType.sizeof = Config.SIZEOF_PTR * (threadType.totalFields + 1);
 	}
 	
@@ -171,7 +180,7 @@ public class Main {
 
 	private void addRuntimeMethods() {
 		int vtableOffset = 0;
-		for (String methodName : Arrays.asList("lock", "unlock")) {
+		for (String methodName : Arrays.asList("lock", "unlock", "lock_cond", "unlock_cond", "notify", "wait")) {
 			addRuntimeMethod(objectType, methodName, vtableOffset++);
 		}
 		objectType.totalMethods = vtableOffset;
