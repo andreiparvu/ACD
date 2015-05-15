@@ -7,6 +7,6 @@ java -Dcd.meta_hidden.Version=REFERENCE -cp $CP cd.Main "$@"
 
 for infile in "$@"; do
     if [ -e "${infile}.s" ] ; then
-        gcc -m32 -o "${infile}.bin" "${infile}.s" "-L${M}/rt" -ljavali -lpthread
+        gcc -g -m32 -o "${infile}.bin" "${infile}.s" "-L${M}/rt" -ljavali -lpthread
     fi
 done

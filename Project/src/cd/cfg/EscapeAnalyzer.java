@@ -619,8 +619,6 @@ public class EscapeAnalyzer {
 		}
 		
 		
-		
-		
 		g = cfg.end.escapeGraph;
 
 		for (String thread : threadVars) {
@@ -700,7 +698,7 @@ public class EscapeAnalyzer {
 					return null;
 				}
 				
-				if (ast.right() instanceof Field) {
+				if (ast.right() instanceof Field || ast.right() instanceof ThisRef) {
 					Field f = (Field)ast.right();
 
 					g.clearName(v.sym.name);
@@ -756,7 +754,8 @@ public class EscapeAnalyzer {
 						continue;
 					}
 					
-					if (ast.right() instanceof Var || ast.right() instanceof Field) {
+					if (ast.right() instanceof Var || ast.right() instanceof Field ||
+							ast.right() instanceof ThisRef) {
 						for (GraphNode n : g.buildNodes(AstOneLine.toString(ast.right()))) {
 							node.addReference(f.fieldName, n);
 						}
@@ -801,10 +800,17 @@ public class EscapeAnalyzer {
 			}
 
 			for (GraphNode node : g.buildNodes(AstOneLine.toString(caller))) {
-				if (isThreadClass(method.sym.owner) && method.name.equals(THREAD_RUN) &&
-						joins.get(g.curBB).contains(AstOneLine.toString(caller))) {
-					node.setThread();
-				} else {
+				if (isThreadClass(method.sym.owner) && method.name.equals(THREAD_RUN)) {
+					// we have to be sure that a join is always called to the thread in order
+					// for it not to escape
+					if (joins.get(g.curBB).contains(AstOneLine.toString(caller))) {
+						node.setThread();
+					} else {
+						node.setEscaped();
+					}
+				} //else {
+				if (method.analyzedColor == EscapeAnalyzer.GREY ||
+						method.cfg.end.escapeGraph.nodeHasProp("this", "escaped")) {
 					node.setEscaped();
 				}
 			}

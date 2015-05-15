@@ -1,0 +1,65 @@
+class A {
+}
+
+class Main {
+  void main() {
+    First f;
+    Second s;
+    A a1, a2;
+
+    a1 = new A();
+    a2 = new A();
+
+    f = new First();
+    s = new Second();
+
+    f.doit(a1);
+    f.doit(a2);
+  }
+}
+
+class First {
+  A a;
+
+  void doit(A a) {
+    T t;
+
+    this.a = a;
+
+    t = new T();
+
+    t.f = this;
+
+    t.start();
+
+  }
+}
+
+class Second {
+  A a;
+
+  void doit(A a) {
+    T t;
+
+    this.a = a;
+
+    t = new T();
+
+    t.s = this;
+
+    t.start();
+
+    t.join();
+  }
+}
+
+class T extends Thread {
+  First f;
+  Second s;
+
+  void run() {
+    write(11011);
+    writeln();
+  }
+}
+

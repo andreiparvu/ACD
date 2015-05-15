@@ -287,8 +287,8 @@ public class Main {
 			}
 			
 			try {
-				File f = new File(cfgdumpbase.getName() + ".escape.dot"),
-					 rez = new File(cfgdumpbase.getName() + ".stack");
+				File f = new File(cfgdumpbase.getCanonicalFile() + ".escape.dot"),
+					 rez = new File(cfgdumpbase.getCanonicalFile() + ".stack");
 				PrintWriter pw = new PrintWriter(f),
 							pr = new PrintWriter(rez);
 				
@@ -303,7 +303,7 @@ public class Main {
 				pw.write("}\n");
 				pw.close();
 				pr.close();
-			} catch (FileNotFoundException ex) {
+			} catch (IOException ex) {
 				System.err.println(ex);
 			}
 			

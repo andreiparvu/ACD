@@ -1,0 +1,41 @@
+class Main {
+  void main() {
+    T[] threads;
+    int n;
+
+    n = 10;
+    threads = new T[n];
+    
+    threads[0] = new T();
+    threads[1] = new T();
+
+    threads[0].start();
+    threads[1].start();
+
+    threads[0].join();
+    threads[1].join();
+
+    doit(3);
+  }
+
+  void doit(int a) {
+    T t;
+
+    t = new T();
+
+    t.start();
+
+    if (a <= 3) {
+      t.join();
+    }
+  }
+}
+
+class T extends Thread {
+
+  void run() {
+    write(11011);
+    writeln();
+  }
+}
+
