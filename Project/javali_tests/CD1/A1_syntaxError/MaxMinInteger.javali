@@ -1,0 +1,20 @@
+// tests with max and min integers
+class Main {
+	void main() {
+        int maxint, minint;
+        int r1, r2, r3;
+        
+        maxint = 2147483647;
+        minint = (-2147483647) - 1;
+		
+		r1 = maxint + 1;
+		r2 = minint - 1;
+		r3 = maxint + minint;
+		
+		write(minint); writeln();
+		write(maxint); writeln();
+		write(r1); writeln();
+		write(r2); writeln();
+		write(r3); writeln();
+	}
+}

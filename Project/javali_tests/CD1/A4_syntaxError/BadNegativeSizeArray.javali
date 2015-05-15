@@ -1,0 +1,11 @@
+// create array with negative size
+class Main {
+    void main() {
+        int i;
+        boolean[] array;
+        
+        i = -10;
+        
+        array = new boolean[i];
+    }
+}

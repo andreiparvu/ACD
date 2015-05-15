@@ -1,0 +1,8 @@
+// test write with expression
+class Main {
+	void main() {
+	    int i;
+	    i = 42;
+		write(11 + i - 33); writeln();
+	}
+}

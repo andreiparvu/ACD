@@ -21,7 +21,6 @@ import cd.ir.Ast.FloatConst;
 import cd.ir.Ast.IntConst;
 import cd.ir.Ast.LeafExpr;
 import cd.ir.Ast.MethodDecl;
-import cd.ir.Ast.NullConst;
 import cd.ir.Ast.UnaryOp;
 import cd.ir.Ast.UnaryOp.UOp;
 import cd.ir.Ast.Var;
@@ -106,6 +105,7 @@ public class Optimizer {
 			propagateCopies(cfg.start, propagations);
 
 			identifySubexpression(cfg.start, new ExpressionManager());
+//			System.err.println("Phase " + changes);
 		} while (changes != oldChanges);
 		
 		if (ADVANCED_OPT) {
@@ -200,6 +200,7 @@ public class Optimizer {
 				if (child != null) {
 					Ast replace = visit(child, arg);
 					if (replace != child) {
+//						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
 						changes++;
 
 						children.set(replace);
@@ -217,6 +218,7 @@ public class Optimizer {
 				if (child != null) {
 					Ast replace = visit(child, arg);
 					if (replace != child) {
+//						System.err.format("Replace: %s <- %s\n", AstOneLine.toString(child), AstOneLine.toString(replace));
 						changes++;
 
 						children.set(replace);
@@ -241,7 +243,7 @@ public class Optimizer {
 		exprManager.curPosition = curBB.instructions.size();
 		if (curBB.condition != null) {
 			generateCanonicalForm.visit(curBB.condition, null);
-			curBB.condition = (Ast.Expr)canonicExpressionVisitor.visit(curBB.condition, exprManager);
+			canonicExpressionVisitor.visit(curBB.condition, exprManager);
 		}
 
 		for (BasicBlock bb : curBB.dominatorTreeChildren) {
@@ -381,22 +383,9 @@ public class Optimizer {
 				return floatConstOp(ast, (FloatConst)left, (FloatConst)right);
 			} else if (ast.type.equals(main.intType)) {
 				return intBinOpSimplification(ast);
-			} else if (left instanceof NullConst && right instanceof NullConst) {
-				return nullConstBinOpSimplification(ast);
 			}
 
 			return ast;
-		}
-
-		private Ast nullConstBinOpSimplification(BinaryOp ast) {
-			switch (ast.operator) {
-			case B_EQUAL:
-				return new BooleanConst(true);
-			case B_NOT_EQUAL:
-				return new BooleanConst(false);
-			default:
-				return ast;
-			}
 		}
 
 		private Expr intConstOp(BinaryOp op, IntConst left, IntConst right) {
@@ -635,7 +624,6 @@ public class Optimizer {
 			new OptimizerAstRewriter<Map<String, LeafExpr>>() {
 		public Ast var(Ast.Var ast, Map<String, LeafExpr> toPropagate) {
 			if (toPropagate.containsKey(ast.sym.name)) {
-				changes++;
 				return toPropagate.get(ast.sym.name);
 			}
 			return dflt(ast, toPropagate);

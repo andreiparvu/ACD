@@ -1,0 +1,419 @@
+// a bigger test program implementing some matrix data types
+
+// this includes polymorphic code, array access, down casts, 
+// read and write of values, short circuit evalution and more
+
+class Main {
+    void main() {
+        int v_size;
+        int m_height, m_width;
+        int i, j;
+        float f;
+        AbstractVector v, w;
+        AbstractMatrix m, r;
+        MatrixCalculator calc;
+        
+        calc = new MatrixCalculator();
+        v = new ArrayVector();
+        m = new ArrayMatrix();
+        
+        // read vector
+        
+        v_size = read();
+        if(v_size >= 0) {
+            v.init(v_size);        
+        } else {
+            write(-1);
+            writeln();
+            return;
+        }
+        
+        i = 0;
+        while(i < v_size) {
+            f = readf();
+            v.setValue(i, f);
+            i = i + 1;
+        }
+        
+        // read matrix
+        
+        m_height = read();
+        m_width = read();
+        
+        if((m_height >= 0) && (m_width >= 0)) {
+            m.init(m_height, m_width);
+        } else {
+            write(-1);
+            writeln();
+            return;
+        }
+        
+        i = 0;
+        while(i < m_height) {
+            j = 0;
+            while(j < m_width) {
+                f = readf();
+                m.setValue(i, j, f);
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+        
+        // calculate vector matrix product
+        
+        r = calc.matrixVectorProduct(v, m);
+        if(r == null) {
+            write(-1);
+            writeln();
+            return;
+        }
+        r.print();
+
+        // multiply with the same vector again, but this time use list versions     
+        w = new ListVector();
+        r = new ListMatrix();
+        
+        w.initFrom(v);
+        r.initFrom(m);
+        
+        r = calc.matrixVectorProduct(w, r);
+        if(r == null) {
+            write(-1);
+            writeln();
+            return;
+        }
+        r.print();
+    }
+}
+
+class MatrixCalculator {
+    AbstractMatrix matrixVectorProduct(AbstractVector vector, AbstractMatrix matrix) {
+        return matrix.multiplyWith(vector);
+    }
+    
+    void matrixVectorProductHelper(AbstractMatrix result, AbstractVector vector, AbstractMatrix matrix) {    
+        int r, c;
+        float tmp;
+    
+        result.init(matrix.getHeight(), matrix.getWidth());
+        
+        r = 0;
+        while(r < result.getHeight()) {
+            tmp = vector.getValue(r);
+            c = 0;
+            while(c < result.getWidth()) {
+                result.setValue(r, c, tmp * matrix.getValue(r, c));
+                c = c + 1;
+            }
+            r = r + 1;
+        }
+    }
+}
+
+
+class AbstractVector {
+    void init(int size) {}
+    int getSize() {
+        return 0;
+    }
+
+    float getValue(int index) {
+        return 0.0;
+    }
+    
+    void setValue(int index, float value) {
+
+    }
+    
+    void initFrom(AbstractVector vector) {
+        int i;
+        
+        init(vector.getSize());
+        i = 0;
+        while(i < getSize()) {
+            setValue(i, vector.getValue(i));
+            i = i + 1;
+        }
+    }
+}
+
+class AbstractMatrix {
+    void init(int height, int width) {}
+
+    float getValue(int row, int col) {
+        return 0.0;
+    }
+    
+    void setValue(int row, int col, float value) {
+
+    }
+    
+    int getHeight() {
+        return 0;
+    }
+    int getWidth() {
+        return 0;
+    }
+    
+    AbstractMatrix multiplyWith(AbstractVector vector) {
+        AbstractMatrix ret;
+        ret = new AbstractMatrix();
+        ret.init(0, 0);
+        return ret;
+    }
+    
+    void print() {
+        int i, j;
+
+        i = 0;
+        while(i < getHeight()) {
+            j = 0;
+            while(j < getWidth()) {
+                writef(getValue(i, j));
+                writeln();
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+    }
+    
+    void initFrom(AbstractMatrix matrix) {
+        int i, j;
+
+        init(matrix.getHeight(), matrix.getWidth());
+
+        i = 0;
+        while(i < matrix.getHeight()) {
+            j = 0;
+            while(j < matrix.getWidth()) {
+                setValue(i, j, matrix.getValue(i, j));
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+    }
+}
+
+class ArrayVector extends AbstractVector {
+    float[] vector;
+    int size;
+    
+    void init(int size) {  
+        this.size = size;
+        vector = new float[size];
+        
+        while(size > 0) {
+            size = size - 1;
+            vector[size] = 0.0;
+        }
+    }
+    
+    float getValue(int index) {
+        return vector[index];
+    }
+    
+    void setValue(int index, float value) {
+        vector[index] = value;
+    }
+    
+    int getSize() {
+        return size;
+    }
+}
+
+class ArrayMatrix extends AbstractMatrix {
+    int height, width;
+    // each vector represents a column
+    ArrayVector[] matrix;
+    
+    void init(int height, int width) {
+        int w;
+    
+        this.height = height;
+        this.width = width;
+        
+        matrix = new ArrayVector[width];
+        
+        w = 0;
+        while(w < width) {
+            matrix[w] = new ArrayVector();
+            matrix[w].init(height);
+            w = w + 1;
+        }
+        
+    }
+
+    float getValue(int row, int col) {
+        return matrix[col].getValue(row);
+    }
+    
+    void setValue(int row, int col, float value) {
+        matrix[col].setValue(row, value);
+    }
+    
+    int getHeight() {
+        return height;
+    }
+    int getWidth() {
+        return width;
+    }
+    
+    AbstractMatrix multiplyWith(AbstractVector vector) {
+        MatrixCalculator calc;
+    
+        ArrayMatrix result;
+        result = new ArrayMatrix();
+        
+        if((vector == null) || (vector.getSize() != this.getWidth())) {
+            return null;
+        }
+
+        calc = new MatrixCalculator();
+        calc.matrixVectorProductHelper(result, vector, this);
+
+        return result;
+    }
+}
+
+class Node {
+    Object payload;
+    Node next;
+}
+
+class LinkedList {
+    Node head;
+    
+    Node find(int index) {
+        int s;
+        Node curr;
+        
+        s = 0;
+        curr = head;
+        while(s != index) {
+            curr = curr.next;
+            curr.next = curr.next;
+            
+            s = s + 1;
+        }
+        
+        return curr;
+    }
+}
+
+class FloatBox {
+    float value;
+}
+
+class ListVector extends AbstractVector {
+    LinkedList list;
+    int size;
+
+    void init(int size) {
+        int s;
+        Node curr;
+        FloatBox f;
+        this.size = size;
+        
+        list = new LinkedList();
+        list.head = new Node();
+        
+        s = 0;
+        curr = list.head;
+        while(s < size) {
+            curr.next = new Node();
+            f = new FloatBox();
+            f.value = 0.0;
+            
+            curr.payload = f;
+            curr = curr.next;
+            s = s + 1;
+        }
+    }
+    
+    int getSize() {
+        return size;
+    }
+
+    float getValue(int index) {
+        FloatBox f;        
+        f = (FloatBox) list.find(index).payload;
+        
+        return f.value;
+    }
+    
+    void setValue(int index, float value) {
+        FloatBox f;        
+        f = (FloatBox) list.find(index).payload;
+        
+        f.value = value;
+    }
+    
+}
+
+class ListMatrix extends AbstractMatrix {
+    int height, width;
+    // each vector represents a column
+    LinkedList matrix;
+    
+    void init(int height, int width) {
+        int w;
+        Node curr;
+        ListVector v;
+    
+        this.height = height;
+        this.width = width;
+        
+        matrix = new LinkedList();
+        
+        matrix.head = new Node();
+
+        w = 0;
+        curr = matrix.head;
+        while(w < width) {
+            v = new ListVector();
+            v.init(height);
+            curr.payload = v;
+            curr.next = new Node();
+
+            curr = curr.next;
+            w = w + 1;
+        }
+        
+    }
+
+    float getValue(int row, int col) {
+        ListVector v;
+        v = (ListVector) matrix.find(col).payload; // as(v1).unify( result.fieldMap(playload) )
+        return v.getValue(row);
+    }
+    
+    void setValue(int row, int col, float value) {
+        ListVector v;
+        v = (ListVector) matrix.find(col).payload;
+        v.setValue(row, value);
+    }
+    
+    int getHeight() {
+        return height;
+    }
+    int getWidth() {
+        return width;
+    }
+    
+    AbstractMatrix multiplyWith(AbstractVector vector) {
+        MatrixCalculator calc;
+    
+        ListMatrix result;
+        result = new ListMatrix();
+        
+        if((vector == null) || (vector.getSize() != this.getWidth())) {
+            return null;
+        }
+
+        calc = new MatrixCalculator();
+        calc.matrixVectorProductHelper(result, vector, this);
+
+        return result;
+    }
+}
+

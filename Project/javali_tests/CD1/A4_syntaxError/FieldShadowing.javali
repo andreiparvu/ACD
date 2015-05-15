@@ -1,0 +1,42 @@
+// field shadowing test
+class Main {
+    void main() {
+        A a;
+        B b;
+        
+        b = new B();
+
+        b.setField();
+        write(b.field);
+        writeln();
+
+        a = b;
+        a.field = 4;
+        write(a.field);
+        writeln();
+        write(b.field);
+        writeln();
+
+        a.setField();
+        write(b.field);
+        writeln();
+        write(a.field);
+        writeln();
+    }
+}
+
+class A {
+    int field;
+    
+    void setField() {
+        field = 1;
+    }
+}
+
+class B extends A {
+    int field;
+    
+    void setField() {
+        field = 2;
+    }
+}

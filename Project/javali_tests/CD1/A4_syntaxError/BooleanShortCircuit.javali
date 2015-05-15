@@ -1,0 +1,34 @@
+// this tests the short circuit implementation
+class Main {
+
+    boolean doStuff() {
+        return true;
+    }
+    
+    int field;
+    boolean sideEffect() {
+        field = field + 1;
+        return true;
+    }
+
+    void main() {
+        Main m;
+        boolean b;
+        m = null;
+        
+        if((m != null) && (m.doStuff())) {
+            write(111);
+            writeln();
+        }
+        
+        if((m == null) || (!m.doStuff())) {
+            write(222);
+            writeln();
+        }
+        
+        field = 0;
+        b = (sideEffect() && !sideEffect()) || sideEffect();
+        write(field);
+        writeln();
+    }
+}

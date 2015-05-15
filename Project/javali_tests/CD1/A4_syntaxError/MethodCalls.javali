@@ -1,0 +1,34 @@
+// some simple method calls
+class Main {
+
+    void foo(int x) {
+        write(x);
+        writeln();
+    }
+    
+    void bar() {
+        int y;
+
+        y = 888;
+        write(y);
+        writeln();
+        
+        return;
+    }
+    
+    int getAnswer() {
+        return 42;
+    }
+
+    void main() {
+        write(666);
+        writeln();
+        foo(666);
+        write(777);
+        writeln();
+        bar();
+        bar();
+        write(getAnswer());
+        writeln();
+    }
+}
