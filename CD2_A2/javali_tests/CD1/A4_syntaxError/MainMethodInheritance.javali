@@ -1,7 +1,3 @@
-class Main extends Parent {
-
-}
-
 class Grandparent {
     void main() {
         write(111);
@@ -14,4 +10,8 @@ class Parent extends Grandparent {
         write(222);
         writeln();
     }
+}
+
+class Main extends Parent {
+
 }

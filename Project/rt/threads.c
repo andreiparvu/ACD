@@ -3,46 +3,131 @@
 #include <stdlib.h>
 #include <assert.h>
 
-struct thread_obj {
+struct object {
+    void *object_vtable;
+    pthread_mutex_t *mutex, *cond_mutex;
+    pthread_cond_t *cond;
+};
+
+struct thread {
     struct thread_vtable *vtable;
-    pthread_t *pthread;
+    pthread_mutex_t *mutex, *cond_mutex;
+    pthread_cond_t *cond;
+    pthread_t *thread;
 };
 
 struct thread_vtable {
     void *object_vtable;
-    void *(*thread_run) (struct thread_obj*);
-    void *(*thread_start) (struct thread_obj*);
-    void *(*thread_join) (struct thread_obj*);
+    void *(*object_lock) (struct object*);
+    void *(*object_unlock) (struct object*);
+    void *(*object_lock_cond) (struct object*);
+    void *(*object_unlock_cond) (struct object*);
+    void *(*object_wait) (struct object*);
+    void *(*object_notify) (struct object*);
+    void *(*thread_run) (struct thread*);
+    void *(*thread_start) (struct thread*);
+    void *(*thread_join) (struct thread*);
 };
 
-
-
-void *thread_entry(void *arg)
-{
-    struct thread_obj *this = arg;
-    // call this.run()
-    this->vtable->thread_run(this);
+static void *thread_entry(void *arg) {
+    struct thread *this = arg;
+    this->vtable->thread_run(this); // calls this.run()
     pthread_exit(NULL);
 }
 
-void Thread_start(struct thread_obj *this)
-{
+void Object__init__(struct object *this) {
+    this->mutex = malloc(sizeof(pthread_mutex_t));
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    int rc = pthread_mutex_init(this->mutex, &attr);
+    if (rc) {
+        perror("pthread_mutex_init: ");
+        exit(1);
+    }
+    pthread_mutexattr_destroy(&attr);
+
+    this->cond_mutex = malloc(sizeof(pthread_mutex_t));
+    rc = pthread_mutex_init(this->cond_mutex, NULL);
+    if (rc) {
+      perror("pthread_mutex_init for cond: ");
+      exit(1);
+    }
+
+    this->cond = malloc(sizeof(pthread_cond_t));
+    rc = pthread_cond_init(this->cond, NULL);
+    if (rc) {
+      perror("pthread_cond_init: ");
+      exit(1);
+    }
+}
+
+static void lock(pthread_mutex_t *mutex, char *error_msg) {
+    int rc = pthread_mutex_lock(mutex);
+    if (rc) {
+        perror(error_msg);
+        exit(1);
+    }
+}
+
+static void unlock(pthread_mutex_t *mutex, char *error_msg) {
+    int rc = pthread_mutex_unlock(mutex);
+    if (rc) {
+        perror(error_msg);
+        exit(1);
+    }
+}
+
+void Object_lock(struct object *this) {
+    lock(this->mutex, "pthread_mutex_lock: ");
+}
+
+void Object_unlock(struct object *this) {
+    unlock(this->mutex, "pthread_mutex_unlock: ");
+}
+
+void Object_lock_cond(struct object *this) {
+    lock(this->cond_mutex, "pthread_mutex_lock for cond: ");
+}
+
+void Object_unlock_cond(struct object *this) {
+    unlock(this->cond_mutex, "pthread_mutex_unlock for cond: ");
+}
+
+
+void Object_wait(struct object *this) {
+  int rc = pthread_cond_wait(this->cond, this->cond_mutex);
+  if (rc) {
+    perror("pthread_cond_wait: ");
+    exit(0);
+  }
+}
+
+void Object_notify(struct object *this) {
+  int rc = pthread_cond_signal(this->cond);
+  if (rc) {
+    perror("pthread_cond_signal: ");
+    exit(0);
+  }
+}
+
+void Thread_start(struct thread *this) {
     assert (this != NULL);
 
-    this->pthread = malloc(sizeof(pthread_t));
-    int rc = pthread_create(this->pthread, NULL, thread_entry, (void *)this);
+    this->thread = malloc(sizeof(pthread_t));
+    int rc = pthread_create(this->thread, NULL, thread_entry, (void *)this);
     if (rc) {
         perror("pthread_create: ");
         exit(1);
     }
 }
 
-void Thread_run(struct thread_obj *this) {
+void Thread_run(struct thread *this) {
 
 }
 
-void Thread_join(struct thread_obj *this) {
-    int rc = pthread_join(*(this->pthread), NULL);
+void Thread_join(struct thread *this) {
+    int rc = pthread_join(*(this->thread), NULL);
     if (rc) {
         perror("pthread_join: ");
         exit(1);
