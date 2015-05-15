@@ -272,8 +272,6 @@ public class AstCodeGenerator {
 			emitCommentSection(ALLOC + " function");
 			emitLabel(ALLOC);
 			emitEnter(c(8));
-			emit("and", c(-16), SP);
-			emit("sub", c(16), SP);
 			emitLoad(8, BP, size);
 			emitStore(size, 0, SP);
 			emit("call", Config.MALLOC);
@@ -1141,6 +1139,12 @@ public class AstCodeGenerator {
 					emitCallSuffix(reg, 1, allocPadding);
 				}
 				emitStore(c(vtable(clssym)), 0, reg);
+
+				int initPadding = emitCallPrefix(null, 1);
+				push(reg);
+				emit("call", "Object__init__");
+				emitCallSuffix(null, 1, initPadding);
+
 				return reg;
 			}
 		}

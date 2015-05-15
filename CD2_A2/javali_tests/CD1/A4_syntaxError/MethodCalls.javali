@@ -27,7 +27,6 @@ class Main {
         write(777);
         writeln();
         bar();
-        bar();
         write(getAnswer());
         writeln();
     }

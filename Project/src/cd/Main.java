@@ -13,6 +13,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import org.antlr.runtime.ANTLRReaderStream;
 import org.antlr.runtime.CommonTokenStream;
@@ -23,6 +29,12 @@ import cd.cfg.CFGBuilder;
 import cd.cfg.DeSSA;
 import cd.cfg.Dominator;
 import cd.cfg.EscapeAnalyzer;
+import cd.analyze.CallGraphGenerator;
+import cd.analyze.CallGraphSCC;
+import cd.analyze.EscapeAnalysis;
+import cd.cfg.CFGBuilder;
+import cd.cfg.DeSSA;
+import cd.cfg.Dominator;
 import cd.cfg.Optimizer;
 import cd.cfg.SSA;
 import cd.codegen.CfgCodeGenerator;
@@ -39,6 +51,7 @@ import cd.ir.Symbol.MethodSymbol;
 import cd.ir.Symbol.PrimitiveTypeSymbol;
 import cd.ir.Symbol.TypeSymbol;
 import cd.ir.Symbol.VariableSymbol;
+import cd.ir.Symbol.VariableSymbol.Kind;
 import cd.parser.JavaliLexer;
 import cd.parser.JavaliParser;
 import cd.parser.JavaliWalker;
@@ -127,26 +140,61 @@ public class Main {
 			nullType = new Symbol.ClassSymbol("<null>");
 		}
 
-		// create thread symbol manually
-		Seq emptySeq = new Seq(Collections.<Ast>emptyList());
-		List<Pair<String>> emptyParams = Collections.emptyList();
 		threadType = new Symbol.ClassSymbol("Thread");
 		threadType.superClass = objectType;
-		
-		threadType.fields.put("$pthread", new VariableSymbol("$pthread", objectType));
-		threadType.sizeof = Config.SIZEOF_PTR * 2;
-		threadType.totalFields = 1;
-		
-		int methodCount = 0;
-		for(String methodName : Arrays.asList("run", "start", "join")) {
-			MethodSymbol methodSymbol = new MethodSymbol(
-					new MethodDecl("void", methodName, emptyParams, emptySeq, emptySeq));
-			methodSymbol.returnType = voidType;
-			methodSymbol.owner = threadType;
-			methodSymbol.vtableIndex = methodCount++;
-			threadType.methods.put(methodName, methodSymbol);
+
+		addRuntimeFields();
+		addRuntimeMethods();
+	}
+	
+	
+	private void addRuntimeFields() {
+		VariableSymbol mutexField = new VariableSymbol("$mutex", objectType, Kind.FIELD);
+		mutexField.offset = 0;
+		objectType.fields.put(mutexField.name, mutexField);
+
+		VariableSymbol condMutexField = new VariableSymbol("$cond_mutex", objectType, Kind.FIELD);
+		condMutexField.offset = 1;
+		objectType.fields.put(condMutexField.name, condMutexField);
+
+		VariableSymbol condField = new VariableSymbol("$condition", objectType, Kind.FIELD);
+		condField.offset = 2;
+		objectType.fields.put(condField.name, condField);
+
+		objectType.totalFields = 3;
+		objectType.sizeof = Config.SIZEOF_PTR * (objectType.totalFields + 1);
+
+		VariableSymbol threadField = new VariableSymbol("$thread", objectType, Kind.FIELD);
+		threadField.offset = 3;
+		threadType.fields.put(threadField.name, threadField);
+		threadType.totalFields = 4;
+		threadType.sizeof = Config.SIZEOF_PTR * (threadType.totalFields + 1);
+	}
+	
+	private void addRuntimeMethod(Symbol.ClassSymbol owner, String methodName, int vtableOffset) {
+		Seq emptyDecl = new Seq(Collections.<Ast>emptyList());
+		Seq emptyBody = new Seq(Collections.<Ast>emptyList());
+		List<Pair<String>> emptyParams = Collections.emptyList();
+
+		MethodSymbol methodSymbol = new MethodSymbol(
+				new MethodDecl("void", methodName, emptyParams, emptyDecl, emptyBody));
+		methodSymbol.returnType = voidType;
+		methodSymbol.owner = owner;
+		methodSymbol.vtableIndex = vtableOffset;
+		owner.methods.put(methodName, methodSymbol);
+	}
+
+	private void addRuntimeMethods() {
+		int vtableOffset = 0;
+		for (String methodName : Arrays.asList("lock", "unlock", "lock_cond", "unlock_cond", "notify", "wait")) {
+			addRuntimeMethod(objectType, methodName, vtableOffset++);
 		}
-		threadType.totalMethods = methodCount;
+		objectType.totalMethods = vtableOffset;
+
+		for (String methodName : Arrays.asList("run", "start", "join")) {
+			addRuntimeMethod(threadType, methodName, vtableOffset++);
+		}
+		threadType.totalMethods = vtableOffset;
 	}
 
 	public List<ClassDecl> parse(Reader file, boolean debugParser)  throws IOException {
@@ -257,6 +305,9 @@ public class Main {
 				pr.close();
 			} catch (FileNotFoundException ex) {
 				System.err.println(ex);
+      }
+			{
+				new EscapeAnalysis(this).analyze(astRoots);
 			}
 
 			// Remove SSA form.

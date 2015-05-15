@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 
 import cd.cfg.EscapeAnalyzer;
+import cd.analyze.AliasSet;
 import cd.debug.AstOneLine;
 import cd.ir.Symbol.ClassSymbol;
 import cd.ir.Symbol.MethodSymbol;
@@ -85,6 +86,9 @@ public abstract class Ast {
 
 		/** Type that this expression will evaluate to (computed in semantic phase). */
 		public TypeSymbol type;
+		
+		/** AliasSet for escape analysis */
+		public AliasSet aliasSet;
 
 		public <R,A> R accept(AstVisitor<R, A> visitor, A arg) {
 			return this.accept((ExprVisitor<R,A>)visitor, arg);

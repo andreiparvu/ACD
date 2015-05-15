@@ -291,7 +291,6 @@ class LinkedList {
         curr = head;
         while(s != index) {
             curr = curr.next;
-            curr.next = curr.next;
             
             s = s + 1;
         }
@@ -383,7 +382,7 @@ class ListMatrix extends AbstractMatrix {
 
     float getValue(int row, int col) {
         ListVector v;
-        v = (ListVector) matrix.find(col).payload; // as(v1).unify( result.fieldMap(playload) )
+        v = (ListVector) matrix.find(col).payload;
         return v.getValue(row);
     }
     

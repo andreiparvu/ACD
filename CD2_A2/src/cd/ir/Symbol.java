@@ -119,10 +119,6 @@ public abstract class Symbol {
 		public String toString() {
 			return name + "(...)";
 		}
-		
-		public String fullName() {
-			return owner.name + "." + name + "()";
-		}
 	}
 	
 	public static class VariableSymbol extends Symbol {
