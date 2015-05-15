@@ -1,6 +1,6 @@
 class Custom extends Thread {
     Box arg;
-    void start() {
+    void run() {
         write(arg.val); writeln();
     }
 }

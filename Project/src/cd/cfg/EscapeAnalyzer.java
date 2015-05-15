@@ -290,7 +290,6 @@ public class EscapeAnalyzer {
 			// does not support cycles
 			
 			for (GraphNode threadNode : threadGraph.buildNodes(prefix)) {
-//				System.err.println("-- " + prefix + " " + threadNode.properties);
 				if (threadNode.properties.size() > 1) { // they must have the 'this' property
 					this.properties.add("escaped");
 					return ;
@@ -778,6 +777,16 @@ public class EscapeAnalyzer {
 			}
 			
 			ClassSymbol callClass = (ClassSymbol)caller.type;
+			
+			switch (method.name) {
+			case "lock":
+			case "unlock":
+			case "lock_cond":
+			case "unlock_cond":
+			case "notify":
+			case "wait":
+				return ;
+			}
 			
 			if (inheritsThread(callClass) && method.name.equals(THREAD_JOIN)) {
 				return ;

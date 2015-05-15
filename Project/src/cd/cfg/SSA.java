@@ -7,14 +7,12 @@ import java.util.Set;
 
 import cd.Main;
 import cd.exceptions.SemanticFailure;
-import cd.exceptions.ToDoException;
 import cd.exceptions.SemanticFailure.Cause;
 import cd.ir.Ast;
 import cd.ir.Ast.Assign;
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.MethodDecl;
 import cd.ir.Ast.Var;
-import cd.ir.Ast.VarDecl;
 import cd.ir.AstVisitor;
 import cd.ir.BasicBlock;
 import cd.ir.ControlFlowGraph;

@@ -39,7 +39,7 @@ class T extends Thread {
     int i;
     i = 0;
 
-    while (i < 5) {
+    while (i < 10) {
       write(cnt);
       barrier.wait();
       i = i + 1;

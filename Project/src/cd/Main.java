@@ -305,9 +305,10 @@ public class Main {
 				pr.close();
 			} catch (FileNotFoundException ex) {
 				System.err.println(ex);
-      }
+			}
+			
 			{
-				new EscapeAnalysis(this).analyze(astRoots);
+//				new EscapeAnalysis(this).analyze(astRoots);
 			}
 
 			// Remove SSA form.

@@ -43,7 +43,7 @@ class Pair {
 class B extends Thread {
   Pair pb;
 
-  void start() {
+  void run() {
     B[] b;
 
     b = new B[100];
@@ -55,7 +55,7 @@ class B extends Thread {
 class A extends Thread {
   Pair p, p2, p3;
 
-  void start() {
+  void run() {
     Foo[] x;
 
     x = new Foo[10];
