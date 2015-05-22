@@ -14,6 +14,9 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.List;
+import java.util.Scanner;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -130,8 +133,11 @@ abstract public class AbstractTestSamplePrograms {
 						if (passedSemanticAnalysis) {
 							boolean passedCodeGen = testCodeGenerator(astRoots, hasWellDefinedOutput);
 
-							if (passedCodeGen)
+							if (passedCodeGen) {
 								testOptimizer(astRoots);
+								
+								testStackAllocator(file);
+							}
 						}
 					}
 				}
@@ -244,6 +250,30 @@ abstract public class AbstractTestSamplePrograms {
 			System.err.println("Warning: Optimizer summary do not match!");
 		}
 	}
+	
+	private String allocatedVars(File f) {
+			Set<String> set = new TreeSet<String>();
+
+		try {
+			Scanner s = new Scanner(f);
+			
+			for (; s.hasNextLine(); ) {
+				set.add(s.nextLine());
+			}
+		} catch (FileNotFoundException ex) {
+			ex.printStackTrace();
+		}
+		
+		return set.toString();
+	}
+	
+	private void testStackAllocator(File f) {
+		File curStack = new File(f.getAbsolutePath() + ".stack"),
+			 goodStack = new File(f.getAbsolutePath() + ".stack.good");
+
+		warnAboutDiff("stack allocation", allocatedVars(curStack), allocatedVars(goodStack));
+	}
+		
 
 	/**
 	 * Run the code generator, assemble the resulting .s file, and (if the output

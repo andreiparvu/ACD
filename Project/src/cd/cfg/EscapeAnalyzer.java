@@ -27,6 +27,7 @@ import cd.ir.BasicBlock;
 import cd.ir.ControlFlowGraph;
 import cd.ir.Symbol.ArrayTypeSymbol;
 import cd.ir.Symbol.ClassSymbol;
+import cd.ir.Symbol.MethodSymbol;
 import cd.ir.Symbol.TypeSymbol;
 import cd.ir.Symbol.VariableSymbol;
 import cd.util.Pair;
@@ -305,12 +306,17 @@ public class EscapeAnalyzer {
 	}
 	
 	public class Graph {
+		Map<MethodSymbol, Set<MethodSymbol>> callTargets;
 		Map<String, List<GraphNode>> nodes = new HashMap<>();
 		Set<GraphNode> returnSet = new HashSet<>();
 		int curBB; // used for processing
 		
+		Graph(Map<MethodSymbol, Set<MethodSymbol>> callTargets) {
+			this.callTargets = callTargets;
+		}
+		
 		Graph deepCopy() {
-			Graph g = new Graph();
+			Graph g = new Graph(callTargets);
 			
 			for (String n : nodes.keySet()) {
 				for (GraphNode node : nodes.get(n)) {
@@ -456,7 +462,8 @@ public class EscapeAnalyzer {
 	
 	private HashMap<Integer, HashSet<String>> joins = new HashMap<>();
 	
-	public void compute(MethodDecl md, PrintWriter pw, PrintWriter pr) {
+	public void compute(MethodDecl md, PrintWriter pw, PrintWriter pr,
+			Map<MethodSymbol, Set<MethodSymbol>> callTargets) {
 		System.err.println("Checking " + md.name);
 		
 		this.mdecl = md;
@@ -466,7 +473,7 @@ public class EscapeAnalyzer {
 		mdecl.analyzedColor = GREY;
 		ControlFlowGraph cfg = md.cfg;
 		
-		Graph g = new Graph(); //cfg.start.escapeGraph;
+		Graph g = new Graph(callTargets); //cfg.start.escapeGraph;
 		
 		for (int i = 0; i < md.argumentNames.size(); i++) {
 			if (!isScalarType(md.argumentTypes.get(i))) {
@@ -555,7 +562,7 @@ public class EscapeAnalyzer {
 			BasicBlock curBB = worklist.poll();
 			
 			if (curBB.predecessors.size() > 0) {
-				curBB.escapeGraph = new Graph();
+				curBB.escapeGraph = new Graph(callTargets);
 				
 				for (BasicBlock pred : curBB.predecessors) {
 					if (pred.escapeGraph != null) {
@@ -768,7 +775,7 @@ public class EscapeAnalyzer {
 		}
 		
 		private void analyzeMethod(List<Expr> arguments, List<VariableSymbol> params,
-				Expr caller, MethodDecl method, Graph g) {
+				Expr caller, MethodDecl method, Graph g) { // change callee
 			
 			if (isScalarType(caller.type)) {
 				// caller may be <null> due to constant propagation
@@ -777,11 +784,9 @@ public class EscapeAnalyzer {
 			
 			ClassSymbol callClass = (ClassSymbol)caller.type;
 			
-			switch (method.name) {
+			switch (method.name) { // check if symbol equal objectType
 			case "lock":
 			case "unlock":
-			case "lock_cond":
-			case "unlock_cond":
 			case "notify":
 			case "wait":
 				return ;
@@ -796,7 +801,7 @@ public class EscapeAnalyzer {
 			}
 			
 			if (method.analyzedColor == EscapeAnalyzer.WHITE) {
-				(new EscapeAnalyzer(main)).compute(method, pw, pr);
+				(new EscapeAnalyzer(main)).compute(method, pw, pr, g.callTargets);
 			}
 
 			for (GraphNode node : g.buildNodes(AstOneLine.toString(caller))) {
@@ -836,16 +841,19 @@ public class EscapeAnalyzer {
 		}
 			
 		public List<GraphNode> methodCall(Ast.MethodCallExpr ast, Graph g) {
-			analyzeMethod(ast.argumentsWithoutReceiver(), ast.sym.parameters,
-					ast.allArguments().get(0), ast.sym.ast, g);
+			for (MethodSymbol callee : g.callTargets.get(ast.sym)) {
+				analyzeMethod(ast.argumentsWithoutReceiver(), ast.sym.parameters,
+						ast.allArguments().get(0), callee.ast, g);
+			}
 			
 			return dflt(ast, g);
 		}
 		
 		public List<GraphNode> methodCall(Ast.MethodCall ast, Graph g) {
-			
-			analyzeMethod(ast.argumentsWithoutReceiver(), ast.sym.parameters,
-					ast.allArguments().get(0), ast.sym.ast, g);
+			for (MethodSymbol callee : g.callTargets.get(ast.sym)) {
+				analyzeMethod(ast.argumentsWithoutReceiver(), ast.sym.parameters,
+						ast.allArguments().get(0), callee.ast, g);
+			}
 			
 			return dflt(ast, g);
 		}
