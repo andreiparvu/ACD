@@ -11,6 +11,7 @@ import java.util.Set;
 
 import cd.Main;
 import cd.analyze.CallGraphGenerator.CallGraph;
+import cd.debug.AstOneLine;
 import cd.ir.Ast;
 import cd.ir.Ast.Assign;
 import cd.ir.Ast.ClassDecl;
@@ -26,6 +27,7 @@ import cd.ir.Ast.ReturnStmt;
 import cd.ir.Ast.ThisRef;
 import cd.ir.Ast.Var;
 import cd.ir.Ast.WhileLoop;
+import cd.ir.AstRewriteVisitor;
 import cd.ir.AstVisitor;
 import cd.ir.BasicBlock;
 import cd.ir.Phi;
@@ -135,10 +137,20 @@ public class EscapeAnalysis {
 		//// Phase 3 ////
 		// top-down traversal to unify method contexts
 		mergeTopDown();
-		
+
 		// debug print
+		System.err.println("Method Contexts");
 		for (Entry<MethodSymbol, AliasContext> entry : methodContexts.entrySet()) {
 			System.err.println(entry.getKey().fullName() + ": " + entry.getValue());
+		}
+		
+		System.err.println("Site Contexts");
+		for (Entry<Ast, AliasContext> entry : siteContexts.entrySet()) {
+			Ast ast = entry.getKey();
+			if (ast instanceof MethodCall) {
+				System.err.println(((MethodCall) ast).receiver().aliasSet);
+			}
+			System.err.println(AstOneLine.toString(ast) + ": " + entry.getValue());
 		}
 	}
 
@@ -417,4 +429,5 @@ public class EscapeAnalysis {
 			return sc.result;
 		}
 	}
+	
 }
