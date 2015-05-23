@@ -88,7 +88,6 @@ public class AliasSet {
 			} else {
 				sub = sub.deepCopy();
 			}
-				// TODO this is probably not enough to deal with selfcontaining sets
 			copy.ref.fieldMap.put(entry.getKey(), sub);
 		}
 		return copy;
@@ -99,10 +98,15 @@ public class AliasSet {
 	}
 
 	public AliasSet fieldMap(String key) {
-		if (!this.ref.fieldMap.containsKey(key)) {
-			this.ref.fieldMap.put(key, new AliasSet());
+		AliasSet field = this.ref.fieldMap.get(key);
+		if (field == null) {
+			// create new alias set for field, make sure it inherits escaping
+			field = new AliasSet();
+			field.setEscapes(this.escapes());
+
+			this.ref.fieldMap.put(key, field);
 		}
-		return this.ref.fieldMap.get(key);
+		return field;
 	}
 	
 	public boolean escapes() {

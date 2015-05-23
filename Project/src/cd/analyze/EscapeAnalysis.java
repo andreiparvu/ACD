@@ -147,18 +147,20 @@ public class EscapeAnalysis {
 		System.err.println("Site Contexts");
 		for (Entry<Ast, AliasContext> entry : siteContexts.entrySet()) {
 			Ast ast = entry.getKey();
-			if (ast instanceof MethodCall) {
-				System.err.println(((MethodCall) ast).receiver().aliasSet);
-			}
 			System.err.println(AstOneLine.toString(ast) + ": " + entry.getValue());
 		}
 	}
 
 	private void analyzeBottomUp() {
+		// add method contexts for thread entry points
+		for (MethodSymbol entry : callGraph.roots) {
+			methodContexts.put(entry, new AliasContext(entry));
+		}
+
 		for (Set<MethodSymbol> component : scc.getSortedComponents()) {
 			// create method context for all methods in component
 			for (MethodSymbol method : component) {
-				methodContexts.put(method, new AliasContext(method));
+				methodContexts.putIfAbsent(method, new AliasContext(method));
 			}
 
 			// applying intraprocedural analysis
@@ -182,7 +184,8 @@ public class EscapeAnalysis {
 					private void merge(Ast ast, MethodSymbol sym) {
 						AliasContext mc = methodContexts.get(sym);
 						AliasContext sc = siteContexts.get(ast);
-						sc.unifyEscapes(mc);
+						//sc.unifyEscapes(mc); TODO not precise enough, bad2.javali
+						sc.unify(mc);
 					}
 
 					@Override
@@ -368,22 +371,31 @@ public class EscapeAnalysis {
 			return null;
 		}
 
+		/**
+		 * Helper function to generate AliasContext for MethodCall[Expr] nodes
+		 */
 		private AliasContext createSiteContext(Ast call) {
 			AliasSet receiver, result;
 			ArrayList<AliasSet> parameters = new ArrayList<>();
 
 			if (call instanceof MethodCall) {
+				// no return type
 				result = AliasSet.BOTTOM;
+
+				// for all arguments, generate alias sets
 				receiver = visit(((MethodCall) call).receiver(), null);
 				for (Expr param : ((MethodCall) call).argumentsWithoutReceiver()) {
 					parameters.add(visit(param, null));
 				}
 			} else if (call instanceof MethodCallExpr) {
+				// determine if we need an alias set
 				if (((MethodCallExpr) call).sym.returnType.isReferenceType()) {
 					result = new AliasSet();
 				} else {
 					result = AliasSet.BOTTOM;
 				}
+
+				// for all arguments, generate alias sets
 				receiver = visit(((MethodCallExpr) call).receiver(), null);
 				for (Expr param : ((MethodCallExpr) call).argumentsWithoutReceiver()) {
 					parameters.add(visit(param, null));
@@ -414,7 +426,12 @@ public class EscapeAnalysis {
 			methodInvocation(ast.sym, sc);
 			
 			if (ast.sym == threadStart) {
+				MethodSymbol threadRun = ((ClassSymbol)ast.receiver().type).getMethod("run");
+				for (MethodSymbol entry: callGraph.targets.get(threadRun)) {
+					methodContexts.get(entry).receiver.setEscapes(true);
+				}
 				sc.receiver.setEscapes(true);
+				// unify thread with itself
 				if (multiSites.get(ast))  {
 					sc.unify(sc);
 				}

@@ -1126,6 +1126,8 @@ public class AstCodeGenerator {
 		@Override
 		public String newObject(NewObject ast, Void arg) {
 			{
+				System.err.println(ast.aliasSet);
+				
 				ClassSymbol clssym = (ClassSymbol) ast.type;
 				String reg = getRegister();
 				

@@ -2,7 +2,9 @@ class Custom extends Thread {
     Box arg;
     void run() {
         arg.lock();
+        lock();
         write(arg.val); writeln();
+        unlock();
         arg.unlock();
     }
 }
