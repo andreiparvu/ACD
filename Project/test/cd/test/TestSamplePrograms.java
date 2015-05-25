@@ -23,8 +23,8 @@ public class TestSamplePrograms extends AbstractTestSamplePrograms {
 	 * {@code justFile = new File("javali_tests/A2/Inheritance.javali")}.
 	 */
 
-	public static final File justFile = new File("./javali_tests/escape_analysis/EscapeTest.javali");
-//	public static final File justFile = null;
+//	public static final File justFile = new File("./javali_tests/A4/VirtualMethod.javali");
+	public static final File justFile = null;
 
 	/**
 	 * Directory in which to search for test files. If null, then the default is

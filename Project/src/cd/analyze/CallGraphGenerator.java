@@ -10,11 +10,15 @@ import java.util.Set;
 import java.util.Map.Entry;
 
 import cd.Main;
+import cd.ir.Ast.Assign;
 import cd.ir.Ast.ClassDecl;
 import cd.ir.Ast.MethodCall;
 import cd.ir.Ast.MethodCallExpr;
+import cd.ir.Ast.NewObject;
 import cd.ir.Ast.WhileLoop;
+import cd.ir.Ast;
 import cd.ir.AstVisitor;
+import cd.ir.BasicBlock;
 import cd.ir.Symbol.ClassSymbol;
 import cd.ir.Symbol.MethodSymbol;
 import cd.ir.Symbol.TypeSymbol;
