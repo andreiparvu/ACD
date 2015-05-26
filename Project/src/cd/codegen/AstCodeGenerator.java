@@ -1305,8 +1305,8 @@ public class AstCodeGenerator {
 			MethodSymbol lock = main.objectType.getMethod("lock");
 			MethodSymbol unlock = main.objectType.getMethod("unlock");
 			Expr obj = ast.receiver();
-
-			return (ast.sym == lock || ast.sym == unlock) && !obj.aliasSet.escapes();
+			return (ast.sym == lock || ast.sym == unlock) && 
+					obj.aliasSet != null && !obj.aliasSet.escapes();
 		}
 
 		@Override
