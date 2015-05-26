@@ -1141,10 +1141,12 @@ public class AstCodeGenerator {
 				}
 				emitStore(c(vtable(clssym)), 0, reg);
 
-				int initPadding = emitCallPrefix(null, 1);
-				push(reg);
-				emit("call", "Object__init__");
-				emitCallSuffix(null, 1, initPadding);
+				if (ast.aliasSet == null || ast.aliasSet.escapes()) {
+					int initPadding = emitCallPrefix(null, 1);
+					push(reg);
+					emit("call", "Object__init__");
+					emitCallSuffix(null, 1, initPadding);
+				}
 
 				return reg;
 			}
