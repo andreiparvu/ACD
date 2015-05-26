@@ -1,0 +1,33 @@
+class F {
+}
+
+class Main {
+  F f;
+
+  void main() {
+    A a, b;
+    F f1, f2;
+
+    a = new A();
+    b = new A();
+
+    f1 = new F();
+    f2 = new F();
+
+    a.doit(this, f1);
+    //b.doit(this, f2);
+  }
+}
+
+class A {
+  void doit(Main m, F f) {
+    m.f = f;
+  }
+}
+
+class B extends A {
+  void doit(Main m, F f) {
+    // nothing
+  }
+}
+

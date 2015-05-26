@@ -1,0 +1,58 @@
+class Main {
+  void main() {
+    A a, a2;
+    B x;
+    int y;
+
+    a = create();
+    a2 = new A();
+
+    a.b = new B();
+
+    x = create().b;
+    x.b = new B();
+
+    y = foo(bar(a2));
+  }
+
+  int foo(int x) {
+    return x;
+  }
+
+  A create() {
+    A a;
+
+    a = new A();
+
+    a.val = 3;
+
+    return a;
+  }
+
+  int bar(A a) {
+    T t;
+    t = new T();
+
+    t.a = a;
+    t.start();
+
+    return a.val;
+  }
+}
+
+class A {
+  int val;
+  B b;
+}
+
+class B {
+  B b;
+}
+
+class T extends Thread {
+  A a;
+
+  void run() {
+  }
+}
+

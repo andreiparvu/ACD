@@ -137,7 +137,8 @@ public class EscapeAnalyzer {
 		
 		boolean notAlloc() {
 			return !(properties.size() == 0 ||
-					(properties.size() == 1 && properties.contains("thread"))); // might check this
+					(properties.size() == 1 && properties.contains("thread")) ||
+					(properties.size() == 1 && properties.contains("array"))); // might check this
 		}
 		
 		GraphNode deepCopy() {
@@ -513,7 +514,6 @@ public class EscapeAnalyzer {
 		}
 	}
 	
-	static int nrp = 0;
 	public void compute(MethodDecl md, PrintWriter pw, PrintWriter pr,
 			Map<MethodSymbol, Set<MethodSymbol>> callTargets,
 			List<Set<GraphNode>> parameters,

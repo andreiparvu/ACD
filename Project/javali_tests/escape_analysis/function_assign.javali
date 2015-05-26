@@ -1,0 +1,44 @@
+class F {
+  F next;
+}
+
+class Main {
+  F f;
+
+  void main() {
+    F f1, f2;
+
+    f1 = new F();
+    f1.next = new F();
+
+    f2 = new F();
+    f2.next = new F();
+
+    d1(f1, f2);
+
+    d2(f1);
+  }
+
+  void d1(F f1, F f2) {
+    f1.next = f2.next;
+  }
+
+  void d2(F f) {
+    T t;
+
+    t = new T();
+
+    t.f = f;
+
+    t.start();
+  }
+
+}
+
+class T extends Thread {
+  F f;
+
+  void run() {
+  }
+
+}

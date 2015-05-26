@@ -1,0 +1,54 @@
+class F {
+}
+
+class Main {
+  void main() {
+    A a, b;
+    F f1, f2;
+
+    a = new A();
+    b = new A();
+
+    f1 = new F();
+    f2 = new F();
+
+    a.doit(f1);
+    b.doit(f2);
+  }
+}
+
+class A {
+  void doit(F f) {
+    T t;
+
+    t = new T();
+
+    t.f = f;
+
+    t.start();
+
+    t.join();
+  }
+}
+
+class B extends A {
+  void doit(F f) {
+    T t;
+
+    t = new T();
+
+    t.f = f;
+
+    t.start();
+
+  }
+}
+
+class T extends Thread {
+  F f;
+
+  void run() {
+    // nothing
+  }
+}
+
