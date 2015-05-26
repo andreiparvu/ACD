@@ -178,7 +178,9 @@ public class EscapeAnalysis {
 		for (Set<MethodSymbol> component : scc.getSortedComponents()) {
 			// create method context for all methods in component
 			for (MethodSymbol method : component) {
-				methodContexts.putIfAbsent(method, new AliasContext(method));
+				if (!methodContexts.containsKey(method)) {
+					methodContexts.put(method, new AliasContext(method));
+				}
 			}
 
 			// applying intraprocedural analysis
@@ -197,9 +199,10 @@ public class EscapeAnalysis {
 		List<Set<MethodSymbol>> reversed = new LinkedList<>(scc.getSortedComponents());
 		Collections.reverse(reversed);
 		for (Set <MethodSymbol> component : reversed) {
-			for (MethodSymbol method : component) {
+			for (final MethodSymbol method : component) {
 				new AstVisitor<Void, Void>() {
 					private void merge(Ast ast, MethodSymbol sym) {
+						// TODO if node is not part of CFG (because dead), sc will trigger nullpointer
 						AliasContext mc = methodContexts.get(sym);
 						AliasContext sc = siteContexts.get(ast);
 						sc.unifyEscapes(mc); //TODO not precise enough, bad2.javali
