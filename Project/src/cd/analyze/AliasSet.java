@@ -102,7 +102,7 @@ public class AliasSet {
 		if (field == null) {
 			// create new alias set for field, make sure it inherits escaping
 			field = new AliasSet();
-			field.setEscapes(this.escapes());
+			//field.setEscapes(this.escapes());
 
 			this.ref.fieldMap.put(key, field);
 		}

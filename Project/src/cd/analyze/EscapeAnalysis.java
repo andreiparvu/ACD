@@ -11,6 +11,7 @@ import java.util.Set;
 
 import cd.Main;
 import cd.analyze.CallGraphGenerator.CallGraph;
+import cd.debug.AstDump;
 import cd.debug.AstOneLine;
 import cd.ir.Ast;
 import cd.ir.Ast.Assign;
@@ -27,7 +28,6 @@ import cd.ir.Ast.ReturnStmt;
 import cd.ir.Ast.ThisRef;
 import cd.ir.Ast.Var;
 import cd.ir.Ast.WhileLoop;
-import cd.ir.AstRewriteVisitor;
 import cd.ir.AstVisitor;
 import cd.ir.BasicBlock;
 import cd.ir.Phi;
@@ -143,12 +143,30 @@ public class EscapeAnalysis {
 		for (Entry<MethodSymbol, AliasContext> entry : methodContexts.entrySet()) {
 			System.err.println(entry.getKey().fullName() + ": " + entry.getValue());
 		}
-		
+		/*
 		System.err.println("Site Contexts");
 		for (Entry<Ast, AliasContext> entry : siteContexts.entrySet()) {
 			Ast ast = entry.getKey();
 			System.err.println(AstOneLine.toString(ast) + ": " + entry.getValue());
-		}
+		}*/
+		
+		/*for (Set<MethodSymbol> component : scc.getSortedComponents()) {
+			// create method context for all methods in component
+			for (MethodSymbol method : component) {
+				System.err.println(method.fullName() + ":");
+				new AstVisitor<Void, Integer>() {
+
+					@Override
+					public Void dfltExpr(Expr ast, Integer ident) {
+						String id = new String(new char[ident]).replace("\0", "  ");;
+						System.err.println(id + AstOneLine.toString(ast) + ":" + ast.aliasSet);
+						return super.dfltExpr(ast, ident+2);
+					}
+					
+				}.visit(method.ast, 4);
+			}
+		}*/
+		System.err.println(AstDump.toString(astRoots));
 	}
 
 	private void analyzeBottomUp() {
@@ -184,8 +202,8 @@ public class EscapeAnalysis {
 					private void merge(Ast ast, MethodSymbol sym) {
 						AliasContext mc = methodContexts.get(sym);
 						AliasContext sc = siteContexts.get(ast);
-						//sc.unifyEscapes(mc); TODO not precise enough, bad2.javali
-						sc.unify(mc);
+						sc.unifyEscapes(mc); //TODO not precise enough, bad2.javali
+						//sc.unify(mc);
 					}
 
 					@Override
@@ -239,6 +257,7 @@ public class EscapeAnalysis {
 		private final HashMap<VariableSymbol, AliasSet> as = new HashMap<>();
 		private final AliasContext methodContext;
 		private final MethodSymbol method;
+		private final List<MethodCall> threadStarts = new ArrayList<MethodCall>();
 		
 		public MethodAnalayzer(MethodSymbol method) {
 			AliasContext mc = methodContexts.get(method);
@@ -281,6 +300,30 @@ public class EscapeAnalysis {
 				for (Ast ast : bb.instructions) {
 					visit(ast, null);
 				}
+			}
+			
+			for (MethodCall callSite : threadStarts) {
+				visitThreadStart(callSite);
+			}
+		}
+		
+		private void visitThreadStart(MethodCall threadStart) {
+			AliasContext sc = siteContexts.get(threadStart);
+			ClassSymbol thread = ((ClassSymbol)threadStart.receiver().type);
+			MethodSymbol threadRun = thread.getMethod("run");
+
+			// mark thread as escaped
+			sc.receiver.setEscapes(true);
+
+			// make sure to escape `this` in thread entry
+			for (MethodSymbol entry: callGraph.targets.get(threadRun)) {
+				methodContexts.get(entry).receiver.unify(sc.receiver);
+			}
+
+			// unify thread with itself if started multiple times
+			// TODO check if really needed
+			if (multiSites.get(threadStart))  {
+				sc.unify(sc);
 			}
 		}
 
@@ -423,18 +466,11 @@ public class EscapeAnalysis {
 		@Override
 		public AliasSet methodCall(MethodCall ast, Void arg) {
 			AliasContext sc = createSiteContext(ast);
-			methodInvocation(ast.sym, sc);
 			
 			if (ast.sym == threadStart) {
-				MethodSymbol threadRun = ((ClassSymbol)ast.receiver().type).getMethod("run");
-				for (MethodSymbol entry: callGraph.targets.get(threadRun)) {
-					methodContexts.get(entry).receiver.setEscapes(true);
-				}
-				sc.receiver.setEscapes(true);
-				// unify thread with itself
-				if (multiSites.get(ast))  {
-					sc.unify(sc);
-				}
+				threadStarts.add(ast);
+			} else {
+				methodInvocation(ast.sym, sc);
 			}
 			return null;
 		}
