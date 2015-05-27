@@ -16,6 +16,7 @@ import cd.ir.Symbol.TypeSymbol;
 public class AliasSet {
 	static class AliasSetData {
 		private boolean escapes = false;
+		private boolean locked = false;
 		private final Map<String, AliasSet> fieldMap = new HashMap<>();
 		private final Set<AliasSet> owners = new HashSet<>();
 		private AliasSetData(AliasSet aliasSet) {
@@ -53,6 +54,7 @@ public class AliasSet {
 		Map<String, AliasSet> thisFields = this.ref.fieldMap;
 		Map<String, AliasSet> otherFields = other.ref.fieldMap;
 
+		this.ref.locked |= other.ref.locked;
 		this.ref.escapes |= other.ref.escapes;
 		other.setRef(this.ref);
 
@@ -65,10 +67,12 @@ public class AliasSet {
 			if (thisSet != null && otherSet != null) {
 				// field in both maps, unify them
 				thisSet.ref.escapes |= this.ref.escapes;
+				thisSet.ref.locked |= this.ref.locked;
 				thisSet.unify(otherSet);
 			} else if (thisSet == null) {
 				// missing in this
 				otherSet.ref.escapes |= this.ref.escapes;
+				otherSet.ref.locked |= this.ref.locked;
 				thisFields.put(field, otherSet);
 			}
 			// we don't care if otherSet is null, `other` will be deleted
@@ -76,7 +80,7 @@ public class AliasSet {
 		// `this` is the unified alias set
 	}
 	
-	public void unifyEscapes(AliasSet other) {
+	/*public void unifyEscapes(AliasSet other) {
 		if (this.ref == other.ref || ref.escapes == other.ref.escapes) return;
 		this.ref.escapes |= other.ref.escapes;
 
@@ -89,7 +93,7 @@ public class AliasSet {
 		for (String field : intersection) {
 			thisFields.get(field).unifyEscapes(otherFields.get(field));
 		}
-	}
+	}*/
 	
 	public AliasSet deepCopy(HashMap<AliasSetData, AliasSet> copies) {
 		if (this.isBottom()) return BOTTOM;
@@ -103,6 +107,7 @@ public class AliasSet {
 		}
 
 		copy.ref.escapes = this.ref.escapes;
+		copy.ref.locked = this.ref.locked;
 		for (Entry<String, AliasSet> entry : ref.fieldMap.entrySet()) {
 			copy.ref.fieldMap.put(entry.getKey(), entry.getValue().deepCopy(copies));
 		}
@@ -130,6 +135,16 @@ public class AliasSet {
 		setEscapeRecursive(value, new HashSet<AliasSet>());
 	}
 	
+	public boolean locked() {
+		return this.ref == null ? false : this.ref.locked;
+	}
+	
+	public void setLocked(boolean value) {
+		if (!this.isBottom()) {
+			this.ref.locked = value;
+		}
+	}
+	
 	private void setEscapeRecursive(boolean value, Set<AliasSet> marked) {
 		this.ref.escapes = value;
 		marked.add(this);
@@ -152,7 +167,10 @@ public class AliasSet {
 		if (isBottom()) {
 			out.print("⊥");
 		} else {
-			out.format("<%s, {", ref.escapes);
+			out.print("<");
+			if (ref.escapes) out.print("Esc");
+			if (ref.locked) out.print("Lck");
+			out.print("{");
 			Iterator<Entry<String, AliasSet>> iter = ref.fieldMap.entrySet().iterator();
 			while (iter.hasNext()) {
 				Entry<String, AliasSet> entry = iter.next();

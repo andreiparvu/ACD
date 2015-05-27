@@ -80,14 +80,14 @@ public class EscapeAnalysis {
 			}
 		}
 		
-		public void unifyEscapes(AliasContext other) {
+		/*public void unifyEscapes(AliasContext other) {
 			this.receiver.unifyEscapes(other.receiver);
 			this.result.unifyEscapes(other.result);
 			assert (parameters.size() == other.parameters.size());
 			for (int i=0; i < parameters.size(); i++) {
 				parameters.get(i).unifyEscapes(other.parameters.get(i));
 			}
-		}
+		}*/
 
 		public AliasContext deepCopy() {
 			return new AliasContext(this);
@@ -107,11 +107,13 @@ public class EscapeAnalysis {
 	private Map<Ast, AliasContext> siteContexts;
 	private CallGraph callGraph;
 	private Map<Ast, Boolean> multiSites;
-	private MethodSymbol threadStart;
+	private MethodSymbol threadStart, objectLock, objectUnlock;
 
 	public EscapeAnalysis(Main main) {
 		this.main = main;
 		this.threadStart = main.threadType.getMethod("start");
+		this.objectLock = main.objectType.getMethod("lock");
+		this.objectUnlock = main.objectType.getMethod("unlock");
 	}
 	
 	public void analyze(List<ClassDecl> astRoots) {
@@ -483,6 +485,8 @@ public class EscapeAnalysis {
 			
 			if (ast.sym == threadStart) {
 				threadStarts.add(ast);
+			} else if (ast.sym == objectLock || ast.sym == objectUnlock) {
+				sc.receiver.setLocked(true);
 			} else {
 				methodInvocation(ast.sym, sc);
 			}
