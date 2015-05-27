@@ -10,6 +10,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import cd.Main;
+import cd.analyze.AliasSet.AliasSetData;
 import cd.analyze.CallGraphGenerator.CallGraph;
 import cd.debug.AstDump;
 import cd.debug.AstOneLine;
@@ -34,6 +35,7 @@ import cd.ir.Phi;
 import cd.ir.Symbol.ClassSymbol;
 import cd.ir.Symbol.MethodSymbol;
 import cd.ir.Symbol.VariableSymbol;
+import cd.util.DepthFirstSearchPreOrder;
 
 public class EscapeAnalysis {
 
@@ -60,11 +62,12 @@ public class EscapeAnalysis {
 		}
 		
 		private AliasContext(AliasContext copy) {
-			this.receiver = copy.receiver.deepCopy();
-			this.result = copy.result.deepCopy();
+			HashMap<AliasSetData, AliasSet> copies = new HashMap<>();
+			this.receiver = copy.receiver.deepCopy(copies);
+			this.result = copy.result.deepCopy(copies);
 			this.parameters = new ArrayList<>(copy.parameters.size());
 			for (AliasSet param : copy.parameters) {
-				this.parameters.add(param.deepCopy());
+				this.parameters.add(param.deepCopy(copies));
 			}
 		}
 
@@ -166,7 +169,7 @@ public class EscapeAnalysis {
 				}.visit(method.ast, 4);
 			}
 		}*/
-		System.err.println(AstDump.toString(astRoots));
+		//System.err.println(AstDump.toString(astRoots));
 	}
 
 	private void analyzeBottomUp() {
@@ -200,13 +203,21 @@ public class EscapeAnalysis {
 		Collections.reverse(reversed);
 		for (Set <MethodSymbol> component : reversed) {
 			for (final MethodSymbol method : component) {
+				System.err.println(method.fullName() +":"+ methodContexts.get(method));
+
 				new AstVisitor<Void, Void>() {
 					private void merge(Ast ast, MethodSymbol sym) {
 						// TODO if node is not part of CFG (because dead), sc will trigger nullpointer
-						AliasContext mc = methodContexts.get(sym);
 						AliasContext sc = siteContexts.get(ast);
-						sc.unifyEscapes(mc); //TODO not precise enough, bad2.javali
-						//sc.unify(mc);
+						System.err.println("  " + AstOneLine.toString(ast) + "<-" + sc);
+
+						for (MethodSymbol target : callGraph.targets.get(sym)) {
+							AliasContext mc = methodContexts.get(target).deepCopy();
+							sc.unify(mc);
+							System.err.println("    "+target.fullName() + ":" + mc);
+						}
+						//sc.unifyEscapes(mc); //TODO not precise enough, bad2.javali
+						//
 					}
 
 					@Override
@@ -287,7 +298,7 @@ public class EscapeAnalysis {
 		}
 		
 		public void analyize() {
-			for(BasicBlock bb : method.ast.cfg.allBlocks) {
+			for(BasicBlock bb : new DepthFirstSearchPreOrder(method.ast.cfg)) {
 				for (Phi phi : bb.phis.values()) {
 					AliasSet setV = lookup(phi.lhs);
 					for (Expr expr : phi.rhs) {

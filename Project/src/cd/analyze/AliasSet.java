@@ -2,9 +2,11 @@ package cd.analyze;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
@@ -15,9 +17,13 @@ public class AliasSet {
 	static class AliasSetData {
 		private boolean escapes = false;
 		private final Map<String, AliasSet> fieldMap = new HashMap<>();
+		private final Set<AliasSet> owners = new HashSet<>();
+		private AliasSetData(AliasSet aliasSet) {
+			owners.add(aliasSet);
+		}
 	}
 	
-	private AliasSet.AliasSetData ref = new AliasSetData();
+	private AliasSet.AliasSetData ref = new AliasSetData(this);
 	
 	public static AliasSet BOTTOM = new AliasSet();
 	static { BOTTOM.ref = null;	}
@@ -28,15 +34,27 @@ public class AliasSet {
 		}
 		return BOTTOM;
 	}
+	
+	/**
+	 * Changes ref in all owners of the data
+	 */
+	private void setRef(AliasSetData newRef) {
+		newRef.owners.add(this);
+		for (AliasSet oldRefOwner : this.ref.owners) {
+			oldRefOwner.ref = newRef;
+			newRef.owners.add(oldRefOwner);
+		}
+		assert this.ref == newRef;
+	}
 
-	void unify(AliasSet other) {
+	public void unify(AliasSet other) {
 		if (this.ref == other.ref) return;
 
 		Map<String, AliasSet> thisFields = this.ref.fieldMap;
 		Map<String, AliasSet> otherFields = other.ref.fieldMap;
 
 		this.ref.escapes |= other.ref.escapes;
-		other.ref = this.ref;
+		other.setRef(this.ref);
 
 		Set<String> fieldUnion = new HashSet<>(thisFields.keySet());
 		fieldUnion.addAll(otherFields.keySet());
@@ -46,18 +64,15 @@ public class AliasSet {
 			AliasSet otherSet = otherFields.get(field);
 			if (thisSet != null && otherSet != null) {
 				// field in both maps, unify them
-				//thisSet.setEscapes(this.ref.escapes);
 				thisSet.ref.escapes |= this.ref.escapes;
 				thisSet.unify(otherSet);
 			} else if (thisSet == null) {
 				// missing in this
-				//otherSet.setEscapes(this.ref.escapes);
 				otherSet.ref.escapes |= this.ref.escapes;
 				thisFields.put(field, otherSet);
 			}
 			// we don't care if otherSet is null, `other` will be deleted
 		}
-
 		// `this` is the unified alias set
 	}
 	
@@ -76,19 +91,20 @@ public class AliasSet {
 		}
 	}
 	
-	public AliasSet deepCopy() {
+	public AliasSet deepCopy(HashMap<AliasSetData, AliasSet> copies) {
 		if (this.isBottom()) return BOTTOM;
 		
-		AliasSet copy = new AliasSet();
+		AliasSet copy = copies.get(this.ref);
+		if (copy == null) {
+			copy = new AliasSet();
+			copies.put(this.ref, copy);
+		} else {
+			return copy;
+		}
+
 		copy.ref.escapes = this.ref.escapes;
 		for (Entry<String, AliasSet> entry : ref.fieldMap.entrySet()) {
-			AliasSet sub = entry.getValue();
-			if (sub == this) {
-				sub = copy;
-			} else {
-				sub = sub.deepCopy();
-			}
-			copy.ref.fieldMap.put(entry.getKey(), sub);
+			copy.ref.fieldMap.put(entry.getKey(), entry.getValue().deepCopy(copies));
 		}
 		return copy;
 	}
@@ -100,10 +116,7 @@ public class AliasSet {
 	public AliasSet fieldMap(String key) {
 		AliasSet field = this.ref.fieldMap.get(key);
 		if (field == null) {
-			// create new alias set for field, make sure it inherits escaping
 			field = new AliasSet();
-			//field.setEscapes(this.escapes());
-
 			this.ref.fieldMap.put(key, field);
 		}
 		return field;
