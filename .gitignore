@@ -27,3 +27,15 @@ a.out
 *.a
 *.la
 *.lo
+
+# Latex
+*.bbl
+*.blg
+*.aux
+*.log
+*.bak
+*.ps
+*.dvi
+*.log
+*.out
+*.tm
