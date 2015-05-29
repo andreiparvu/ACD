@@ -228,7 +228,7 @@ class Main {
 
         seed = 1337;
 
-        i = 1000000;
+        i = 1500000;
         while (i > 10) {
             box = new Integer();
             box.val = rand();

@@ -3,6 +3,7 @@ package cd.analyze;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -11,14 +12,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
 
+import cd.ir.Symbol.MethodSymbol;
 import cd.ir.Symbol.TypeSymbol;
 
 public class AliasSet {
 	static class AliasSetData {
 		private boolean escapes = false;
-		private boolean locked = false;
+		//private Set<MethodSymbol> lockedBy = new HashSet<>();
 		private final Map<String, AliasSet> fieldMap = new HashMap<>();
-		private final Set<AliasSet> owners = new HashSet<>();
+		private final List<AliasSet> owners = new ArrayList<>();
+
 		private AliasSetData(AliasSet aliasSet) {
 			owners.add(aliasSet);
 		}
@@ -40,12 +43,10 @@ public class AliasSet {
 	 * Changes ref in all owners of the data
 	 */
 	private void setRef(AliasSetData newRef) {
-		newRef.owners.add(this);
 		for (AliasSet oldRefOwner : this.ref.owners) {
 			oldRefOwner.ref = newRef;
 			newRef.owners.add(oldRefOwner);
 		}
-		assert this.ref == newRef;
 	}
 
 	public void unify(AliasSet other) {
@@ -54,7 +55,7 @@ public class AliasSet {
 		Map<String, AliasSet> thisFields = this.ref.fieldMap;
 		Map<String, AliasSet> otherFields = other.ref.fieldMap;
 
-		this.ref.locked |= other.ref.locked;
+		//this.ref.lockedBy.addAll(other.ref.lockedBy);
 		this.ref.escapes |= other.ref.escapes;
 		other.setRef(this.ref);
 
@@ -67,12 +68,10 @@ public class AliasSet {
 			if (thisSet != null && otherSet != null) {
 				// field in both maps, unify them
 				thisSet.ref.escapes |= this.ref.escapes;
-				thisSet.ref.locked |= this.ref.locked;
 				thisSet.unify(otherSet);
 			} else if (thisSet == null) {
 				// missing in this
 				otherSet.ref.escapes |= this.ref.escapes;
-				otherSet.ref.locked |= this.ref.locked;
 				thisFields.put(field, otherSet);
 			}
 			// we don't care if otherSet is null, `other` will be deleted
@@ -97,7 +96,7 @@ public class AliasSet {
 	
 	public AliasSet deepCopy(HashMap<AliasSetData, AliasSet> copies) {
 		if (this.isBottom()) return BOTTOM;
-		
+		// TODO .equals for aliassetdata messes things up
 		AliasSet copy = copies.get(this.ref);
 		if (copy == null) {
 			copy = new AliasSet();
@@ -107,7 +106,7 @@ public class AliasSet {
 		}
 
 		copy.ref.escapes = this.ref.escapes;
-		copy.ref.locked = this.ref.locked;
+		//copy.ref.lockedBy = new HashSet<>(this.ref.lockedBy);
 		for (Entry<String, AliasSet> entry : ref.fieldMap.entrySet()) {
 			copy.ref.fieldMap.put(entry.getKey(), entry.getValue().deepCopy(copies));
 		}
@@ -135,15 +134,19 @@ public class AliasSet {
 		setEscapeRecursive(value, new HashSet<AliasSet>());
 	}
 	
-	public boolean locked() {
-		return this.ref == null ? false : this.ref.locked;
-	}
-	
-	public void setLocked(boolean value) {
-		if (!this.isBottom()) {
-			this.ref.locked = value;
+	/*public Set<MethodSymbol> lockedBy() {
+		if (isBottom()) {
+			return Collections.<MethodSymbol>emptySet();
+		} else {
+			return this.ref.lockedBy;
 		}
 	}
+	
+	public void addLockedBy(MethodSymbol method) {
+		if (!this.isBottom()) {
+			this.ref.lockedBy.add(method);
+		}
+	}*/
 	
 	private void setEscapeRecursive(boolean value, Set<AliasSet> marked) {
 		this.ref.escapes = value;
@@ -154,7 +157,45 @@ public class AliasSet {
 			}
 		}
 	}
-	
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((ref == null) ? 0 : ref.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null) {
+			return false;
+		}
+		if (getClass() != obj.getClass()) {
+			return false;
+		}
+		// do actual comparison
+		AliasSet other = (AliasSet) obj;
+		if (ref == null) {
+			if (other.ref != null) {
+				return false;
+			}
+		} else if (ref.escapes != other.ref.escapes) {
+			return false;
+		} else if (ref.fieldMap == null) {
+			if (other.ref.fieldMap != null) {
+				return false;
+			}
+		} else if (!ref.fieldMap.equals(other.ref.fieldMap)) {
+			return false;
+		}
+
+		return true;
+	}
+
 	@Override
 	public String toString() {
 		StringWriter out = new StringWriter();
@@ -168,12 +209,22 @@ public class AliasSet {
 			out.print("⊥");
 		} else {
 			out.print("<");
-			if (ref.escapes) out.print("Esc");
-			if (ref.locked) out.print("Lck");
+			if (ref.escapes) out.print("Esc,");
+			// print lockedBy set
+			/*out.print("(");
+			Iterator<MethodSymbol> setIter = ref.lockedBy.iterator();
+			while (setIter.hasNext()) {
+				out.print(setIter.next().fullName());
+				if (setIter.hasNext()) {
+					out.print(", ");
+				}
+			}
+			out.print("),");*/
+			// print fieldMap
 			out.print("{");
-			Iterator<Entry<String, AliasSet>> iter = ref.fieldMap.entrySet().iterator();
-			while (iter.hasNext()) {
-				Entry<String, AliasSet> entry = iter.next();
+			Iterator<Entry<String, AliasSet>> mapIter = ref.fieldMap.entrySet().iterator();
+			while (mapIter.hasNext()) {
+				Entry<String, AliasSet> entry = mapIter.next();
 				out.format("%s:", entry.getKey());
 				AliasSet child = entry.getValue();
 				if (!marked.contains(child)) {
@@ -182,7 +233,7 @@ public class AliasSet {
 					out.print("<..>");
 				}
 
-				if (iter.hasNext()) {
+				if (mapIter.hasNext()) {
 					out.print(", ");
 				}
 			}

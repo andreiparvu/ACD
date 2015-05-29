@@ -286,7 +286,7 @@ public class Main {
 				CfgDump.toString(astRoots, ".opt", cfgdumpbase, false);				
 			}
 			
-			try {
+			/*try {
 				File f = new File(cfgdumpbase.getCanonicalFile() + ".escape.dot"),
 					 rez = new File(cfgdumpbase.getCanonicalFile() + ".stack");
 				PrintWriter pw = new PrintWriter(f),
@@ -305,7 +305,7 @@ public class Main {
 				pr.close();
 			} catch (IOException ex) {
 				System.err.println(ex);
-			}
+			}*/
 			
 			{
 				new EscapeAnalysis(this).analyze(astRoots);
