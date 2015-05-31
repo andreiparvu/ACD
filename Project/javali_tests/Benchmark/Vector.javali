@@ -192,6 +192,12 @@ class ParallelMergeSort extends Thread {
 
 class Main {
     int seed;
+    
+    void f() {
+        Vector thread_local;
+        thread_local = new Vector();
+        thread_local.get(0);
+    }
 
     int rand() {
         seed = seed * 1103515245 + 12345;
@@ -241,5 +247,7 @@ class Main {
         sort.run();
 
         validate(v);
+        
+        f();
     }
 }
