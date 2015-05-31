@@ -54,14 +54,15 @@ public class SemanticAnalyzer {
 		typeSymbols.add(main.voidType);
 		typeSymbols.add(main.objectType);
 		typeSymbols.add(main.threadType);
+		typeSymbols.add(main.stopwatchType);
+
 		
 		// Add symbols for all declared classes.
 		for (ClassDecl ast : classDecls) {
 			// Check for classes named Object
 			if (ast.name.equals(main.objectType.name)) {
 				throw new SemanticFailure(Cause.OBJECT_CLASS_DEFINED);
-			} else if (ast.name.equals(main.threadType.name)) {
-				// TODO special error for this?
+			} else if (ast.name.equals(main.threadType.name) || ast.name.equals(main.stopwatchType.name)) {
 				throw new SemanticFailure(Cause.DOUBLE_DECLARATION);
 			}
 			ast.sym = new ClassSymbol(ast);
