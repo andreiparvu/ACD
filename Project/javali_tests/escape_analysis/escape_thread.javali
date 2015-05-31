@@ -1,0 +1,35 @@
+class Main {
+  void main() {
+    T[] t;
+    Up u;
+
+    t = new T[3];
+    t[0] = new T();
+    u = new Up();
+    u.t = new T();
+
+    t[0].a = new A();
+    t[0].start();
+
+    t[0].join();
+
+    u.t.a = new A();
+    u.t.start();
+    u.t.join();
+  }
+}
+
+class A {
+}
+
+class Up {
+  T t;
+}
+
+class T extends Thread {
+  A a;
+
+  void run() {
+  }
+}
+

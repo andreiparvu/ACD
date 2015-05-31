@@ -518,7 +518,7 @@ public class EscapeAnalyzer {
 			Map<MethodSymbol, Set<MethodSymbol>> callTargets,
 			List<Set<GraphNode>> parameters,
 			boolean allocate) {
-		System.err.println("Checking " + md.name);
+//		System.err.println("Checking " + md.name);
 		
 		this.mdecl = md;
 		this.pw = pw;
@@ -558,7 +558,6 @@ public class EscapeAnalyzer {
 			
 			if (type instanceof ClassSymbol) {
 				if (inheritsThread((ClassSymbol)type)) {
-					System.err.println("alloc thread");
 					// we should also consider the other threads (fields)
 					
 					for (GraphNode node : g.nodes.get(var).values()) {
@@ -667,7 +666,6 @@ public class EscapeAnalyzer {
 			}
 		}
 		
-		System.err.println("before while");
 		while (true) {
 			boolean cont = false;
 			
@@ -683,7 +681,6 @@ public class EscapeAnalyzer {
 				break;
 			}
 		}
-		System.err.println("after while");
 		
 		g = cfg.end.escapeGraph;
 
@@ -714,7 +711,7 @@ public class EscapeAnalyzer {
 		
 		mdecl.analyzedColor = WHITE;
 		
-		System.err.println("Finished checking " + md.name);
+//		System.err.println("Finished checking " + md.name);
 	}
 	
 	private boolean isScalarType(TypeSymbol type) {
@@ -836,7 +833,7 @@ public class EscapeAnalyzer {
 					}
 					
 					if (ast.right() instanceof Var || ast.right() instanceof Field ||
-							ast.right() instanceof ThisRef) {
+							ast.right() instanceof ThisRef || ast.right() instanceof Index) {
 						for (GraphNode n : g.buildNodes(right)) {
 							node.addReference(f.fieldName, n);
 						}

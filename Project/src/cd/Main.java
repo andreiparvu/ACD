@@ -307,7 +307,7 @@ public class Main {
 			}
 			
 			{
-				new EscapeAnalysis(this).analyze(astRoots);
+//				new EscapeAnalysis(this).analyze(astRoots);
 			}
 
 			// Remove SSA form.
