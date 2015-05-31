@@ -196,16 +196,17 @@ public class EscapeAnalysis {
 
 		// traverse SCC methods in bottom-up topological order
 		Map<MethodSymbol, AliasContext> methodContexts = analyzeBottomUp();
-		//// Phase 3 ////
-		// top-down traversal to unify method contexts
-		mergeTopDownSpecialized(new HashMap<>(methodContexts));
-		//mergeTopDown();
 
+		//// Phase 3 ////
+		// top-down traversal to push down escape info
+		Map<Ast, AliasContext> siteContexts = mergeTopDownSpecialized(methodContexts);
+
+		specializeMethods(siteContexts);
 		// debug print
-		System.err.println("Method Contexts");
+		/*System.err.println("Method Contexts");
 		for (Entry<MethodSymbol, AliasContext> entry : methodContexts.entrySet()) {
 			System.err.println(entry.getKey().fullName() + ": " + entry.getValue());
-		}
+		}*/
 		/*
 		System.err.println("Site Contexts");
 		for (Entry<Ast, AliasContext> entry : siteContexts.entrySet()) {
@@ -230,6 +231,10 @@ public class EscapeAnalysis {
 			}
 		}*/
 		//System.err.println(AstDump.toString(astRoots));
+	}
+
+	private void specializeMethods(Map<Ast, AliasContext> siteContexts) {
+		
 	}
 
 	private Map<MethodSymbol, AliasContext> analyzeBottomUp() {
