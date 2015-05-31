@@ -4,7 +4,12 @@
 % --------------------------------------------------------------------------
 
 \documentclass[letterpaper]{article}
+
+
 \usepackage{spconf,amsmath,amssymb,graphicx}
+\usepackage{ucs}
+\usepackage[utf8x]{inputenc}
+\usepackage[english]{babel}
 
 % Example definitions.
 % --------------------
@@ -17,33 +22,31 @@
 
 % Title.
 % ------
-\title{A Descriptive Title, not too general, not too long}
+\title{Escape Analysis for Multi-Threaded Javali}
 %
 % Single address.
 % ---------------
-\name{Markus P\"uschel\thanks{The author thanks Jelena Kovacevic. This paper
-is a modified version of the template she used in her class.}} 
+\name{Andrei Pârvu, Sebastian Wicki}
 \address{Department of Computer Science\\ ETH Z\"urich\\Z\"urich, Switzerland}
 
 % For example:
 % ------------
 %\address{School\\
-%		 Department\\
-%		 Address}
+%    Department\\
+%    Address}
 %
 % Two addresses (uncomment and modify for two-address case).
 % ----------------------------------------------------------
-%\twoauthors
-%  {A. Author-one, B. Author-two\sthanks{Thanks to XYZ agency for funding.}}
-%		 {School A-B\\
-%		 Department A-B\\
-%		 Address A-B}
-%  {C. Author-three, D. Author-four\sthanks{The fourth author performed the work
-%		 while at ...}}
-%		 {School C-D\\
-%		 Department C-D\\
-%		 Address C-D}
-%
+% \twoauthors
+ % {A. Andri Parvu, B. Sebastian Wicki}
+  %    {ETH Zurich\\
+  %    Department of Computer Science}
+ % {C. Author-three, D. Author-four\sthanks{The fourth author performed the work
+  %    while at ...}}
+  %    {School C-D\\
+  %    Department C-D\\
+  %    Address C-D}
+
 
 \begin{document}
 %\ninept
@@ -122,20 +125,38 @@ Mention and cite any external resources that you used including libraries or oth
 
 \section{Experimental Results}\label{sec:exp}
 
-Here you evaluate your work using experiments. You start again with a
-very short summary of the section. The typical structure follows.
 
-\mypar{Experimental setup} Specify the platform (processor, frequency, maybe OS, maybe cache sizes)
-as well as the compiler, version, and flags used. If your work is about performance, 
-I strongly recommend that you play with optimization flags and consider also icc for additional potential speedup.
+\mypar{Experimental setup} For the experiments we used two different machines. The first one, running
+Ubuntu 14.04 with a i5-3317U, 1.70GHz processor and 4Gb RAM.
 
-Then explain what kind of benchmarks you ran. The idea is to give enough information so the experiments are reproducible by somebody else on his or her code.
-For sorting you would talk about the input sizes. For a tool that performs NUMA optimization, you would specify the programs you ran.
+We tried to analyze three different aspects of our project: firstly, the running time improvement of just allocating
+the unescaped objects on the stack. Secondly, we wanted to see the time benefit of working with stack-allocated
+objects instead of heap-allocated ones. And thirdly, we tried to observe the how lock-removal affects single-threaded
+programs.\\
 
 \mypar{Results}
-Next divide the experiments into classes, one paragraph for each. In each class of experiments you typically pursue one questions that then is answered by a suitable plot or plots. For example, first you may want to investigate the performance behavior with changing input size, then how your code compares to external benchmarks.
+For the first experiment, we just allocated various objects without using them afterwards, in order to see how the running time differs
+for both cases. TODO: run the actual experiment :)\\
 
-For some tips on benchmarking including how to create a decent viewgraph see pages 22--27 in \cite{Pueschel:10}.
+In the second experiment, we wrote a basic matrix multiplication program with the intent of observing how execution time changes when using
+stack allocation. The results can be seen in Figure~\ref{fig:matrixmul}. It can be observed that the stack allocation improves running
+time with almost 20\%, with the obvious draw-back that more stack memory is used.\\
+
+For the third experiment, we implemented a hash map, which simulates string hashing (because Javali doesn't have strings we used ASCII arrays).
+The hash map is implemented to be thread-safe, so we ran the experiment with one thread and lock removal. Results can be seen in Figure~
+\ref{fig:hash}; with lock removal, running time is approximately 10\% faster than the unanalyzed version.\\
+
+\begin{figure} \center
+  \includegraphics[width=0.8\linewidth]{../Project/results_matrix_mul.eps}
+  \caption{Running times matrix multiplication}
+  \label{fig:matrixmul}
+\end{figure}
+
+\begin{figure} \center
+  \includegraphics[width=0.8\linewidth]{../Project/results_hash.eps}
+  \caption{Running times hash map}
+  \label{fig:hash}
+\end{figure}
 
 {\bf Comments:}
 \begin{itemize}
@@ -221,7 +242,7 @@ jpeg, gif, bmp, tif.
 % style file from IEEE produces unsorted bibliography list.
 % -------------------------------------------------------------------------
 \bibliographystyle{IEEEbib}
-\bibliography{bibl_conf}
+\bibliography{report}
 
 \end{document}
 
