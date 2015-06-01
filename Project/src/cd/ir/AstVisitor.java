@@ -72,6 +72,10 @@ public class AstVisitor<R,A> extends ExprVisitor<R,A> {
 		return dfltStmt(ast, arg);
 	}
 	
+	public R free(Ast.Free ast, A arg) {
+		return dfltStmt(ast, arg);
+	}
+	
 	public R classDecl(Ast.ClassDecl ast, A arg) {
 		return dfltDecl(ast, arg);
 	}
