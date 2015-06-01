@@ -10,6 +10,8 @@
 \usepackage{ucs}
 \usepackage[utf8x]{inputenc}
 \usepackage[english]{babel}
+\usepackage{calc}
+\usepackage{enumitem}
 
 % Example definitions.
 % --------------------
@@ -77,8 +79,7 @@ Additionally, we also added support for synchronization though locks. Having
 those additional language features also give more margin for potential
 optimizations, which we will discuss in the following paragraphs.
 
-\mypar{Motivation} 
-
+\mypar{Motivation} \
 Escape analysis can determine if an object reference escapes a certain dynamic
 scope, for example the scope of a thread or the scope of a stack frame. This
 information can be useful for a class of optimizations. In this project, we
@@ -123,6 +124,47 @@ references. Briefly explain what they do. In the end contrast to what
 you do to make now precisely clear what your contribution is.
 
 \section{Background}\label{sec:background}
+
+In this section we briefly present the programming interface and semantics of our
+threading extension. In the second part, we formally introduce escape analysis.
+
+\mypar{Threading and Synchronization in Javali}
+The interface for multi-threading in Javali is heavily inspired by Java. In
+order to create a new thread, the programmer has to create a new class that
+inherits from the built-in \texttt{Thread} class and overwrite the \texttt{run()}
+method to provide a thread entry point. 
+The \texttt{Thread} class contains the following methods:
+
+\begin{description}[leftmargin=!,labelwidth=\widthof{\texttt{start()}}]
+ \item[\texttt{run()}] Thread entry point. To be overwritten by clients.
+ \item[\texttt{start()}] Starts a new thread. Like in Java it is an error to
+ call this method more than once on the same receiver.
+ \item[\texttt{join()}] Blocks the caller until the thread exits. It is an error
+ to call this on a thread that was never started or was already joined.
+\end{description}
+
+Similar to Java, our extension to Javali has a built-in lock and conditional variable
+within every object. A notable difference to Java however is that there is
+no special syntax for locking, the built-in \texttt{Object} just provides the
+following methods:
+
+\begin{description}[leftmargin=!,labelwidth=\widthof{\texttt{unlock()}}]
+ \item[\texttt{lock()}] Locks the receiver. If the object was already locked by
+ another thread, the current thread is blocked until the object is unlocked. The
+ lock is re-entrant in the sense that a thread can call this method on objects
+ on which it already own the lock.
+ \item[\texttt{unlock()}] Unlocks the object. Also re-entrant in the sense that
+ in order to fully unlock an object,
+ the lock owner needs to call \texttt{unlock()} as many times as \texttt{lock()}
+ was called. It is an error to call \texttt{unlock()} without owning the lock.
+ \item[\texttt{wait()}] Causes the calling thread to wait until another thread
+ cals \texttt{notify()} on the object.
+ \item[\texttt{notify()}] Wakes up another thread waiting on this object.
+\end{description} % TODO double check notify/wait semantics
+
+\mypar{Escape Analysis}
+
+
 
 Give a short, self-contained summary of necessary
 background information. For example, assume you present an
