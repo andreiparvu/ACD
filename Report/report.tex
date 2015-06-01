@@ -20,6 +20,14 @@
 % bold paragraph titles
 \newcommand{\mypar}[1]{{\bf #1.}}
 
+% monospace text
+\makeatletter
+\DeclareRobustCommand\ttfamily
+        {\not@math@alphabet\ttfamily\mathtt
+         \fontfamily\ttdefault\selectfont\hyphenchar\font=-1\relax}
+\makeatother
+\DeclareTextFontCommand{\mytexttt}{\ttfamily\hyphenchar\font=45\relax}
+
 % Title.
 % ------
 \title{Escape Analysis for Multi-Threaded Javali}
@@ -54,9 +62,6 @@
 \maketitle
 %
 
-The hard page limit is 6 pages in this style. Do not reduce font size
-or use other tricks to squeeze. This pdf is formatted in the American letter format, so the spacing may look a bit strange when printed out.
-
 \begin{abstract}
 Describe in concise words what you do, why you do it (not necessarily
 in this order), and the main result.  The abstract has to be
@@ -66,32 +71,58 @@ should write the abstract last.
 
 \section{Introduction}\label{sec:intro}
 
-Do not start the introduction with the abstract or a slightly modified
-version. It follows a possible structure of the introduction. 
-Note that the structure can be modified, but the
-content should be the same. Introduction and abstract should fill at most the first page, better less.
+The basis of this project is an extended version of Javali with support for
+basic multi-threading, similar to Java's built-in \texttt{Thread} class. 
+Additionally, we also added support for synchronization though locks. Having
+those additional language features also give more margin for potential
+optimizations, which we will discuss in the following paragraphs.
 
-\mypar{Motivation} The first task is to motivate what you do.  You can
-start general and zoom in one the specific problem you consider.  In
-the process you should have explained to the reader: what you are doing,
-why you are doing, why it is important (order is usually reversed).
+\mypar{Motivation} 
 
-For example, if my result is the fastest sorting implementation ever, one
-could roughly go as follows. First explain why sorting is important
-(used everywhere with a few examples) and why performance matters (large datasets,
-realtime). Then explain that fast implementations are very hard and
-expensive to get (memory hierarchy, vector, parallel). 
+Escape analysis can determine if an object reference escapes a certain dynamic
+scope, for example the scope of a thread or the scope of a stack frame. This
+information can be useful for a class of optimizations. In this project, we
+explored two optimizations: Stack allocation of objects and synchronization
+elision. Since Javali does not support modules or other forms of dynamic code
+loading, we can perform a whole-program escape analysis, typically yielding more
+precision.
 
-Now you state what you do in this paper. In our example: 
-presenting a sorting implementation that is
-faster for some sizes as all the other ones.
+In standard Javali, all non-primitive objects are allocated on the heap. The
+existing implementation even leaks those objects, as there is currently on
+garbage collection. Using escape analysis, the compiler can infer that certain
+objects will never outlive the current stack frame, thus those objects could
+be allocated on the stack. This has the advantage that the object will be cleaned
+up automatically once the function returns. Additionally, allocating data on the
+stack is typically faster than calling \texttt{malloc()} for heap allocation.
+This is especially true in multi-threaded programs, as the implementation of
+\texttt{malloc()} internally needs to synchronize as well, although modern
+implementations such as \texttt{TCMalloc} optimize this case heavily. % TODO TCMalloc ref
+
+In this paper we provide an extended escape analysis for stack allocation that
+even allows stack allocation for objects that are shared with other threads,
+under the condition that the thread does not outlive the current function.
+This is often the case in the fork-join programming model, where a function
+forks multiple child threads to work on in parallel on some data, and then
+waits for them to join.
+
+As a second optimization, we implement synchronization removal on objects that
+never escape the current thread, i.e. that are never shared among multiple threads
+thus do not to be locked in order to be accessed safely. 
+
+This optimization is useful for classes that are is written to be thread-safe,
+i.e. use synchronization to ensure correctness, but are actually never used
+in a multi-threaded setting, which leads to unnecessary overhead. Library
+classes such as Java's \texttt{Vector} or \texttt{Hashtable} class are examples
+of thread-safe library classes that were later replaced with non-synchronized
+alternatives (namely \texttt{ArrayList} and \texttt{HashMap}) for better
+performance.
 
 \mypar{Related work} Next, you have to give a brief overview of
 related work. For a report like this, anywhere between 2 and 8
 references. Briefly explain what they do. In the end contrast to what
 you do to make now precisely clear what your contribution is.
 
-\section{Background: Whatever the Background is}\label{sec:background}
+\section{Background}\label{sec:background}
 
 Give a short, self-contained summary of necessary
 background information. For example, assume you present an
@@ -147,13 +178,13 @@ The hash map is implemented to be thread-safe, so we ran the experiment with one
 \ref{fig:hash}; with lock removal, running time is approximately 10\% faster than the unanalyzed version.\\
 
 \begin{figure} \center
-  \includegraphics[width=0.8\linewidth]{../Project/results_matrix_mul.eps}
+%  \includegraphics[width=0.8\linewidth]{../Project/results_matrix_mul.eps}
   \caption{Running times matrix multiplication}
   \label{fig:matrixmul}
 \end{figure}
 
 \begin{figure} \center
-  \includegraphics[width=0.8\linewidth]{../Project/results_hash.eps}
+%  \includegraphics[width=0.8\linewidth]{../Project/results_hash.eps}
   \caption{Running times hash map}
   \label{fig:hash}
 \end{figure}
@@ -245,4 +276,4 @@ jpeg, gif, bmp, tif.
 \bibliography{report}
 
 \end{document}
-
+like
