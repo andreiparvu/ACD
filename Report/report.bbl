@@ -1,0 +1,18 @@
+\begin{thebibliography}{1}
+
+\bibitem{Whaley:99}
+  J. Whaley, M. Rinard,
+  \newblock {\em Compositional Pointer and Escape Analysis for Java Programs}
+  \newblock 1999
+
+\bibitem{Ruf:00}
+  E. Ruf,
+  \newblock {\em Effective Synchronization Removal for Java}
+  \newblock 2000
+
+\bibitem{Ranganath:04}
+  V.P. Ranganath, J. Hatcliff
+  \newblock {\em Pruning interference and ready dependences for slicing concurrent Java programs}
+  \newblock 2004
+
+\end{thebibliography}
