@@ -1,0 +1,5 @@
+stack a_1
+stack a_1.x[2]
+stack a_1.x[2].next
+stack p_1[3]
+stack p_1[3].next

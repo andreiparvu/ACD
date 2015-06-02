@@ -24,6 +24,6 @@ class Main {
   }
 
   void doit(A a) {
-    a.x[2].next = new P();
+    a.x[30].next = new P();
   }
 }

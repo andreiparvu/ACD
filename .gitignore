@@ -11,6 +11,7 @@ bin/
 *.class
 *.png
 a.out
+*.stack
 
 # Object files
 *.o

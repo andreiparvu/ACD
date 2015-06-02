@@ -115,22 +115,22 @@ class Semaphore {
   }
 
   void acquire() {
-    this.lock_cond();
+    this.lock();
 
     while (count == 0) {
       this.wait();
     }
     count = count - 1;
 
-    this.unlock_cond();
+    this.unlock();
   }
 
   void release() {
-    this.lock_cond();
+    this.lock();
 
     count = count + 1;
     this.notify();
 
-    this.unlock_cond();
+    this.unlock();
   }
 }

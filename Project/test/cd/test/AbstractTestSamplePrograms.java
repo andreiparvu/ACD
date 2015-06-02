@@ -14,6 +14,9 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.List;
+import java.util.Scanner;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -34,6 +37,8 @@ abstract public class AbstractTestSamplePrograms {
 	public File errfile;
 	public Main main;
 
+	private final boolean TEST_STACK_ALLOCATION = true;
+	
 	public void assertEquals(String phase, String exp, String act) {
 		act = act.replace("\r\n", "\n"); // for windows machines
 		if (!exp.equals(act)) {
@@ -125,13 +130,17 @@ abstract public class AbstractTestSamplePrograms {
 					{
 						// Run the semantic check and check that errors
 						// are detected correctly, etc.
-						boolean passedSemanticAnalysis = testSemanticAnalyzer(astRoots);
+						boolean passedSemanticAnalysis = testSemanticAnalyzer(astRoots, !TEST_STACK_ALLOCATION);
 
 						if (passedSemanticAnalysis) {
-							boolean passedCodeGen = testCodeGenerator(astRoots, hasWellDefinedOutput);
+							boolean passedCodeGen = testCodeGenerator(astRoots, hasWellDefinedOutput, !TEST_STACK_ALLOCATION);
 
-							if (passedCodeGen)
-								testOptimizer(astRoots);
+							if (passedCodeGen) {
+								if (!TEST_STACK_ALLOCATION) {
+									testOptimizer(astRoots);
+								}
+								testStackAllocator(file);
+							}
 						}
 					}
 				}
@@ -195,9 +204,12 @@ abstract public class AbstractTestSamplePrograms {
 		return astRoots;
 	}
 
-	public boolean testSemanticAnalyzer(List<ClassDecl> astRoots)
+	public boolean testSemanticAnalyzer(List<ClassDecl> astRoots, boolean withRef)
 	throws IOException {
-		String semanticRef = findSemanticRef();
+		String semanticRef = "";
+		if (withRef) {
+			findSemanticRef();
+		}
 
 		boolean passed;
 		String result;
@@ -211,7 +223,10 @@ abstract public class AbstractTestSamplePrograms {
 			passed = false;
 		}
 
-		assertEquals("semantic", semanticRef, result);
+		if (withRef) {
+			assertEquals("semantic", semanticRef, result);
+		}
+		
 		return passed;
 	}
 
@@ -244,16 +259,43 @@ abstract public class AbstractTestSamplePrograms {
 			System.err.println("Warning: Optimizer summary do not match!");
 		}
 	}
+	
+	private String allocatedVars(File f) {
+		Set<String> set = new TreeSet<String>();
+
+		try {
+			Scanner s = new Scanner(f);
+			
+			for (; s.hasNextLine(); ) {
+				set.add(s.nextLine());
+			}
+		} catch (IOException ex) {
+			return "";
+		}
+		
+		return set.toString();
+	}
+	
+	private void testStackAllocator(File f) {
+		File curStack = new File(f.getAbsolutePath() + ".stack"),
+			 goodStack = new File(f.getAbsolutePath() + ".stack.good");
+
+		warnAboutDiff("stack allocation", allocatedVars(goodStack), allocatedVars(curStack));
+	}
+		
 
 	/**
 	 * Run the code generator, assemble the resulting .s file, and (if the output
 	 * is well-defined) compare against the expected output.
 	 */
-	public boolean testCodeGenerator(List<ClassDecl> astRoots, boolean hasWellDefinedOutput)
+	public boolean testCodeGenerator(List<ClassDecl> astRoots, boolean hasWellDefinedOutput, boolean withRef)
 	throws IOException {
 		// Determine the input and expected output.
 		String inFile = (infile.exists() ? FileUtil.read(infile) : "");
-		String execRef = findExecRef(inFile);
+		String execRef = "";
+		if (withRef) {
+			findExecRef(inFile);
+		}
 
 		// Run the code generator:
 		FileWriter fw = new FileWriter(this.sfile);
@@ -286,6 +328,10 @@ abstract public class AbstractTestSamplePrograms {
 		                                     new String[] { binfile.getAbsolutePath() }, new String[] {},
 		                                     inFile, true);
 
+		if (!withRef) {
+			return true;
+		}
+		
 		// Compute the output to what we expected to see.
 		if (execRef.equals(execOut))
 			return true;

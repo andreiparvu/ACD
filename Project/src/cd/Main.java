@@ -157,17 +157,13 @@ public class Main {
 		condMutexField.offset = 1;
 		objectType.fields.put(condMutexField.name, condMutexField);
 
-		VariableSymbol condField = new VariableSymbol("$condition", objectType, Kind.FIELD);
-		condField.offset = 2;
-		objectType.fields.put(condField.name, condField);
-
-		objectType.totalFields = 3;
+		objectType.totalFields = 2;
 		objectType.sizeof = Config.SIZEOF_PTR * (objectType.totalFields + 1);
 
 		VariableSymbol threadField = new VariableSymbol("$thread", objectType, Kind.FIELD);
-		threadField.offset = 3;
+		threadField.offset = 2;
 		threadType.fields.put(threadField.name, threadField);
-		threadType.totalFields = 4;
+		threadType.totalFields = 3;
 		threadType.sizeof = Config.SIZEOF_PTR * (threadType.totalFields + 1);
 	}
 	
@@ -186,7 +182,7 @@ public class Main {
 
 	private void addRuntimeMethods() {
 		int vtableOffset = 0;
-		for (String methodName : Arrays.asList("lock", "unlock", "lock_cond", "unlock_cond", "notify", "wait")) {
+		for (String methodName : Arrays.asList("lock", "unlock", "notify", "wait")) {
 			addRuntimeMethod(objectType, methodName, vtableOffset++);
 		}
 		objectType.totalMethods = vtableOffset;
@@ -286,6 +282,9 @@ public class Main {
 				CfgDump.toString(astRoots, ".opt", cfgdumpbase, false);				
 			}
 			
+			
+			Map<MethodSymbol, Set<MethodSymbol>> callTargets = new CallGraphGenerator(this).computeTargets(astRoots);
+			
 			try {
 				File f = new File(cfgdumpbase.getCanonicalFile() + ".escape.dot"),
 					 rez = new File(cfgdumpbase.getCanonicalFile() + ".stack");
@@ -296,7 +295,7 @@ public class Main {
 				for (ClassDecl cd : astRoots) {
 					for (MethodDecl md : cd.methods()) {
 						if (md.analyzedColor == EscapeAnalyzer.WHITE) {
-							(new EscapeAnalyzer(this)).compute(md, pw, pr);
+							(new EscapeAnalyzer(this)).compute(md, pw, pr, callTargets);
 						}
 					}
 				}

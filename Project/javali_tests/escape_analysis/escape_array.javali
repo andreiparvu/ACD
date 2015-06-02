@@ -1,0 +1,18 @@
+class A {
+}
+
+class Main {
+  A a;
+
+  void main() {
+    A[] arr;
+
+    arr = new A[10];
+    arr[2] = new A();
+    arr[3] = new A();
+
+    this.a = arr[2];
+  }
+}
+
+
