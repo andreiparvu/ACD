@@ -18,10 +18,12 @@ struct thread {
 
 struct thread_vtable {
     void *object_vtable;
+
     void *(*object_lock) (struct object*);
     void *(*object_unlock) (struct object*);
     void *(*object_wait) (struct object*);
     void *(*object_notify) (struct object*);
+
     void *(*thread_run) (struct thread*);
     void *(*thread_start) (struct thread*);
     void *(*thread_join) (struct thread*);

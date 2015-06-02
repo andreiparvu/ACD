@@ -12,7 +12,7 @@
 
 struct stopwatch {
     struct stopwatch_vtable *vtable;
-    pthread_mutex_t *mutex, *cond_mutex;
+    pthread_mutex_t *mutex;
     pthread_cond_t *cond;
     struct timespec *start;
     struct timespec *stop;
@@ -20,6 +20,12 @@ struct stopwatch {
 
 struct stopwatch_vtable {
     void *object_vtable;
+
+    void *(*object_lock) (struct object*);
+    void *(*object_unlock) (struct object*);
+    void *(*object_wait) (struct object*);
+    void *(*object_notify) (struct object*);
+
     void *(*stopwatch_init) (struct stopwatch*);
     void *(*stopwatch_start) (struct stopwatch*);
     void *(*stopwatch_stop) (struct stopwatch*);

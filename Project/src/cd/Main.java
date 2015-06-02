@@ -156,34 +156,38 @@ public class Main {
 		return (owner == objectType) || (owner == threadType) || (owner == stopwatchType);
 	}
 	
+	/** Manually set offset for built-in objects to match C definition */
 	private void addRuntimeFields() {
+		// Object
 		VariableSymbol mutexField = new VariableSymbol("$mutex", objectType, Kind.FIELD);
-		mutexField.offset = 0;
+		mutexField.offset = 1 * Config.SIZEOF_PTR;
 		objectType.fields.put(mutexField.name, mutexField);
 
-		VariableSymbol condMutexField = new VariableSymbol("$cond_mutex", objectType, Kind.FIELD);
-		condMutexField.offset = 1;
-		objectType.fields.put(condMutexField.name, condMutexField);
+		VariableSymbol condField = new VariableSymbol("$cond", objectType, Kind.FIELD);
+		mutexField.offset = 2 * Config.SIZEOF_PTR;
+		objectType.fields.put(condField.name, condField);
 
 		objectType.totalFields = 2;
 		objectType.sizeof = Config.SIZEOF_PTR * (objectType.totalFields + 1);
 
+		// Thread extends Object
 		VariableSymbol threadField = new VariableSymbol("$thread", objectType, Kind.FIELD);
-		threadField.offset = 2;
+		threadField.offset = 3 * Config.SIZEOF_PTR;
 		threadType.fields.put(threadField.name, threadField);
+		
 		threadType.totalFields = 3;
 		threadType.sizeof = Config.SIZEOF_PTR * (threadType.totalFields + 1);
 		
-		// Stopwatch fields
+		// Stopwatch extends Object
 		VariableSymbol startField = new VariableSymbol("$start", objectType, Kind.FIELD);
-		startField.offset = 3;
+		startField.offset = 3 * Config.SIZEOF_PTR;
 		stopwatchType.fields.put(startField.name, startField);
 
 		VariableSymbol stopField = new VariableSymbol("$stop", objectType, Kind.FIELD);
-		stopField.offset = 4;
+		stopField.offset = 4 * Config.SIZEOF_PTR;
 		stopwatchType.fields.put(stopField.name, stopField);
 		
-		stopwatchType.totalFields = 5;
+		stopwatchType.totalFields = 4;
 		stopwatchType.sizeof = Config.SIZEOF_PTR * (threadType.totalFields + 1);
 	}
 	
@@ -202,7 +206,8 @@ public class Main {
 
 	private void addRuntimeMethods() {
 		int vtableObjectOffset = 0;
-		for (String methodName : Arrays.asList("lock", "unlock", "lock_cond", "unlock_cond", "notify", "wait")) {
+		// order of methods is significant, needs to match vtable in C
+		for (String methodName : Arrays.asList("lock", "unlock", "notify", "wait")) {
 			addRuntimeMethod(objectType, methodName, vtableObjectOffset++);
 		}
 		objectType.totalMethods = vtableObjectOffset;
