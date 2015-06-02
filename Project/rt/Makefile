@@ -1,4 +1,4 @@
-OBJS = threads.o
+OBJS = threads.o stopwatch.o
 
 CFLAGS += -m32 -Wall -Werror
 

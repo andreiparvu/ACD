@@ -47,6 +47,7 @@ import cd.ir.Ast.MethodDecl;
 import cd.ir.Ast.Seq;
 import cd.ir.BasicBlock;
 import cd.ir.Symbol;
+import cd.ir.Symbol.ClassSymbol;
 import cd.ir.Symbol.MethodSymbol;
 import cd.ir.Symbol.PrimitiveTypeSymbol;
 import cd.ir.Symbol.TypeSymbol;
@@ -77,13 +78,13 @@ public class Main {
 	public PrimitiveTypeSymbol intType, floatType, voidType, booleanType;
 
 	/** Symbols for the built-in Object and null types */
-	public Symbol.ClassSymbol objectType, nullType, threadType;
+	public Symbol.ClassSymbol objectType, nullType, threadType, stopwatchType;
 	
 	/** Symbol for the Main type */
 	public Symbol.ClassSymbol mainType;
 	
 	/** List of all type symbols, used by code generator. */
-	public List<TypeSymbol> allTypeSymbols;  
+	public List<TypeSymbol> allTypeSymbols;
 
 	public void debug(String format, Object... args) {
 		if (debug != null) {
@@ -143,10 +144,17 @@ public class Main {
 		threadType = new Symbol.ClassSymbol("Thread");
 		threadType.superClass = objectType;
 
+		stopwatchType = new Symbol.ClassSymbol("Stopwatch");
+		stopwatchType.superClass = objectType;
+		
 		addRuntimeFields();
 		addRuntimeMethods();
 	}
 	
+	public boolean isBuiltinMethod(MethodSymbol sym) {
+		ClassSymbol owner = sym.owner;
+		return (owner == objectType) || (owner == threadType) || (owner == stopwatchType);
+	}
 	
 	private void addRuntimeFields() {
 		VariableSymbol mutexField = new VariableSymbol("$mutex", objectType, Kind.FIELD);
@@ -165,6 +173,18 @@ public class Main {
 		threadType.fields.put(threadField.name, threadField);
 		threadType.totalFields = 3;
 		threadType.sizeof = Config.SIZEOF_PTR * (threadType.totalFields + 1);
+		
+		// Stopwatch fields
+		VariableSymbol startField = new VariableSymbol("$start", objectType, Kind.FIELD);
+		startField.offset = 3;
+		stopwatchType.fields.put(startField.name, startField);
+
+		VariableSymbol stopField = new VariableSymbol("$stop", objectType, Kind.FIELD);
+		stopField.offset = 4;
+		stopwatchType.fields.put(stopField.name, stopField);
+		
+		stopwatchType.totalFields = 5;
+		stopwatchType.sizeof = Config.SIZEOF_PTR * (threadType.totalFields + 1);
 	}
 	
 	private void addRuntimeMethod(Symbol.ClassSymbol owner, String methodName, int vtableOffset) {
@@ -181,16 +201,23 @@ public class Main {
 	}
 
 	private void addRuntimeMethods() {
-		int vtableOffset = 0;
-		for (String methodName : Arrays.asList("lock", "unlock", "notify", "wait")) {
-			addRuntimeMethod(objectType, methodName, vtableOffset++);
+		int vtableObjectOffset = 0;
+		for (String methodName : Arrays.asList("lock", "unlock", "lock_cond", "unlock_cond", "notify", "wait")) {
+			addRuntimeMethod(objectType, methodName, vtableObjectOffset++);
 		}
-		objectType.totalMethods = vtableOffset;
+		objectType.totalMethods = vtableObjectOffset;
 
+		int vtableThreadOffset = vtableObjectOffset;
 		for (String methodName : Arrays.asList("run", "start", "join")) {
-			addRuntimeMethod(threadType, methodName, vtableOffset++);
+			addRuntimeMethod(threadType, methodName, vtableThreadOffset++);
 		}
-		threadType.totalMethods = vtableOffset;
+		threadType.totalMethods = vtableThreadOffset;
+		
+		int vtableStopwatchOffset = vtableObjectOffset;
+		for (String methodName : Arrays.asList("init", "start", "stop", "print")) {
+			addRuntimeMethod(stopwatchType, methodName, vtableStopwatchOffset++);
+		}
+		stopwatchType.totalMethods = vtableStopwatchOffset;
 	}
 
 	public List<ClassDecl> parse(Reader file, boolean debugParser)  throws IOException {
