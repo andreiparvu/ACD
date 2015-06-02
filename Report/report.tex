@@ -229,7 +229,7 @@ escape, then it can be allocated on the stack. Otherwise, we must distinguish be
   of the caller (TODO: we currently don't do this in the code)
   \item the object is returned - then it might either be allocated on the stack of the caller of freed
   by the caller
-  \item the object is referenced by 'this'
+  \item the object is referenced by \textit{this}
   \item the object is passed to another thread
 \end{itemize}
 In order to achieve these goals we decided to implement and expand the escape-analysis algorithm presented
@@ -242,7 +242,7 @@ in \cite{Whaley:99}.
 \subsection{Points-To Escape Graph}
 The algorithm shown in \cite{Whaley:99} constructs, for each method,
 a graph in which nodes represent allocated objects and edges represent references between objects.
-The nodes with in-degree zero are either locally declared variables, method parameters, or the 'this'
+The nodes with in-degree zero are either locally declared variables, method parameters, or the \textit{this}
 object. Edge between nodes can either be labeled with the name of a field, or ... TODO. As described in
 section \ref{sec:background}, each node can have one of the following labels: REF\_PARAM, THREAD, ARRAY, THIS and ESCAPED. \\
 An example program is shown in Listing~\ref{lst:program}. with the associated escape-graph shown in Figure~\ref{fig:escapegraph}.
@@ -337,6 +337,15 @@ void d1(F f1, F f2) {
   f1.next = f2.next;
 }
 \end{lstlisting}
+
+\mypar{Analyzing thread objects}. One special case of escaping variables are threads. We defined a thread object to escape if
+it the thread was started, but I was not joined later on in the method (TODO: maybe find a better sentence).
+Therefore, in order to determine if the \textit{join} method was called on every possible path from the starting point
+to the \textit{end} basic block we need to do another control-flow analysis. For every basic block in the method we 
+determine the set of thread objects that have \textit{join} calls on every path from that basic block to the end (let's call this set \textit{join\_set}).
+If we have a \textit{start} call-site for a certain thread object and that object is not in the \textit{join\_set} of that
+method, then the object escapes.
+It should be mentioned that currently we only to this analysis for variable objects (not for fields) and we do not do any inter-procedural analysis for thread objects.
 
 \section{Experimental Results}\label{sec:exp}
 
