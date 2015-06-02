@@ -859,10 +859,6 @@ public class EscapeAnalyzer {
 				method = callClass.getMethod(THREAD_RUN).ast;
 			}
 			
-			if (method.sym == null) {
-				System.err.println(method);
-			}
-			
 			if (main.isBuiltinMethod(method.sym)) {
 				return;
 			}
