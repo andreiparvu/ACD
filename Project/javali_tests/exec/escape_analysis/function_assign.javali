@@ -1,4 +1,5 @@
 class F {
+  int x;
   F next;
 }
 
@@ -10,9 +11,11 @@ class Main {
 
     f1 = new F();
     f1.next = new F();
+    f1.x = 3;
 
     f2 = new F();
     f2.next = new F();
+    f2.x = 10;
 
     d1(f1, f2);
 
@@ -39,6 +42,7 @@ class T extends Thread {
   F f;
 
   void run() {
+    write(f.x);
   }
 
 }

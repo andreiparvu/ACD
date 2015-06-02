@@ -13,9 +13,10 @@ class Main {
     c = new A();
     d = new A();
 
-    c.init();
+    write(c.init());
 
     arr[c.v] = d.foo();
+    write(arr[c.v]);
   }
 }
 
