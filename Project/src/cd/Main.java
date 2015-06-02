@@ -201,6 +201,7 @@ public class Main {
 		methodSymbol.returnType = voidType;
 		methodSymbol.owner = owner;
 		methodSymbol.vtableIndex = vtableOffset;
+		methodSymbol.ast.sym = methodSymbol;
 		owner.methods.put(methodName, methodSymbol);
 	}
 

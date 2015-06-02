@@ -855,20 +855,16 @@ public class EscapeAnalyzer {
 			
 			ClassSymbol callClass = (ClassSymbol)caller.type;
 			
-			switch (method.name) { // check if symbol equal objectType
-			case "lock":
-			case "unlock":
-			case "notify":
-			case "wait":
-				return ;
-			}
-			
-			if (inheritsThread(callClass) && method.name.equals(THREAD_JOIN)) {
-				return ;
-			}
-			
 			if (inheritsThread(callClass) && method.name.equals(THREAD_START)) {
 				method = callClass.getMethod(THREAD_RUN).ast;
+			}
+			
+			if (method.sym == null) {
+				System.err.println(method);
+			}
+			
+			if (main.isBuiltinMethod(method.sym)) {
+				return;
 			}
 			
 			if (method.analyzedColor == EscapeAnalyzer.WHITE) {

@@ -258,10 +258,6 @@ public class EscapeAnalysis {
 		return methodContexts;
 	}
 	
-	private boolean isBuiltin(MethodSymbol sym) {
-		return sym.owner == main.objectType || sym.owner == main.threadType;
-	}
-	
 	// queue for speicialization requests <m, mc>
 	
 	// set for already processed requests, get new cloned method for found call
@@ -351,7 +347,7 @@ public class EscapeAnalysis {
 					}
 
 					for (MethodSymbol p : callGraph.targets.get(m)) {
-						if (!isBuiltin(p)) {
+						if (!main.isBuiltinMethod(p)) {
 							AliasContext mc = methodContexts.get(p).deepCopy();
 							//System.err.format("%s\n SC:%s UNIFY MC:%s\n", ast, sc, mc);
 							sc.unify(mc);
@@ -460,7 +456,7 @@ public class EscapeAnalysis {
 	private Map<Ast, Boolean> findThreadAllocationSites() {
 		final Map<Ast, Boolean> multiSite = new HashMap<>();
 		for (MethodSymbol sym : callGraph.graph.keySet()) {
-			if (isBuiltin(sym)) {
+			if (main.isBuiltinMethod(sym)) {
 				continue;
 			}
 			
@@ -523,7 +519,7 @@ public class EscapeAnalysis {
 		}
 		
 		public void analyize() {
-			if (isBuiltin(method)) return;
+			if (main.isBuiltinMethod(method)) return;
 			
 			for(BasicBlock bb : new DepthFirstSearchPreOrder(method.ast.cfg)) {
 				for (Phi phi : bb.phis.values()) {
