@@ -124,7 +124,9 @@ of thread-safe library classes that were later replaced with non-synchronized
 alternatives (namely \texttt{ArrayList} and \texttt{HashMap}) for better
 performance.
 
-\mypar{Related work}
+\subsection{Related Work}
+
+\mypar{Graph based approaches}
 There exist numerous papers on escape analysis for Java. The most cited one,
 which is also used by the Java HotSpot virtual machine \cite{HotSpot}, is the work by
 Choi et al \cite{Choi:99}. They model the relationship of object in a so called
@@ -148,6 +150,7 @@ A survey by King \cite{King:04} shows that the approach by Whaley and Rinard is 
 than the algorithm by Choi et al, they are able to stack allocate more objects and
 remove more synchronization.
 
+\mypar{Alias Set based approaches}
 A different approach for the purpose of lock removal is taken by Ruf \cite{Ruf:00}.
 Every variable is associated with an alias set that represents all objects that
 can be referenced by that variable. An alias set stores the alias sets of all
@@ -179,7 +182,7 @@ with expressions instead of variables, to work with the Javali AST.
 In this section we briefly present the programming interface and semantics of our
 threading extension. In the second part, we formally introduce escape analysis.
 
-\mypar{Threading and Synchronization in Javali}
+\subsection{Threading and Synchronization in Javali}
 The interface for multi-threading in Javali is heavily inspired by Java. In
 order to create a new thread, the programmer has to create a new class that
 inherits from the built-in \texttt{Thread} class and overwrite the \texttt{run()}
@@ -213,7 +216,12 @@ following methods.
  \item[\texttt{notify()}] Wakes up another thread waiting on this object.
 \end{description} % TODO double check notify/wait semantics
 
-\mypar{Escape Analysis} For stack allocation we needed to implement an algorithm which can determine
+\subsection{Escape Analysis}
+
+The purpose of escape analysis is to determine whether an object escapes a certain
+scope, in our case whether it escapes a certain method and its stack or a certain thread.
+
+\mypar{Stack Escaping} For stack allocation we needed to implement an algorithm which can determine
 if a certain variable (or field) escapes the method in which it is allocated. If the object does not
 escape, then it can be allocated on the stack. Otherwise, we must distinguish between other cases:
 \begin{itemize}
@@ -227,9 +235,12 @@ escape, then it can be allocated on the stack. Otherwise, we must distinguish be
 In order to achieve these goals we decided to implement and expand the escape-analysis algorithm presented
 in \cite{Whaley:99}.
 
+\mypar{Thread Escaping} For lock removal 
+
 \section{Proposed Method}\label{sec:yourmethod}
 
-\mypar{Points-to-escape graph} The algorithm shown in \cite{Whaley:99} constructs, for each method,
+\subsection{Points-To Escape Graph}
+The algorithm shown in \cite{Whaley:99} constructs, for each method,
 a graph in which nodes represent allocated objects and edges represent references between objects.
 The nodes with in-degree zero are either locally declared variables, method parameters, or the 'this'
 object. Edge between nodes can either be labeled with the name of a field, or ... TODO. As described in
