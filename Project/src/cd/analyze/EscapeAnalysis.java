@@ -199,9 +199,8 @@ public class EscapeAnalysis {
 
 		//// Phase 3 ////
 		// top-down traversal to push down escape info
-		Map<Ast, AliasContext> siteContexts = mergeTopDownSpecialized(methodContexts);
+		mergeTopDownSpecialized(methodContexts);
 
-		specializeMethods(siteContexts);
 		// debug print
 		/*System.err.println("Method Contexts");
 		for (Entry<MethodSymbol, AliasContext> entry : methodContexts.entrySet()) {
@@ -233,9 +232,6 @@ public class EscapeAnalysis {
 		//System.err.println(AstDump.toString(astRoots));
 	}
 
-	private void specializeMethods(Map<Ast, AliasContext> siteContexts) {
-		
-	}
 
 	private Map<MethodSymbol, AliasContext> analyzeBottomUp() {
 		HashMap<MethodSymbol, AliasContext> methodContexts = new HashMap<>();
@@ -324,10 +320,13 @@ public class EscapeAnalysis {
 		}
 	}
 
-	private Map<Ast, AliasContext> mergeTopDownSpecialized(Map<MethodSymbol, AliasContext> methodContexts) {
+	private void mergeTopDownSpecialized(Map<MethodSymbol, AliasContext> methodContexts) {
 		final Queue<MethodCallRequest> queue = new ArrayDeque<>();
-		final Set<MethodCallRequest> visited = new HashSet<>();
+		//final Set<MethodCallRequest> visited = new HashSet<>();
 		final Map<Ast, AliasContext> siteContexts = new HashMap<>();
+		
+		final Map<MethodCallRequest, List<Ast>> methodCalls = new HashMap<>();
+		final Map<List<MethodCall>, List<MethodCallRequest>> specializedMethods = new HashMap<>();
 
 		for (MethodSymbol root : callGraph.roots) {
 			AliasContext mc = methodContexts.get(root);
@@ -336,8 +335,15 @@ public class EscapeAnalysis {
 		
 		while (!queue.isEmpty()) {
 			MethodCallRequest req = queue.poll();
+			final List<MethodCall> removalSummary = new ArrayList<>();
 			
-			new MethodAnalayzer(req.method, req.methodContext, methodContexts) {
+			new MethodAnalayzer(req.method, req.methodContext.deepCopy(), methodContexts) {
+				private void syncInvocation(MethodCall ast, AliasContext sc) {
+					if (!sc.receiver.escapes()) {
+						removalSummary.add(ast);
+					}
+				}
+				
 				private void methodInvocation(MethodSymbol m, AliasContext sc, Ast ast) {
 					AliasContext prevSC = siteContexts.get(ast);
 					if (prevSC != null) {
@@ -350,11 +356,13 @@ public class EscapeAnalysis {
 							//System.err.format("%s\n SC:%s UNIFY MC:%s\n", ast, sc, mc);
 							sc.unify(mc);
 							//System.err.format("AFTER SC: %s\n", sc);
-							MethodCallRequest req = new MethodCallRequest(mc.deepCopy(), p);
-							if (!visited.contains(req)) {
-								queue.add(req);
-								visited.add(req);
+							MethodCallRequest callee = new MethodCallRequest(mc.deepCopy(), p);
+							if (!methodCalls.containsKey(callee)) {
+								queue.add(callee);
+								methodCalls.put(callee, new ArrayList<Ast>());
 							}
+							
+							methodCalls.get(callee).add(ast);
 						}
 					}
 
@@ -364,7 +372,11 @@ public class EscapeAnalysis {
 				@Override
 				public AliasSet methodCall(MethodCall ast, Void arg) {
 					AliasContext sc = createSiteContext(ast);
-					methodInvocation(ast.sym, sc, ast);
+					if (ast.sym.owner == main.objectType) {
+						syncInvocation(ast, sc);
+					} else {
+						methodInvocation(ast.sym, sc, ast);
+					}
 					return null;
 				}
 
@@ -374,15 +386,31 @@ public class EscapeAnalysis {
 					methodInvocation(ast.sym, sc, ast);
 					return sc.result;
 				}
-			}.analyize();		// TODO if node is not part of CFG (because dead), sc will trigger nullpointer
+			}.analyize();
 			
+			if (!removalSummary.isEmpty()) {
+				if (specializedMethods.containsKey(removalSummary)) {
+					specializedMethods.get(removalSummary).add(req);
+				} else {
+					List<MethodCallRequest> list = new ArrayList<>();
+					list.add(req);
+					specializedMethods.put(removalSummary, list);
+				}
+				System.err.format("%s: %x\n", req, removalSummary.hashCode());
+			}
 		}
-		for (Entry<Ast, AliasContext> e : siteContexts.entrySet()) {
+		/*for (Entry<Ast, AliasContext> e : siteContexts.entrySet()) {
 			System.out.println(e);
-		}
+		}*/
 		
-		return siteContexts;
+		System.err.println(specializedMethods);
+				
+		specializeMethods(specializedMethods);
 	}
+	private void specializeMethods(
+			Map<List<MethodCall>, List<MethodCallRequest>> specializedMethods) {
+	}
+
 	/*
 	private void mergeTopDown() {
 		List<Set<MethodSymbol>> reversed = new LinkedList<>(scc.getSortedComponents());
