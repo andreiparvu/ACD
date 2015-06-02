@@ -593,7 +593,10 @@ public class EscapeAnalyzer {
 				}
 				
 				for (int i = 1; i < curBB.successors.size(); i++) {
-					curJoins.retainAll(joins.get(curBB.successors.get(i).index));
+					HashSet<String> join = joins.get(curBB.successors.get(i).index);
+					if (join != null) {
+						curJoins.retainAll(join);
+					}
 				}
 			}
 			
