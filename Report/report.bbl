@@ -1,18 +1,25 @@
 \begin{thebibliography}{1}
 
+\bibitem{TCMalloc}
+Sanjay Ghemawat and Paul Menage,
+\newblock ``Tcmalloc: Thread-caching malloc,''
+  \url{http://goog-perftools.sourceforge.net/doc/tcmalloc.html}, 2009,
+\newblock Accessed: 2015-06-02.
+
+\bibitem{HotSpot}
+``Java {HotSpot™} virtual machine performance enhancements,''
+  \url{https://docs.oracle.com/javase/7/docs/technotes/guides/vm/performance-enhancements-7.html#escapeAnalysis},
+\newblock Accessed: 2015-06-02.
+
+\bibitem{Choi:99}
+Jong-Deok Choi, Manish Gupta, Mauricio Serrano, Vugranam~C Sreedhar, and Sam
+  Midkiff,
+\newblock ``Escape analysis for java,''
+\newblock {\em Acm Sigplan Notices}, vol. 34, no. 10, pp. 1--19, 1999.
+
 \bibitem{Whaley:99}
-  J. Whaley, M. Rinard,
-  \newblock {\em Compositional Pointer and Escape Analysis for Java Programs}
-  \newblock 1999
-
-\bibitem{Ruf:00}
-  E. Ruf,
-  \newblock {\em Effective Synchronization Removal for Java}
-  \newblock 2000
-
-\bibitem{Ranganath:04}
-  V.P. Ranganath, J. Hatcliff
-  \newblock {\em Pruning interference and ready dependences for slicing concurrent Java programs}
-  \newblock 2004
+John Whaley and Martin Rinard,
+\newblock ``Compositional pointer and escape analysis for java programs,''
+\newblock {\em ACM Sigplan Notices}, vol. 34, no. 10, pp. 187--206, 1999.
 
 \end{thebibliography}

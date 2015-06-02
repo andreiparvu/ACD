@@ -1,177 +1,65 @@
-------------------------------------------------------------------------
- 
-@ARTICLE{Article,
-        AUTHOR =        {},
-        TITLE =         {},
-        JOURNAL =       {},
-        Volume =        {},
-        Number =        {},
-        Pages =         {},
-        Month =         {},
-        YEAR =          {},
-        Note =          {},
-        summary =       {}
-        }
-@BOOK{Book,
-        AUTHOR =        {},
-        editor =        {},
-        TITLE =         {},
-        PUBLISHER =     {},
-        YEAR =          {},
-        Volume =        {},
-        number =        {},
-        Series =        {},
-        Address =       {},
-        Edition =       {},
-        Month =         {},
-        Note =          {},
-        summary =       {}
-        }
-@BOOKLET{Booklet,
-        TITLE =         {},
-        Author =        {},
-        Howpublished =  {},
-        Address =       {},
-        Month =         {},
-        Year =          {},
-        Note =          {},
-        summary =       {}
-        }
-@INBOOK{Inbook,
-        AUTHOR =        {},
-        editor =        {},
-        TITLE =         {},
-        CHAPTER =       {},
-        pages =         {},
-        PUBLISHER =     {},
-        YEAR =          {},
-        Volume =        {},
-        number =        {},
-        Series =        {},
-        Type =          {},
-        Address =       {},
-        Edition =       {},
-        Month =         {},
-        Note =          {},
-        summary =       {}
-        }
-@INCOLLECTION{Incollection,
-        AUTHOR =        {},
-        TITLE =         {},
-        BOOKTITLE =     {},
-        PUBLISHER =     {},
-        YEAR =          {},
-        Editor =        {},
-        Volume =        {},
-        number =        {},
-        Series =        {},
-        Type =          {},
-        Chapter =       {},
-        Pages =         {},
-        Address =       {},
-        Edition =       {},
-        Month =         {},
-        Note =          {},
-        summary =       {}
-        }
-@INPROCEEDINGS{Inproceedings,
-        AUTHOR =        {},
-        TITLE =         {},
-        BOOKTITLE =     {},
-        YEAR =          {},
-        Editor =        {},
-        Volume =        {},
-        number =        {},
-        Series =        {},
-        Pages =         {},
-        Address =       {},
-        Month =         {},
-        Organization =  {},
-        Publisher =     {},
-        Note =          {},
-        summary =       {}
-        }
-@MANUAL{Manual,
-        TITLE =         {},
-        Author =        {},
-        Organization =  {},
-        Address =       {},
-        Edition =       {},
-        Month =         {},
-        Year =          {},
-        Note =          {},
-        summary =       {}
-        }
-@MASTERSTHESIS{Mastersthesis,
-        AUTHOR =        {},
-        TITLE =         {},
-        SCHOOL =        {},
-        YEAR =          {},
-        Type =          {},
-        Address =       {},
-        Month =         {},
-        Note =          {},
-        summary =       {}
-        }
-@MISC{Misc,
-        Author =        {},
-        Title =         {},
-        Howpublished =  {},
-        Month =         {},
-        Year =          {},
-        Note =          {},
-        summary =       {}
-        }
-@PHDTHESIS{Phdthesis,
-        AUTHOR =        {},
-        TITLE =         {},
-        SCHOOL =        {},
-        YEAR =          {},
-        Type =          {},
-        Address =       {},
-        Month =         {},
-        Note =          {},
-        summary =       {}
-        }
-@PROCEEDINGS{Proceedings,
-        TITLE =         {},
-        YEAR =          {},
-        Editor =        {},
-        Volume =        {},
-        number =        {},
-        Series =        {},
-        Address =       {},
-        Month =         {},
-        Organization =  {},
-        Publisher =     {},
-        Note =          {},
-        summary =       {}
-        }
-@TECHREPORT{Techreport,
-        AUTHOR =        {},
-        TITLE =         {},
-        INSTITUTION =   {},
-        YEAR =          {},
-        Type =          {},
-        Number =        {},
-        Address =       {},
-        Month =         {},
-        Note =          {},
-        summary =       {}
-        }
-@UNPUBLISHED{Unpublished,
-        AUTHOR =        {},
-        TITLE =         {},
-        NOTE =          {},
-        Month =         {},
-        Year =          {},
-        summary =       {}
-        }
+@article{Whaley:99,
+  title={Compositional pointer and escape analysis for Java programs},
+  author={Whaley, John and Rinard, Martin},
+  journal={ACM Sigplan Notices},
+  volume={34},
+  number={10},
+  pages={187--206},
+  year={1999},
+  publisher={ACM},
+  howpublished = "\url{http://people.csail.mit.edu/rinard/paper/oopsla99.pdf}",
+}
 
-------------------------------------------------------------------------
+@inproceedings{Ruf:00,
+  title={Effective synchronization removal for {Java}},
+  author={Ruf, Erik},
+  booktitle={ACM SIGPLAN Notices},
+  volume={35},
+  number={5},
+  pages={208--218},
+  year={2000},
+  organization={ACM}
+}
 
-@MISC{Whaley:99,
-        Author =    {J. Whaley, M. Rinard},
-        Title = {Compositional Pointer and Escape Analysis for Java Programs},
-        Howpublished =  {online:~http://people.csail.mit.edu/rinard/paper/oopsla99.pdf}
-        }
+@article{Choi:99,
+  title={Escape analysis for {Java}},
+  author={Choi, Jong-Deok and Gupta, Manish and Serrano, Mauricio and Sreedhar, Vugranam C and Midkiff, Sam},
+  journal={Acm Sigplan Notices},
+  volume={34},
+  number={10},
+  pages={1--19},
+  year={1999},
+  publisher={ACM}
+}
+
+
+@inproceedings{Ranganath:04,
+  title={Pruning interference and ready dependence for slicing concurrent {Java} programs},
+  author={Ranganath, Venkatesh Prasad and Hatcliff, John},
+  booktitle={Compiler Construction},
+  pages={39--56},
+  year={2004},
+  organization={Springer}
+}
+
+
+@phdthesis{King:04,
+  title={Removing Garbage Collector Synchronisation},
+  author={King, Andrew C},
+  year={2004},
+  school={University of Kent at Canterbury}
+}
+
+@misc{HotSpot,
+  title = {Java {HotSpot™} Virtual Machine Performance Enhancements},
+  howpublished = {\url{https://docs.oracle.com/javase/7/docs/technotes/guides/vm/performance-enhancements-7.html#escapeAnalysis}},
+  note = {Accessed: 2015-06-02},
+}
+
+@misc{TCMalloc,
+  title = {{TCMalloc}: Thread-Caching Malloc},
+  author={Ghemawat, Sanjay and Menage, Paul},
+  howpublished = {\url{http://goog-perftools.sourceforge.net/doc/tcmalloc.html}},
+  note = {Accessed: 2015-06-02},
+  year={2009}
+}

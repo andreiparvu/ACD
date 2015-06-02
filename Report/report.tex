@@ -13,6 +13,8 @@
 \usepackage{calc}
 \usepackage{enumitem}
 \usepackage{listings}
+\usepackage{xcolor}
+\usepackage{url}
 
 % Example definitions.
 % --------------------
@@ -68,10 +70,11 @@
 %
 
 \begin{abstract}
+\textcolor{gray}{
 Describe in concise words what you do, why you do it (not necessarily
 in this order), and the main result.  The abstract has to be
 self-contained and readable for a person in the general area. You
-should write the abstract last.
+should write the abstract last. }
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
@@ -100,7 +103,7 @@ up automatically once the function returns. Additionally, allocating data on the
 stack is typically faster than calling \texttt{malloc()} for heap allocation.
 This is especially true in multi-threaded programs, as the implementation of
 \texttt{malloc()} internally needs to synchronize as well, although modern
-implementations such as \texttt{TCMalloc} optimize this case heavily. % TODO TCMalloc ref
+implementations such as \texttt{TCMalloc} \cite{TCMalloc} optimize this case heavily.
 
 In this paper we provide an extended escape analysis for stack allocation that
 even allows stack allocation for objects that are shared with other threads,
@@ -121,11 +124,36 @@ of thread-safe library classes that were later replaced with non-synchronized
 alternatives (namely \texttt{ArrayList} and \texttt{HashMap}) for better
 performance.
 
-\mypar{Related work} Next, you have to give a brief overview of
+\mypar{Related work}
+There exist numerous papers on escape analysis for Java. The most cited one,
+which is also used by the Java HotSpot virtual machine \cite{HotSpot}, is the work by
+Choi et al \cite{Choi:99}. They model the relationship of object in a so called
+\emph{connection graph}, where objects are represented as nodes, and directed
+edges represent the relationship among the objects. Nodes are marked with \emph{ArgEscape}
+to indicate that they escape its method via arguments, \emph{GlobalEscape} is used
+for nodes that could be accessed globally or by another thread, and \emph{NoEscape}
+is used for nodes that do not escape.
+
+A similar graph-based approach was published at the same time in the same journal
+by Whaley and Rinard \cite{Whaley:99}. They also use a directed graph, called the points-to graph,
+to represent objects. The escape information is determined by the type of edges
+between objects: An object is said to escape its method when it is reachable via an outside edge.
+
+Both approaches are flow-sensitive, they process the nodes of the control flow graph
+individually and merge the resulting graphs where needed. Both approaches have a
+intraprocedural phase where each method is processed individually, and a interprocedural
+phase where the graphs are merged at call sites to yield more precise information.
+
+A survey by \cite{King:04} shows that the approach by Whaley and Rinard is more precise
+than the algorithm by Choi et all, they are able to stack allocate more objects and
+remove more synchronization.
+
+
+\textcolor{gray}{ Next, you have to give a brief overview of
 related work. For a report like this, anywhere between 2 and 8
 references. Briefly explain what they do. In the end contrast to what
 you do to make now precisely clear what your contribution is.
-
+}
 \section{Background}\label{sec:background}
 
 In this section we briefly present the programming interface and semantics of our
@@ -149,10 +177,10 @@ The \texttt{Thread} class contains the following methods:
 Similar to Java, our extension to Javali has a built-in lock and conditional variable
 within every object. A notable difference to Java however is that there is
 no special syntax for locking, the built-in \texttt{Object} just provides the
-following methods:
+following methods.
 
 \begin{description}[leftmargin=!,labelwidth=\widthof{\texttt{unlock()}}]
- \item[\texttt{lock()}] Locks the receiver. If the object was already locked by
+ \item[\texttt{lock()}] Locks the receiver object. If the object was already locked by
  another thread, the current thread is blocked until the object is unlocked. The
  lock is re-entrant in the sense that a thread can call this method on objects
  on which it already own the lock.
@@ -161,7 +189,7 @@ following methods:
  the lock owner needs to call \texttt{unlock()} as many times as \texttt{lock()}
  was called. It is an error to call \texttt{unlock()} without owning the lock.
  \item[\texttt{wait()}] Causes the calling thread to wait until another thread
- cals \texttt{notify()} on the object.
+ calls \texttt{notify()} on the object.
  \item[\texttt{notify()}] Wakes up another thread waiting on this object.
 \end{description} % TODO double check notify/wait semantics
 
@@ -181,18 +209,20 @@ in \cite{Whaley:99}.
 
 \section{Proposed Method}\label{sec:yourmethod}
 
-\mypar{Points-to-escape graph}. The algorithm shown in \cite{Whaley:99} constructs, for each method,
+\mypar{Points-to-escape graph} The algorithm shown in \cite{Whaley:99} constructs, for each method,
 a graph in which nodes represent allocated objects and edges represent references between objects.
 The nodes with in-degree zero are either locally declared variables, method parameters, or the 'this'
 object. Edge between nodes can either be labeled with the name of a field, or ... TODO. As described in
 section \ref{sec:background}, each node can have one of the following labels: REF\_PARAM, THREAD, ARRAY, THIS and ESCAPED. \\
-An example program is shown in Listing\ref{lst:program}. with the associated escape-graph shown in Figure~\ref{fig:escapegraph}.
+An example program is shown in Listing~\ref{lst:program}. with the associated escape-graph shown in Figure~\ref{fig:escapegraph}.
 One can observe that the nodes have been classified as following:
 \begin{itemize}
   \item Node 5, corresponding to t.arg has labels THREAD and REF\_PARAM, because t is a parameter and also a thread object.
   \item Node 4, corresponding to e has only label REF\_PARAM
   \item Node 14 and 1 have the THIS label
 \end{itemize}
+% TODO having no special syntax is not that bad without exceptions
+
 
 \lstset{language=Java,
            basicstyle=\ttfamily\scriptsize,
@@ -312,25 +342,9 @@ The hash map is implemented to be thread-safe, so we ran the experiment with one
   \label{fig:hash}
 \end{figure}
 
-{\bf Comments:}
-\begin{itemize}
-\item Create very readable, attractive plots (do 1 column, not 2 column plots
-for this report) with readable font size. However, the font size should also not be too large; typically it is smaller than the text font size.
-An example is in Fig.~\ref{fftperf} (of course you can have a different style).
-\item Every plot answers a question. You state this question and extract the
-answer from the plot in its discussion.
-\item Every plot should be referenced and discussed.
-\end{itemize}
-
-\begin{figure}\centering
-  \includegraphics[scale=0.33]{dft-performance.eps}
-  \caption{Performance of four single precision implementations of the
-  discrete Fourier transform. The operations count is roughly the
-  same. The labels in this plot are maybe a little bit too small.\label{fftperf}}
-\end{figure}
-
 \section{Conclusions}
 
+\textcolor{gray}{
 Here you need to summarize what you did and why this is
 important. {\em Do not take the abstract} and put it in the past
 tense. Remember, now the reader has (hopefully) read the report, so it
@@ -340,56 +354,7 @@ such as high-level statements (e.g., we believe that .... is the right
 approach to .... Even though we only considered x, the
 .... technique should be applicable ....) You can also formulate next
 steps if you want. Be brief. After the conclusions there are only the references.
-
-\section{Further comments}
-
-Here we provide some further tips.
-
-\mypar{Further general guidelines}
-
-\begin{itemize}
-\item For short papers, to save space, I use paragraph titles instead of
-subsections, as shown in the introduction.
-
-\item It is generally a good idea to break sections into such smaller
-units for readability and since it helps you to (visually) structure the story.
-
-\item The above section titles should be adapted to more precisely
-reflect what you do.
-
-\item Each section should be started with a very
-short summary of what the reader can expect in this section. Nothing
-more awkward as when the story starts and one does not know what the
-direction is or the goal.
-
-\item Make sure you define every acronym you use, no matter how
-convinced you are the reader knows it.
-
-\item Always spell-check before you submit (to us in this case).
-
-\item Be picky. When writing a paper you should always strive for very
-high quality. Many people may read it and the quality makes a big difference.
-In this class, the quality is part of the grade.
-
-\item Books helping you to write better: \cite{Higham:98} and \cite{Strunk:00}.
-
-\item Conversion to pdf (latex users only): 
-
-dvips -o conference.ps -t letter -Ppdf -G0 conference.dvi
-
-and then
-
-ps2pdf conference.ps
-\end{itemize}
-
-\mypar{Graphics} For plots that are not images {\em never} generate the bitmap formats
-jpeg, gif, bmp, tif. Use eps, which means encapsulate postscript. It is
-scalable since it is a vector graphic description of your graph. E.g.,
-from Matlab, you can export to eps.
-
-The format pdf is also fine for plots (you need pdflatex then), but only if the plot was never before in the format 
-jpeg, gif, bmp, tif.
-
+}
 
 % References should be produced using the bibtex program from suitable
 % BiBTeX files (here: bibl_conf). The IEEEbib.bst bibliography
@@ -399,4 +364,3 @@ jpeg, gif, bmp, tif.
 \bibliography{report}
 
 \end{document}
-like
