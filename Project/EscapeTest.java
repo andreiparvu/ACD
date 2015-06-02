@@ -1,7 +1,11 @@
 class Custom extends Thread {
     Box arg;
     void run() {
+        arg.lock();
+        lock();
         write(arg.val); writeln();
+        unlock();
+        arg.unlock();
     }
 }
 
@@ -30,7 +34,11 @@ class Main {
         e.val = 42;
         
         t = escapeOne(b, e);
-
+        e.lock();
+        b.lock();
         t.join();
+        e.unlock();
+        b.unlock();
+
      }
 }

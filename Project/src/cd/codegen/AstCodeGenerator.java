@@ -13,6 +13,7 @@ import java.util.List;
 
 import cd.Config;
 import cd.Main;
+import cd.analyze.AliasSet;
 import cd.debug.AstOneLine;
 import cd.exceptions.AssemblyFailedException;
 import cd.ir.Ast;
@@ -1140,10 +1141,12 @@ public class AstCodeGenerator {
 				}
 				emitStore(c(vtable(clssym)), 0, reg);
 
-				int initPadding = emitCallPrefix(null, 1);
-				push(reg);
-				emit("call", "Object__init__");
-				emitCallSuffix(null, 1, initPadding);
+				if (ast.aliasSet == null || ast.aliasSet.escapes()) {
+					int initPadding = emitCallPrefix(null, 1);
+					push(reg);
+					emit("call", "Object__init__");
+					emitCallSuffix(null, 1, initPadding);
+				}
 
 				return reg;
 			}
@@ -1300,12 +1303,25 @@ public class AstCodeGenerator {
 
 		}
 
+		private boolean isRemovableSynchronization(MethodCall ast) {
+			MethodSymbol lock = main.objectType.getMethod("lock");
+			MethodSymbol unlock = main.objectType.getMethod("unlock");
+			Expr obj = ast.receiver();
+			return (ast.sym == lock || ast.sym == unlock) && 
+					obj.aliasSet != null && !obj.aliasSet.escapes();
+		}
+
 		@Override
 		public String methodCall(MethodCall ast, Void dummy) {
-			{
+			// don't generate method call for non-thread-escaping objects
+			if (isRemovableSynchronization(ast)) {
+				System.err.println("Removing: " + AstOneLine.toString(ast));
+				String reg = eg.gen(ast.receiver());
+				releaseRegister(reg);
+				return null;
+			} else {
 				return methodCall(ast.sym, ast.allArguments());
 			}
-
 		}
 
 		// Emit vtable for arrays of this class:

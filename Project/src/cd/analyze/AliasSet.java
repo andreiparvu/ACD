@@ -2,22 +2,32 @@ package cd.analyze;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
 
+import cd.ir.Symbol.MethodSymbol;
 import cd.ir.Symbol.TypeSymbol;
 
 public class AliasSet {
 	static class AliasSetData {
 		private boolean escapes = false;
+		//private Set<MethodSymbol> lockedBy = new HashSet<>();
 		private final Map<String, AliasSet> fieldMap = new HashMap<>();
+		private final List<AliasSet> owners = new ArrayList<>();
+
+		private AliasSetData(AliasSet aliasSet) {
+			owners.add(aliasSet);
+		}
 	}
 	
-	private AliasSet.AliasSetData ref = new AliasSetData();
+	private AliasSet.AliasSetData ref = new AliasSetData(this);
 	
 	public static AliasSet BOTTOM = new AliasSet();
 	static { BOTTOM.ref = null;	}
@@ -28,15 +38,26 @@ public class AliasSet {
 		}
 		return BOTTOM;
 	}
+	
+	/**
+	 * Changes ref in all owners of the data
+	 */
+	private void setRef(AliasSetData newRef) {
+		for (AliasSet oldRefOwner : this.ref.owners) {
+			oldRefOwner.ref = newRef;
+			newRef.owners.add(oldRefOwner);
+		}
+	}
 
-	void unify(AliasSet other) {
+	public void unify(AliasSet other) {
 		if (this.ref == other.ref) return;
 
 		Map<String, AliasSet> thisFields = this.ref.fieldMap;
 		Map<String, AliasSet> otherFields = other.ref.fieldMap;
 
+		//this.ref.lockedBy.addAll(other.ref.lockedBy);
 		this.ref.escapes |= other.ref.escapes;
-		other.ref = this.ref;
+		other.setRef(this.ref);
 
 		Set<String> fieldUnion = new HashSet<>(thisFields.keySet());
 		fieldUnion.addAll(otherFields.keySet());
@@ -46,22 +67,19 @@ public class AliasSet {
 			AliasSet otherSet = otherFields.get(field);
 			if (thisSet != null && otherSet != null) {
 				// field in both maps, unify them
-				//thisSet.setEscapes(this.ref.escapes);
 				thisSet.ref.escapes |= this.ref.escapes;
 				thisSet.unify(otherSet);
 			} else if (thisSet == null) {
 				// missing in this
-				//otherSet.setEscapes(this.ref.escapes);
 				otherSet.ref.escapes |= this.ref.escapes;
 				thisFields.put(field, otherSet);
 			}
 			// we don't care if otherSet is null, `other` will be deleted
 		}
-
 		// `this` is the unified alias set
 	}
 	
-	public void unifyEscapes(AliasSet other) {
+	/*public void unifyEscapes(AliasSet other) {
 		if (this.ref == other.ref || ref.escapes == other.ref.escapes) return;
 		this.ref.escapes |= other.ref.escapes;
 
@@ -74,22 +92,23 @@ public class AliasSet {
 		for (String field : intersection) {
 			thisFields.get(field).unifyEscapes(otherFields.get(field));
 		}
-	}
+	}*/
 	
-	public AliasSet deepCopy() {
+	public AliasSet deepCopy(HashMap<AliasSetData, AliasSet> copies) {
 		if (this.isBottom()) return BOTTOM;
-		
-		AliasSet copy = new AliasSet();
+		// TODO .equals for aliassetdata messes things up
+		AliasSet copy = copies.get(this.ref);
+		if (copy == null) {
+			copy = new AliasSet();
+			copies.put(this.ref, copy);
+		} else {
+			return copy;
+		}
+
 		copy.ref.escapes = this.ref.escapes;
+		//copy.ref.lockedBy = new HashSet<>(this.ref.lockedBy);
 		for (Entry<String, AliasSet> entry : ref.fieldMap.entrySet()) {
-			AliasSet sub = entry.getValue();
-			if (sub == this) {
-				sub = copy;
-			} else {
-				sub = sub.deepCopy();
-			}
-				// TODO this is probably not enough to deal with selfcontaining sets
-			copy.ref.fieldMap.put(entry.getKey(), sub);
+			copy.ref.fieldMap.put(entry.getKey(), entry.getValue().deepCopy(copies));
 		}
 		return copy;
 	}
@@ -99,10 +118,12 @@ public class AliasSet {
 	}
 
 	public AliasSet fieldMap(String key) {
-		if (!this.ref.fieldMap.containsKey(key)) {
-			this.ref.fieldMap.put(key, new AliasSet());
+		AliasSet field = this.ref.fieldMap.get(key);
+		if (field == null) {
+			field = new AliasSet();
+			this.ref.fieldMap.put(key, field);
 		}
-		return this.ref.fieldMap.get(key);
+		return field;
 	}
 	
 	public boolean escapes() {
@@ -113,6 +134,20 @@ public class AliasSet {
 		setEscapeRecursive(value, new HashSet<AliasSet>());
 	}
 	
+	/*public Set<MethodSymbol> lockedBy() {
+		if (isBottom()) {
+			return Collections.<MethodSymbol>emptySet();
+		} else {
+			return this.ref.lockedBy;
+		}
+	}
+	
+	public void addLockedBy(MethodSymbol method) {
+		if (!this.isBottom()) {
+			this.ref.lockedBy.add(method);
+		}
+	}*/
+	
 	private void setEscapeRecursive(boolean value, Set<AliasSet> marked) {
 		this.ref.escapes = value;
 		marked.add(this);
@@ -122,7 +157,49 @@ public class AliasSet {
 			}
 		}
 	}
-	
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		if (ref != null) {
+			result = prime * result
+					+ ((ref.fieldMap == null) ? 0 : ref.fieldMap.hashCode());
+			result = prime * result + ((ref.escapes) ? 1 : 0);
+		}
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null) {
+			return false;
+		}
+		if (getClass() != obj.getClass()) {
+			return false;
+		}
+		// do actual comparison
+		AliasSet other = (AliasSet) obj;
+		if (ref == null) {
+			if (other.ref != null) {
+				return false;
+			}
+		} else if (ref.escapes != other.ref.escapes) {
+			return false;
+		} else if (ref.fieldMap == null) {
+			if (other.ref.fieldMap != null) {
+				return false;
+			}
+		} else if (!ref.fieldMap.equals(other.ref.fieldMap)) {
+			return false;
+		}
+
+		return true;
+	}
+
 	@Override
 	public String toString() {
 		StringWriter out = new StringWriter();
@@ -135,10 +212,23 @@ public class AliasSet {
 		if (isBottom()) {
 			out.print("⊥");
 		} else {
-			out.format("<%s, {", ref.escapes);
-			Iterator<Entry<String, AliasSet>> iter = ref.fieldMap.entrySet().iterator();
-			while (iter.hasNext()) {
-				Entry<String, AliasSet> entry = iter.next();
+			out.print("<");
+			if (ref.escapes) out.print("Esc,");
+			// print lockedBy set
+			/*out.print("(");
+			Iterator<MethodSymbol> setIter = ref.lockedBy.iterator();
+			while (setIter.hasNext()) {
+				out.print(setIter.next().fullName());
+				if (setIter.hasNext()) {
+					out.print(", ");
+				}
+			}
+			out.print("),");*/
+			// print fieldMap
+			out.print("{");
+			Iterator<Entry<String, AliasSet>> mapIter = ref.fieldMap.entrySet().iterator();
+			while (mapIter.hasNext()) {
+				Entry<String, AliasSet> entry = mapIter.next();
 				out.format("%s:", entry.getKey());
 				AliasSet child = entry.getValue();
 				if (!marked.contains(child)) {
@@ -147,7 +237,7 @@ public class AliasSet {
 					out.print("<..>");
 				}
 
-				if (iter.hasNext()) {
+				if (mapIter.hasNext()) {
 					out.print(", ");
 				}
 			}
