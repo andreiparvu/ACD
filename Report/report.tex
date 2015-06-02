@@ -12,6 +12,7 @@
 \usepackage[english]{babel}
 \usepackage{calc}
 \usepackage{enumitem}
+\usepackage{listings}
 
 % Example definitions.
 % --------------------
@@ -38,6 +39,8 @@
 % ---------------
 \name{Andrei Pârvu, Sebastian Wicki}
 \address{Department of Computer Science\\ ETH Z\"urich\\Z\"urich, Switzerland}
+
+
 
 % For example:
 % ------------
@@ -162,39 +165,117 @@ following methods:
  \item[\texttt{notify()}] Wakes up another thread waiting on this object.
 \end{description} % TODO double check notify/wait semantics
 
-\mypar{Escape Analysis}
+\mypar{Escape Analysis} For stack allocation we needed to implement an algorithm which can determine
+if a certain variable (or field) escapes the method in which it is allocated. If the object does not
+escape, then it can be allocated on the stack. Otherwise, we must distinguish between other cases:
+\begin{itemize}
+  \item the object is referenced by a parameter - in this case it might be allocated on the stack
+  of the caller (TODO: we currently don't do this in the code)
+  \item the object is returned - then it might either be allocated on the stack of the caller of freed
+  by the caller
+  \item the object is referenced by 'this'
+  \item the object is passed to another thread
+\end{itemize}
+In order to achieve these goals we decided to implement and expand the escape-analysis algorithm presented
+in \cite{Whaley:99}.
 
+\section{Proposed Method}\label{sec:yourmethod}
 
+\mypar{Points-to-escape graph}. The algorithm shown in \cite{Whaley:99} constructs, for each method,
+a graph in which nodes represent allocated objects and edges represent references between objects.
+The nodes with in-degree zero are either locally declared variables, method parameters, or the 'this'
+object. Edge between nodes can either be labeled with the name of a field, or ... TODO. As described in
+section \ref{sec:background}, each node can have one of the following labels: REF\_PARAM, THREAD, ARRAY, THIS and ESCAPED. \\
+An example program is shown in Listing\ref{lst:program}. with the associated escape-graph shown in Figure~\ref{fig:escapegraph}.
+One can observe that the nodes have been classified as following:
+\begin{itemize}
+  \item Node 5, corresponding to t.arg has labels THREAD and REF\_PARAM, because t is a parameter and also a thread object.
+  \item Node 4, corresponding to e has only label REF\_PARAM
+  \item Node 14 and 1 have the THIS label
+\end{itemize}
 
-Give a short, self-contained summary of necessary
-background information. For example, assume you present an
-implementation of sorting algorithms. You could organize into sorting
-definition, algorithms considered, and asymptotic runtime statements. The goal of the
-background section is to make the paper self-contained for an audience
-as large as possible. As in every section
-you start with a very brief overview of the section. Here it could be as follows: In this section 
-we formally define the sorting problem we consider and introduce the algorithms we use
-including a cost analysis.
+\lstset{language=Java,
+           basicstyle=\ttfamily\scriptsize,
+          breaklines=true
+          }
+\begin{lstlisting}[caption=Example program, label=lst:program]
+class Custom extends Thread {
+    Box arg;
+    void run() {
+        write(arg.val); writeln();
+    }
+}
 
-\mypar{Sorting}
-Precisely define sorting problem you consider.
+class Box {
+    int val;
+}
 
-\mypar{Sorting algorithms}
-Explain the algorithm you use including their costs.
+class Main {
+    Box b;
+    void escapeOne(Custom t, Box e) {
+        write(b.val); writeln();
+        t.arg = e;
+        t.start();
 
-As an aside, don't talk about "the complexity of the algorithm.'' It's incorrect,
-problems have a complexity, not algorithms.
+        t.join();
+    }
 
+    void main() {
+        Custom t;
+        Box b, e;
 
-\section{Your Proposed Method}\label{sec:yourmethod}
+        b = new Box();
+        e = new Box();
+        b.val = 23;
+        e.val = 42;
 
-Now comes the ``beef'' of the report, where you explain what you
-did. Again, organize it in paragraphs with titles. As in every section
-you start with a very brief overview of the section.
+        this.b = b;
 
-In this section, structure is very important so one can follow the technical content.
+        t = new Custom();
+        escapeOne(t, e);
+     }
+}
+\end{lstlisting}
 
-Mention and cite any external resources that you used including libraries or other code.
+\begin{figure} \center
+ \includegraphics[width=0.8\linewidth]{EscapeTest.eps}
+  \caption{Points-to-escape graph}
+  \label{fig:escapegraph}
+\end{figure}
+
+\mypar{Building the graph for a method}. The escape graph is built in an iterative manner using control-flow analysis.
+First of all each basic block is processed, in a bread-first search manner, and all its instructions are added to a
+basic-block local escape-graph.
+Secondly, the escape graph of each basic block is merged with the escape graphs of its predecessors and the process
+is repeated until no more changes occur. Finally, after the graph is completed, a depth-first search is applied on it,
+in order to spread the labels of the nodes to the set of nodes it references.
+
+\mypar{Analyzing a method call}. The first approach we had to analyzing method calls was to map the parameters of the given
+call to the corresponding nodes in the escape graph of the callee and copy the already computed labels from the callee to the
+caller. Unfortunately, this solution misses cases in which different fields of parameters are assigned to each other in the callee
+(one example is shown in Listing~\ref{lst:fields}). In order to address this problem we decided to recurse into the callee and
+construct it's escape graph given the parameter nodes of the caller. Although this increases the overall complexity of our solution,
+it provides a more accurate analysis.
+
+\begin{lstlisting}[caption=Field parameter assignment, label=lst:fields]
+void main() {
+  F f1, f2;
+
+  f1 = new F();
+  f1.next = new F();
+
+  f2 = new F();
+  f2.next = new F();
+
+  d1(f1, f2);
+
+  this.f = f1;
+}
+
+void d1(F f1, F f2) {
+  f1.next = f2.next;
+}
+\end{lstlisting}
 
 \section{Experimental Results}\label{sec:exp}
 
