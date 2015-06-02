@@ -144,16 +144,36 @@ individually and merge the resulting graphs where needed. Both approaches have a
 intraprocedural phase where each method is processed individually, and a interprocedural
 phase where the graphs are merged at call sites to yield more precise information.
 
-A survey by \cite{King:04} shows that the approach by Whaley and Rinard is more precise
-than the algorithm by Choi et all, they are able to stack allocate more objects and
+A survey by King \cite{King:04} shows that the approach by Whaley and Rinard is more precise
+than the algorithm by Choi et al, they are able to stack allocate more objects and
 remove more synchronization.
 
+A different approach for the purpose of lock removal is taken by Ruf \cite{Ruf:00}.
+Every variable is associated with an alias set that represents all objects that
+can be referenced by that variable. An alias set stores the alias sets of all
+fields reachable by it, and whether the objects it represents are synchronized
+or globally reachable. This approach also has separate intra- and interprocedural
+phases, but it is flow-insensitive. In the survey by  King \cite{King:04} Ruf
+yields the most precision of all algorithms for lock removal.
 
-\textcolor{gray}{ Next, you have to give a brief overview of
-related work. For a report like this, anywhere between 2 and 8
-references. Briefly explain what they do. In the end contrast to what
-you do to make now precisely clear what your contribution is.
-}
+As Ruf's approach is only concerned about lock removal and works on a low-level
+Java bytecode, his approach was generalized by Ranganath et al \cite{Ranganath:04}.
+They extend alias sets to store more general thread escape information
+and dependence information about Java source files.
+
+For this project, we explored and extended two approaches: Stack escape analysis
+is inspired by Whaley and Rinard, but does more effort to handle thread creation
+and uses node labels similar to Choi.
+% TODO Andrei, can you find more/better differences?
+
+For lock removal we use an alias set based approach based on Ruf. However, we
+use a more general notation of escaping objects similar to Ranganath et al. While
+not implemented for this project, this would enable other optimizations such
+as thread-local garbage collection. In our approach, alias sets are associated
+with expressions instead of variables, to work with the Javali AST.
+
+% TODO mention interprocedural phase?
+
 \section{Background}\label{sec:background}
 
 In this section we briefly present the programming interface and semantics of our
