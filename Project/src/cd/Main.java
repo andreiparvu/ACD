@@ -1,7 +1,6 @@
 package cd;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -13,11 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.antlr.runtime.ANTLRReaderStream;
@@ -25,16 +20,12 @@ import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
 
-import cd.cfg.CFGBuilder;
-import cd.cfg.DeSSA;
-import cd.cfg.Dominator;
-import cd.cfg.EscapeAnalyzer;
 import cd.analyze.CallGraphGenerator;
-import cd.analyze.CallGraphSCC;
 import cd.analyze.EscapeAnalysis;
 import cd.cfg.CFGBuilder;
 import cd.cfg.DeSSA;
 import cd.cfg.Dominator;
+import cd.cfg.EscapeAnalyzer;
 import cd.cfg.Optimizer;
 import cd.cfg.SSA;
 import cd.codegen.CfgCodeGenerator;
@@ -77,7 +68,7 @@ public class Main {
 	/** Symbols for the built-in primitive types */
 	public PrimitiveTypeSymbol intType, floatType, voidType, booleanType;
 
-	/** Symbols for the built-in Object and null types */
+	/** Symbols for the built-in Objects and null types */
 	public Symbol.ClassSymbol objectType, nullType, threadType, stopwatchType;
 	
 	/** Symbol for the Main type */
@@ -85,6 +76,10 @@ public class Main {
 	
 	/** List of all type symbols, used by code generator. */
 	public List<TypeSymbol> allTypeSymbols;
+	
+	// Global flags to enable/disable our escape analysis
+	public boolean enableStackAlloc = true;
+	public boolean enableLockRemoval = true;
 
 	public void debug(String format, Object... args) {
 		if (debug != null) {
@@ -106,9 +101,13 @@ public class Main {
 		
 		for (String file : args) {
 			
-			if (file.equals("-d"))
+			if (file.equals("-d")) {
 				m.debug = new OutputStreamWriter(System.err);
-			else {
+			} else if (file.equals("-no-stackalloc")) {
+				m.enableStackAlloc = false;
+			} else if (file.equals("-no-lockremoval")) {
+				m.enableLockRemoval = false;
+			} else {
 				{
 					if (m.debug != null)
 						m.cfgdumpbase = new File(file);
@@ -318,28 +317,30 @@ public class Main {
 			
 			Map<MethodSymbol, Set<MethodSymbol>> callTargets = new CallGraphGenerator(this).computeTargets(astRoots);
 			
-			try {
-				File f = new File(cfgdumpbase.getCanonicalFile() + ".escape.dot"),
-					 rez = new File(cfgdumpbase.getCanonicalFile() + ".stack");
-				PrintWriter pw = new PrintWriter(f),
+			if (enableStackAlloc) {
+				try {
+					File f = new File(cfgdumpbase.getCanonicalFile() + ".escape.dot"),
+							rez = new File(cfgdumpbase.getCanonicalFile() + ".stack");
+					PrintWriter pw = new PrintWriter(f),
 							pr = new PrintWriter(rez);
-				
-				pw.write("digraph G {\ngraph [rankdir = \"LR\"];\n");
-				for (ClassDecl cd : astRoots) {
-					for (MethodDecl md : cd.methods()) {
-						if (md.analyzedColor == EscapeAnalyzer.WHITE) {
-							(new EscapeAnalyzer(this)).compute(md, pw, pr, callTargets);
+
+					pw.write("digraph G {\ngraph [rankdir = \"LR\"];\n");
+					for (ClassDecl cd : astRoots) {
+						for (MethodDecl md : cd.methods()) {
+							if (md.analyzedColor == EscapeAnalyzer.WHITE) {
+								(new EscapeAnalyzer(this)).compute(md, pw, pr, callTargets);
+							}
 						}
 					}
+					pw.write("}\n");
+					pw.close();
+					pr.close();
+				} catch (IOException ex) {
+					System.err.println(ex);
 				}
-				pw.write("}\n");
-				pw.close();
-				pr.close();
-			} catch (IOException ex) {
-				System.err.println(ex);
 			}
 			
-			{
+			if (enableLockRemoval) {
 				new EscapeAnalysis(this).analyze(astRoots);
 			}
 
