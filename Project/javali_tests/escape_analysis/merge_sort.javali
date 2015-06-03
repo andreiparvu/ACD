@@ -85,11 +85,11 @@ class Integer {
 }
 
 class ParallelMergeSort extends Thread {
-    int[] arr;
+    Integer[] arr;
     int start, end;
     int threads;
 
-    void init(int[] arr, int start, int end, int threads) {
+    void init(Integer[] arr, int start, int end, int threads) {
         this.arr = arr;
         this.start = start;
         this.end = end;
@@ -129,8 +129,7 @@ class ParallelMergeSort extends Thread {
 
     void merge(int left_start, int left_end, int right_start, int right_end) {
         int left_length, right_length;
-        Integer left_int, right_int;
-        Integer integer;
+        Integer left_int, right_int, integer;
         Vector left, right;
         int l, r, i;
 
@@ -145,18 +144,14 @@ class ParallelMergeSort extends Thread {
         /* copy left half of list into left */
         i = left_start;
         while (i < left_end) {
-            integer = new Integer();
-            integer.val = arr[i];
-            left.push(integer);
+            left.push(arr[i]);
             i = i + 1;
         }
 
         /* copy right half of list into right */
         i = right_start;
         while (i < right_end) {
-            integer = new Integer();
-            integer.val = arr[i];
-            right.push(integer);
+            right.push(arr[i]);
             i = i + 1;
         }
 
@@ -169,10 +164,10 @@ class ParallelMergeSort extends Thread {
             right_int = (Integer) right.get(r);
 
             if (left_int.val < right_int.val) {
-                arr[i] = left_int.val;
+                arr[i] = left_int;
                 l = l + 1;
             } else {
-                arr[i] = right_int.val;
+                arr[i] = right_int;
                 r = r + 1;
             }
 
@@ -182,14 +177,14 @@ class ParallelMergeSort extends Thread {
         /* Copy over leftovers of whichever temporary list hasn't finished */
         while (l < left_length) {
             left_int = (Integer) left.get(l);
-            arr[i] = left_int.val;
+            arr[i] = left_int;
             i = i + 1;
             l = l + 1;
         }
 
         while (r < right_length) {
             right_int = (Integer) right.get(r);
-            arr[i] = right_int.val;
+            arr[i] = right_int;
             i = i + 1;
             r = r + 1;
         }
@@ -205,19 +200,21 @@ class Main {
         return seed;
     }
 
-    void validate(int[] arr, int size) {
+    void validate(Integer[] arr, int size) {
         int i, prev_val;
+ 
         prev_val = -2147483647;
         prev_val =  prev_val - 1; // INT_MIN
 
         i = 0;
         while (i < size) {
-            if (prev_val > arr[i]) {
+            write(arr[i].val); writeln();
+            if (prev_val > arr[i].val) {
                 // not sorted
                 write(9999999); writeln();
                 return;
             }
-            prev_val = arr[i];
+            prev_val = arr[i].val;
             i = i + 1;
         }
     }
@@ -226,20 +223,23 @@ class Main {
         int BENCH_SIZE, size, threads, i;
         ParallelMergeSort sort;
         Stopwatch s;
-        int[] a;
+        Integer integer;
+        Integer[] a;
 
-        BENCH_SIZE = 5000000;
+        BENCH_SIZE = 10;
 
         size = BENCH_SIZE;
-        threads = 4;
+        threads = 1; // TODO FIXME
 
-        a = new int[size];
+        a = new Integer[size];
 
         seed = 1337;
 
         i = 0;
         while (i < size) {
-            a[i] = rand();
+            integer = new Integer();
+            integer.val = i;// rand();
+            a[i] = integer;
             i = i + 1;
         }
 
