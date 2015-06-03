@@ -37,7 +37,7 @@ abstract public class AbstractTestSamplePrograms {
 	public File errfile;
 	public Main main;
 
-	private final boolean TEST_STACK_ALLOCATION = false;
+	private final boolean TEST_STACK_ALLOCATION = true;
 	
 	public void assertEquals(String phase, String exp, String act) {
 		act = act.replace("\r\n", "\n"); // for windows machines
