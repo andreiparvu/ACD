@@ -146,11 +146,13 @@ public class EscapeAnalysis {
 	
 	private CallGraph callGraph;
 	private Map<Ast, Boolean> multiSites;
-	private MethodSymbol threadStart;
+	private MethodSymbol threadStart, objectNotify, objectWait;
 	
 	public EscapeAnalysis(Main main) {
 		this.main = main;
 		this.threadStart = main.threadType.getMethod("start");
+		this.objectNotify = main.objectType.getMethod("notify");
+		this.objectWait = main.objectType.getMethod("wait");
 	}
 	
 	public void analyze(List<ClassDecl> astRoots) {
@@ -601,9 +603,9 @@ public class EscapeAnalysis {
 			}
 
 			// unify thread with itself if started multiple times.
-			// this is currently not really needed, but would enable a more
-			// sophisticated escape definition as described by 
-			// Ranganath et al.
+			// this is currently not needed and does nothing
+			// but would enable a more sophisticated escape definition 
+			// as described by Ranganath et al if unify() was changed
 			if (multiSites.get(threadStart))  {
 				sc.unify(sc);
 			}
@@ -626,6 +628,8 @@ public class EscapeAnalysis {
 
 			if (ast.sym == threadStart) {
 				visitThreadStart(ast, sc);
+			} else if (ast.sym == objectNotify || ast.sym == objectWait) {
+				sc.receiver.setEscapes(true);
 			} else {
 				methodInvocation(ast.sym, sc);
 			}
