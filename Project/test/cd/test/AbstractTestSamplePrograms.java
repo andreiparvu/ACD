@@ -37,7 +37,7 @@ abstract public class AbstractTestSamplePrograms {
 	public File errfile;
 	public Main main;
 
-	private final boolean TEST_STACK_ALLOCATION = true;
+	private final boolean TEST_STACK_ALLOCATION = false;
 	
 	public void assertEquals(String phase, String exp, String act) {
 		act = act.replace("\r\n", "\n"); // for windows machines
@@ -208,7 +208,7 @@ abstract public class AbstractTestSamplePrograms {
 	throws IOException {
 		String semanticRef = "";
 		if (withRef) {
-			findSemanticRef();
+			semanticRef = findSemanticRef();
 		}
 
 		boolean passed;
@@ -294,7 +294,7 @@ abstract public class AbstractTestSamplePrograms {
 		String inFile = (infile.exists() ? FileUtil.read(infile) : "");
 		String execRef = "";
 		if (withRef) {
-			findExecRef(inFile);
+			execRef = findExecRef(inFile);
 		}
 
 		// Run the code generator:
