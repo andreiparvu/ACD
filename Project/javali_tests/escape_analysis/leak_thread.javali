@@ -1,0 +1,18 @@
+class Main {
+  void leak_thread() {
+    Thread t;
+    t = new Thread();
+    t.start();
+  }
+
+  void main() {
+    int i;
+    leak_thread();
+
+    write(0); // corrupts thread object on stack
+
+    i = 10000000;
+    while (i > 0) { i = i - 1; }
+  }
+}
+
