@@ -85,12 +85,12 @@ class Integer {
 }
 
 class ParallelMergeSort extends Thread {
-    Vector vec;
+    int[] arr;
     int start, end;
     int threads;
 
-    void init(Vector v, int start, int end, int threads) {
-        this.vec = v;
+    void init(int[] arr, int start, int end, int threads) {
+        this.arr = arr;
         this.start = start;
         this.end = end;
         this.threads = threads;
@@ -111,9 +111,9 @@ class ParallelMergeSort extends Thread {
         right_end = end;
 
         left_thread = new ParallelMergeSort();
-        left_thread.init(vec, left_start, left_end, threads / 2);
+        left_thread.init(arr, left_start, left_end, threads / 2);
         right_thread = new ParallelMergeSort();
-        right_thread.init(vec, right_start, right_end, threads / 2);
+        right_thread.init(arr, right_start, right_end, threads / 2);
 
         if (threads > 1) {
             left_thread.start();
@@ -130,6 +130,7 @@ class ParallelMergeSort extends Thread {
     void merge(int left_start, int left_end, int right_start, int right_end) {
         int left_length, right_length;
         Integer left_int, right_int;
+        Integer integer;
         Vector left, right;
         int l, r, i;
 
@@ -144,14 +145,18 @@ class ParallelMergeSort extends Thread {
         /* copy left half of list into left */
         i = left_start;
         while (i < left_end) {
-            left.push(vec.get(i));
+            integer = new Integer();
+            integer.val = arr[i];
+            left.push(integer);
             i = i + 1;
         }
 
         /* copy right half of list into right */
         i = right_start;
         while (i < right_end) {
-            right.push(vec.get(i));
+            integer = new Integer();
+            integer.val = arr[i];
+            right.push(integer);
             i = i + 1;
         }
 
@@ -164,10 +169,10 @@ class ParallelMergeSort extends Thread {
             right_int = (Integer) right.get(r);
 
             if (left_int.val < right_int.val) {
-                vec.set(i, left.get(l));
+                arr[i] = left_int.val;
                 l = l + 1;
             } else {
-                vec.set(i, right.get(r));
+                arr[i] = right_int.val;
                 r = r + 1;
             }
 
@@ -176,13 +181,15 @@ class ParallelMergeSort extends Thread {
 
         /* Copy over leftovers of whichever temporary list hasn't finished */
         while (l < left_length) {
-            vec.set(i, left.get(l));
+            left_int = (Integer) left.get(l);
+            arr[i] = left_int.val;
             i = i + 1;
             l = l + 1;
         }
 
         while (r < right_length) {
-            vec.set(i, right.get(r));
+            right_int = (Integer) right.get(r);
+            arr[i] = right_int.val;
             i = i + 1;
             r = r + 1;
         }
@@ -192,62 +199,61 @@ class ParallelMergeSort extends Thread {
 
 class Main {
     int seed;
-    
-    void f() {
-        Vector thread_local;
-        thread_local = new Vector();
-        thread_local.get(0);
-    }
 
     int rand() {
         seed = seed * 1103515245 + 12345;
         return seed;
     }
 
-    void validate(Vector v) {
+    void validate(int[] arr, int size) {
         int i, prev_val;
-        Integer box;
         prev_val = -2147483647;
         prev_val =  prev_val - 1; // INT_MIN
 
         i = 0;
-        while (i < v.size) {
-            box = (Integer) v.get(i);
-            if (prev_val > box.val) {
+        while (i < size) {
+            if (prev_val > arr[i]) {
                 // not sorted
                 write(9999999); writeln();
                 return;
             }
-            prev_val = box.val;
+            prev_val = arr[i];
             i = i + 1;
         }
     }
 
     void main() {
-        int i;
-        Integer box;
+        int BENCH_SIZE, size, threads, i;
         ParallelMergeSort sort;
-        Vector v;
+        Stopwatch s;
+        int[] a;
 
-        v = new Vector();
-        v.init();
+        BENCH_SIZE = 5000000;
+
+        size = BENCH_SIZE;
+        threads = 4;
+
+        a = new int[size];
 
         seed = 1337;
 
-        i = 1500000;
-        while (i > 10) {
-            box = new Integer();
-            box.val = rand();
-            v.push(box);
-            i = i - 1;
+        i = 0;
+        while (i < size) {
+            a[i] = rand();
+            i = i + 1;
         }
 
+        s = new Stopwatch();
+        s.init();
+        s.start();
+
         sort = new ParallelMergeSort();
-        sort.init(v, 0, v.size, 4);
+        sort.init(a, 0, size, threads);
         sort.run();
 
-        validate(v);
-        
-        f();
+        s.stop();
+        s.print();
+
+        validate(a, size);
     }
 }
