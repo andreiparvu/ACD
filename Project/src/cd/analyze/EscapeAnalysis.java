@@ -1,24 +1,16 @@
 package cd.analyze;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Queue;
 import java.util.Set;
-import java.util.TreeSet;
 
 import cd.Main;
 import cd.analyze.AliasSet.AliasSetData;
 import cd.analyze.CallGraphGenerator.CallGraph;
-import cd.debug.AstDump;
-import cd.debug.AstOneLine;
 import cd.ir.Ast;
 import cd.ir.Ast.Assign;
 import cd.ir.Ast.ClassDecl;
@@ -41,7 +33,6 @@ import cd.ir.Symbol.ClassSymbol;
 import cd.ir.Symbol.MethodSymbol;
 import cd.ir.Symbol.VariableSymbol;
 import cd.util.DepthFirstSearchPreOrder;
-import cd.util.Pair;
 
 public class EscapeAnalysis {
 
@@ -85,70 +76,63 @@ public class EscapeAnalysis {
 				parameters.get(i).unify(other.parameters.get(i));
 			}
 		}
-		
-		/*public void unifyEscapes(AliasContext other) {
-			this.receiver.unifyEscapes(other.receiver);
-			this.result.unifyEscapes(other.result);
-			assert (parameters.size() == other.parameters.size());
-			for (int i=0; i < parameters.size(); i++) {
-				parameters.get(i).unifyEscapes(other.parameters.get(i));
-			}
-		}*/
-		
 
 		public AliasContext deepCopy() {
 			return new AliasContext(this);
 		}
 
-		@Override
-		public int hashCode() {
-			final int prime = 31;
-			int result = 1;
-			result = prime * result
-					+ ((parameters == null) ? 0 : parameters.hashCode());
-			result = prime * result
-					+ ((receiver == null) ? 0 : receiver.hashCode());
-			result = prime * result
-					+ ((this.result == null) ? 0 : this.result.hashCode());
-			return result;
-		}
+// 		This code would be needed for method specialization, but breaks 
+//		current use of HashMap (which compares by reference)
 
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (getClass() != obj.getClass()) {
-				return false;
-			}
-			AliasContext other = (AliasContext) obj;
-
-			if (parameters == null) {
-				if (other.parameters != null) {
-					return false;
-				}
-			} else if (!parameters.equals(other.parameters)) {
-				return false;
-			}
-			if (receiver == null) {
-				if (other.receiver != null) {
-					return false;
-				}
-			} else if (!receiver.equals(other.receiver)) {
-				return false;
-			}
-			if (result == null) {
-				if (other.result != null) {
-					return false;
-				}
-			} else if (!result.equals(other.result)) {
-				return false;
-			}
-			return true;
-		}
+//		@Override
+//		public int hashCode() {
+//			final int prime = 31;
+//			int result = 1;
+//			result = prime * result
+//					+ ((parameters == null) ? 0 : parameters.hashCode());
+//			result = prime * result
+//					+ ((receiver == null) ? 0 : receiver.hashCode());
+//			result = prime * result
+//					+ ((this.result == null) ? 0 : this.result.hashCode());
+//			return result;
+//		}
+//
+//		@Override
+//		public boolean equals(Object obj) {
+//			if (this == obj) {
+//				return true;
+//			}
+//			if (obj == null) {
+//				return false;
+//			}
+//			if (getClass() != obj.getClass()) {
+//				return false;
+//			}
+//			AliasContext other = (AliasContext) obj;
+//
+//			if (parameters == null) {
+//				if (other.parameters != null) {
+//					return false;
+//				}
+//			} else if (!parameters.equals(other.parameters)) {
+//				return false;
+//			}
+//			if (receiver == null) {
+//				if (other.receiver != null) {
+//					return false;
+//				}
+//			} else if (!receiver.equals(other.receiver)) {
+//				return false;
+//			}
+//			if (result == null) {
+//				if (other.result != null) {
+//					return false;
+//				}
+//			} else if (!result.equals(other.result)) {
+//				return false;
+//			}
+//			return true;
+//		}
 
 		@Override
 		public String toString() {
@@ -160,17 +144,13 @@ public class EscapeAnalysis {
 	private Main main;
 	private CallGraphSCC scc;
 	
-	//private Map<MethodSymbol, AliasContext> methodContexts;
-	//private Map<Ast, AliasContext> siteContexts;
 	private CallGraph callGraph;
 	private Map<Ast, Boolean> multiSites;
-	private MethodSymbol threadStart, objectLock, objectUnlock;
+	private MethodSymbol threadStart;
 	
 	public EscapeAnalysis(Main main) {
 		this.main = main;
 		this.threadStart = main.threadType.getMethod("start");
-		this.objectLock = main.objectType.getMethod("lock");
-		this.objectUnlock = main.objectType.getMethod("unlock");
 	}
 	
 	public void analyze(List<ClassDecl> astRoots) {
@@ -178,10 +158,6 @@ public class EscapeAnalysis {
 		
 		// generate call graph
 		callGraph = new CallGraphGenerator(main).compute(astRoots);
-		//callGraph = cg.graph;
-		//callees = cg.targets;
-		
-		callGraph.debugPrint();
 
 		// generate scc
 		scc = new CallGraphSCC(callGraph);
@@ -191,45 +167,12 @@ public class EscapeAnalysis {
 		multiSites = findThreadAllocationSites();
 
 		//// Phase 2 ////
-		//Map<MethodSymbol, AliasContext> methodContexts = new HashMap<MethodSymbol, AliasContext>();
-		//siteContexts = new HashMap<Ast, AliasContext>();
-
 		// traverse SCC methods in bottom-up topological order
 		Map<MethodSymbol, AliasContext> methodContexts = analyzeBottomUp();
 
 		//// Phase 3 ////
 		// top-down traversal to push down escape info
-		mergeTopDownSpecialized(methodContexts);
-
-		// debug print
-		/*System.err.println("Method Contexts");
-		for (Entry<MethodSymbol, AliasContext> entry : methodContexts.entrySet()) {
-			System.err.println(entry.getKey().fullName() + ": " + entry.getValue());
-		}*/
-		/*
-		System.err.println("Site Contexts");
-		for (Entry<Ast, AliasContext> entry : siteContexts.entrySet()) {
-			Ast ast = entry.getKey();
-			System.err.println(AstOneLine.toString(ast) + ": " + entry.getValue());
-		}*/
-		
-		/*for (Set<MethodSymbol> component : scc.getSortedComponents()) {
-			// create method context for all methods in component
-			for (MethodSymbol method : component) {
-				System.err.println(method.fullName() + ":");
-				new AstVisitor<Void, Integer>() {
-
-					@Override
-					public Void dfltExpr(Expr ast, Integer ident) {
-						String id = new String(new char[ident]).replace("\0", "  ");;
-						System.err.println(id + AstOneLine.toString(ast) + ":" + ast.aliasSet);
-						return super.dfltExpr(ast, ident+2);
-					}
-					
-				}.visit(method.ast, 4);
-			}
-		}*/
-		//System.err.println(AstDump.toString(astRoots));
+		mergeTopDown(methodContexts);
 	}
 
 
@@ -258,199 +201,175 @@ public class EscapeAnalysis {
 		return methodContexts;
 	}
 	
-	// queue for speicialization requests <m, mc>
+//	The following code is supposed to find summaries for method specialization.
+//	Currently broken, as it unifies wrong alias sets.
 	
-	// set for already processed requests, get new cloned method for found call
-	//Map<Tuple<MethodSymbol, AliasContext>, MethodSymbol> specializedk
-	
-	private static class MethodCallRequest {
-		private final AliasContext methodContext;
-		private final MethodSymbol method;
-		public MethodCallRequest(AliasContext methodContext,
-				MethodSymbol method) {
-			this.methodContext = methodContext;
-			this.method = method;
-		}
-		@Override
-		public int hashCode() {
-			final int prime = 31;
-			int result = 1;
-			result = prime * result
-					+ ((method == null) ? 0 : method.hashCode());
-			result = prime * result
-					+ ((methodContext == null) ? 0 : methodContext.hashCode());
-			return result;
-		}
-		@Override
-		public boolean equals(Object obj) {
-			if (this == obj) {
-				return true;
-			}
-			if (obj == null) {
-				return false;
-			}
-			if (getClass() != obj.getClass()) {
-				return false;
-			}
-			MethodCallRequest other = (MethodCallRequest) obj;
-			if (method == null) {
-				if (other.method != null) {
-					return false;
-				}
-			} else if (!method.equals(other.method)) {
-				return false;
-			}
-			if (methodContext == null) {
-				if (other.methodContext != null) {
-					return false;
-				}
-			} else if (!methodContext.equals(other.methodContext)) {
-				return false;
-			}
-			return true;
-		}
-		@Override
-		public String toString() {
-			return "MethodCallRequest [methodContext=" + methodContext
-					+ ", method=" + method.fullName() + "]";
-		}
-	}
+//	private static class MethodCallRequest {
+//		private final AliasContext methodContext;
+//		private final MethodSymbol method;
+//		public MethodCallRequest(AliasContext methodContext,
+//				MethodSymbol method) {
+//			this.methodContext = methodContext;
+//			this.method = method;
+//		}
+//		@Override
+//		public int hashCode() {
+//			final int prime = 31;
+//			int result = 1;
+//			result = prime * result
+//					+ ((method == null) ? 0 : method.hashCode());
+//			result = prime * result
+//					+ ((methodContext == null) ? 0 : methodContext.hashCode());
+//			return result;
+//		}
+//		@Override
+//		public boolean equals(Object obj) {
+//			if (this == obj) {
+//				return true;
+//			}
+//			if (obj == null) {
+//				return false;
+//			}
+//			if (getClass() != obj.getClass()) {
+//				return false;
+//			}
+//			MethodCallRequest other = (MethodCallRequest) obj;
+//			if (method == null) {
+//				if (other.method != null) {
+//					return false;
+//				}
+//			} else if (!method.equals(other.method)) {
+//				return false;
+//			}
+//			if (methodContext == null) {
+//				if (other.methodContext != null) {
+//					return false;
+//				}
+//			} else if (!methodContext.equals(other.methodContext)) {
+//				return false;
+//			}
+//			return true;
+//		}
+//		@Override
+//		public String toString() {
+//			return "MethodCallRequest [methodContext=" + methodContext
+//					+ ", method=" + method.fullName() + "]";
+//		}
+//	}
+//
+//	private void mergeTopDownSpecialized(Map<MethodSymbol, AliasContext> methodContexts) {
+//		final Queue<MethodCallRequest> queue = new ArrayDeque<>();
+//		final Map<Ast, AliasContext> siteContexts = new HashMap<>();
+//		
+//		final Map<MethodCallRequest, List<Ast>> methodCalls = new HashMap<>();
+//		final Map<List<MethodCall>, List<MethodCallRequest>> specializedMethods = new HashMap<>();
+//
+//		for (MethodSymbol root : callGraph.roots) {
+//			AliasContext mc = methodContexts.get(root);
+//			queue.add(new MethodCallRequest(mc, root));
+//		}
+//		
+//		while (!queue.isEmpty()) {
+//			MethodCallRequest req = queue.poll();
+//			final List<MethodCall> removalSummary = new ArrayList<>();
+//			
+//			new MethodAnalayzer(req.method, req.methodContext.deepCopy(), methodContexts) {
+//				private void syncInvocation(MethodCall ast, AliasContext sc) {
+//					if (!sc.receiver.escapes()) {
+//						removalSummary.add(ast);
+//					}
+//				}
+//				
+//				private void methodInvocation(MethodSymbol m, AliasContext sc, Ast ast) {
+//					AliasContext prevSC = siteContexts.get(ast);
+//					if (prevSC != null) {
+//						sc.unify(prevSC);
+//					}
+//
+//					for (MethodSymbol p : callGraph.targets.get(m)) {
+//						if (!main.isBuiltinMethod(p)) {
+//							AliasContext mc = methodContexts.get(p).deepCopy();
+//							sc.unify(mc);
+//							MethodCallRequest callee = new MethodCallRequest(mc.deepCopy(), p);
+//							if (!methodCalls.containsKey(callee)) {
+//								queue.add(callee);
+//								methodCalls.put(callee, new ArrayList<Ast>());
+//							}
+//							
+//							methodCalls.get(callee).add(ast);
+//						}
+//					}
+//
+//					siteContexts.put(ast, sc);
+//				}
+//				
+//				@Override
+//				public AliasSet methodCall(MethodCall ast, Void arg) {
+//					AliasContext sc = createSiteContext(ast);
+//					if (ast.sym.owner == main.objectType) {
+//						syncInvocation(ast, sc);
+//					} else {
+//						methodInvocation(ast.sym, sc, ast);
+//					}
+//					return null;
+//				}
+//
+//				@Override
+//				public AliasSet methodCall(MethodCallExpr ast, Void arg) {
+//					AliasContext sc = createSiteContext(ast);
+//					methodInvocation(ast.sym, sc, ast);
+//					return sc.result;
+//				}
+//			}.analyize();
+//			
+//			if (!removalSummary.isEmpty()) {
+//				if (specializedMethods.containsKey(removalSummary)) {
+//					specializedMethods.get(removalSummary).add(req);
+//				} else {
+//					List<MethodCallRequest> list = new ArrayList<>();
+//					list.add(req);
+//					specializedMethods.put(removalSummary, list);
+//				}
+//				System.err.format("%s: %x\n", req, removalSummary.hashCode());
+//			}
+//		}
+//
+//		System.err.println(specializedMethods);
+//	}
 
-	private void mergeTopDownSpecialized(Map<MethodSymbol, AliasContext> methodContexts) {
-		final Queue<MethodCallRequest> queue = new ArrayDeque<>();
-		//final Set<MethodCallRequest> visited = new HashSet<>();
-		final Map<Ast, AliasContext> siteContexts = new HashMap<>();
-		
-		final Map<MethodCallRequest, List<Ast>> methodCalls = new HashMap<>();
-		final Map<List<MethodCall>, List<MethodCallRequest>> specializedMethods = new HashMap<>();
 
-		for (MethodSymbol root : callGraph.roots) {
-			AliasContext mc = methodContexts.get(root);
-			queue.add(new MethodCallRequest(mc, root));
-		}
-		
-		while (!queue.isEmpty()) {
-			MethodCallRequest req = queue.poll();
-			final List<MethodCall> removalSummary = new ArrayList<>();
-			
-			new MethodAnalayzer(req.method, req.methodContext.deepCopy(), methodContexts) {
-				private void syncInvocation(MethodCall ast, AliasContext sc) {
-					if (!sc.receiver.escapes()) {
-						removalSummary.add(ast);
-					}
-				}
-				
-				private void methodInvocation(MethodSymbol m, AliasContext sc, Ast ast) {
-					AliasContext prevSC = siteContexts.get(ast);
-					if (prevSC != null) {
-						sc.unify(prevSC);
-					}
-
-					for (MethodSymbol p : callGraph.targets.get(m)) {
-						if (!main.isBuiltinMethod(p)) {
-							AliasContext mc = methodContexts.get(p).deepCopy();
-							//System.err.format("%s\n SC:%s UNIFY MC:%s\n", ast, sc, mc);
-							sc.unify(mc);
-							//System.err.format("AFTER SC: %s\n", sc);
-							MethodCallRequest callee = new MethodCallRequest(mc.deepCopy(), p);
-							if (!methodCalls.containsKey(callee)) {
-								queue.add(callee);
-								methodCalls.put(callee, new ArrayList<Ast>());
-							}
-							
-							methodCalls.get(callee).add(ast);
-						}
-					}
-
-					siteContexts.put(ast, sc);
-				}
-				
-				@Override
-				public AliasSet methodCall(MethodCall ast, Void arg) {
-					AliasContext sc = createSiteContext(ast);
-					if (ast.sym.owner == main.objectType) {
-						syncInvocation(ast, sc);
-					} else {
-						methodInvocation(ast.sym, sc, ast);
-					}
-					return null;
-				}
-
-				@Override
-				public AliasSet methodCall(MethodCallExpr ast, Void arg) {
-					AliasContext sc = createSiteContext(ast);
-					methodInvocation(ast.sym, sc, ast);
-					return sc.result;
-				}
-			}.analyize();
-			
-			if (!removalSummary.isEmpty()) {
-				if (specializedMethods.containsKey(removalSummary)) {
-					specializedMethods.get(removalSummary).add(req);
-				} else {
-					List<MethodCallRequest> list = new ArrayList<>();
-					list.add(req);
-					specializedMethods.put(removalSummary, list);
-				}
-				System.err.format("%s: %x\n", req, removalSummary.hashCode());
-			}
-		}
-		/*for (Entry<Ast, AliasContext> e : siteContexts.entrySet()) {
-			System.out.println(e);
-		}*/
-		
-		System.err.println(specializedMethods);
-				
-		specializeMethods(specializedMethods);
-	}
-	private void specializeMethods(
-			Map<List<MethodCall>, List<MethodCallRequest>> specializedMethods) {
-	}
-
-	/*
-	private void mergeTopDown() {
+	private void mergeTopDown(Map<MethodSymbol, AliasContext> methodContexts) {
 		List<Set<MethodSymbol>> reversed = new LinkedList<>(scc.getSortedComponents());
 		Collections.reverse(reversed);
 		for (Set <MethodSymbol> component : reversed) {
 			for (final MethodSymbol method : component) {
-				System.err.println(method.fullName() +":"+ methodContexts.get(method));
-				/*
-				 * Per SCC:
-				 * 	queue of (M,MC) to be visited
-				 *  dont specialize builtins
-				 *  need to modifiy vtable
-				 *
-				new AstVisitor<Void, Void>() {
-					private void merge(Ast ast, MethodSymbol sym) {
-						// TODO if node is not part of CFG (because dead), sc will trigger nullpointer
-						AliasContext sc = siteContexts.get(ast);
-						System.err.println("  " + AstOneLine.toString(ast));
 
-						for (MethodSymbol target : callGraph.targets.get(sym)) {
-							AliasContext mc = methodContexts.get(target);
-							System.err.println("    "+target.fullName() + "SC:" + sc);
-							System.err.println("    "+target.fullName() + "MC:" + mc);
-
-							sc.unify(mc); // .deepCopy()
-							System.err.println("    "+target.fullName() + "UC:" + mc);
+				new MethodAnalayzer(method, methodContexts) {
+					private void methodInvocation(MethodSymbol m, AliasContext sc) {
+						for (MethodSymbol p : callGraph.targets.get(m)) {
+							AliasContext mc = methodContexts.get(p);
+							sc.unify(mc);
 						}
 					}
 
 					@Override
-					public Void methodCall(MethodCall ast, Void arg) {
-						merge(ast, ast.sym);
-						return super.methodCall(ast, arg);
+					public AliasSet methodCall(MethodCall ast, Void arg) {
+						AliasContext sc = createSiteContext(ast);
+						methodInvocation(ast.sym, sc);
+						return null;
 					}
 
 					@Override
-					public Void methodCall(MethodCallExpr ast, Void arg) {
-						merge(ast, ast.sym);
-						return super.methodCall(ast, arg);
+					public AliasSet methodCall(MethodCallExpr ast, Void arg) {
+						AliasContext sc = createSiteContext(ast);
+						methodInvocation(ast.sym, sc);
+						return sc.result;
 					}
-				}.visit(method.ast, null);
+				}.analyize();
+
 			}
 		}
-	}*/
+	}
 
 
 	private Map<Ast, Boolean> findThreadAllocationSites() {
@@ -572,12 +491,13 @@ public class EscapeAnalysis {
 			return sc;
 		}
 
-/*
+
 		@Override
 		public AliasSet visit(Expr expr, Void arg) {
+			// set alias set for codegen
 			expr.aliasSet = super.visit(expr, arg);
 			return expr.aliasSet;
-		}*/
+		}
 
 		@Override
 		protected AliasSet dfltExpr(Expr ast, Void arg) {
@@ -662,20 +582,11 @@ public class EscapeAnalysis {
 	}
 	
 	private class BottomUpAnalyzer extends MethodAnalayzer {
-		//private final List<MethodCall> threadStarts = new ArrayList<MethodCall>();
 		
 		public BottomUpAnalyzer(MethodSymbol method, 
 				Map<MethodSymbol, AliasContext> methodContexts) {
 			super(method, methodContexts);
 		}
-
-		/*public void analyize() {
-			super.analyize();
-			
-			for (MethodCall callSite : threadStarts) {
-				visitThreadStart(callSite);
-			}
-		}*/
 
 		private void visitThreadStart(MethodCall threadStart, AliasContext sc) {
 			ClassSymbol thread = ((ClassSymbol)threadStart.receiver().type);
@@ -689,8 +600,10 @@ public class EscapeAnalysis {
 				methodContexts.get(entry).receiver.unify(sc.receiver);
 			}
 
-			// unify thread with itself if started multiple times
-			// TODO check if really needed
+			// unify thread with itself if started multiple times.
+			// this is currently not really needed, but would enable a more
+			// sophisticated escape definition as described by 
+			// Ranganath et al.
 			if (multiSites.get(threadStart))  {
 				sc.unify(sc);
 			}
@@ -702,7 +615,6 @@ public class EscapeAnalysis {
 				if (scc.stronglyConnected(method, p)) {
 					sc.unify(mc);
 				} else {
-					System.err.format("%s: SC %s unify %s\n", p.fullName(), sc, mc.deepCopy());
 					sc.unify(mc.deepCopy());
 				}
 			}
