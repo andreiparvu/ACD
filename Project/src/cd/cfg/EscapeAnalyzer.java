@@ -284,7 +284,6 @@ public class EscapeAnalyzer {
 			for (String prop : properties) {
 				out.write(prop + " ");
 			}
-//			printProperties();
 			
 			out.write("\"];\n");
 			
@@ -372,17 +371,8 @@ public class EscapeAnalyzer {
 			
 			for (String n : g.nodes.keySet()) {
 				if (nodes.containsKey(n)) {
-//					List<GraphNode> glist = g.nodes.get(n), list = nodes.get(n);
-					
 					for (GraphNode gn : g.nodes.get(n).values()) {
 						
-//						if (n.equals("curr_3"))
-//							System.err.println(list.get(i).index + " dada");
-//						if (glist.size() > list.size()) {
-////							if (n.equals("curr_3"))
-////								System.err.println("fff " + glist.get(i).index);
-//							list.add(glist.get(i));
-//							ret = true;
 						if (!nodes.get(n).containsKey(gn.index)) {
 							nodes.get(n).put(gn.index, gn.deepCopy());
 							ret = true;
@@ -526,7 +516,7 @@ public class EscapeAnalyzer {
 		this.pw = pw;
 		this.pr = pr;
 		
-		mdecl.analyzedColor = GREY;
+		mdecl.analyzedColor = BLACK;
 		ControlFlowGraph cfg = md.cfg;
 		
 		Graph g = new Graph(callTargets);
@@ -823,8 +813,11 @@ public class EscapeAnalyzer {
 				if (!isScalarType(i.type)) {
 					if (ast.right() instanceof Field || ast.right() instanceof Var ||
 							ast.right() instanceof ThisRef) {
-						for (GraphNode node : g.buildNodes(right)) {
-							node.properties.add(GraphNode.ARRAY);
+						for (GraphNode arrNode : g.buildNodes(left)) {
+							for (GraphNode node : g.buildNodes(right)) {
+								arrNode.addReference("arr", node);
+//								node.properties.add(GraphNode.ARRAY);
+							}
 						}
 					}
 				}
@@ -885,13 +878,12 @@ public class EscapeAnalyzer {
 		        	// for cases in which run method is not overwritten by user
 		        	method.analyzedColor = EscapeAnalyzer.BLACK;
 		        }
-			}
-			
-			if (main.isBuiltinMethod(method.sym)) {
+			} else if (main.isBuiltinMethod(method.sym)) {
 				return;
 			}
 			
-			if (method.analyzedColor == EscapeAnalyzer.WHITE) {
+			if (!main.isBuiltinMethod(method.sym) && // this is needed for 'run' method which is not overwritten 
+					method.analyzedColor == EscapeAnalyzer.WHITE) {
 				ArrayList<Set<GraphNode>> argsNodes = new ArrayList<>();
 				
 				for (int i = 0; i < arguments.size(); i++) {
@@ -928,17 +920,18 @@ public class EscapeAnalyzer {
 
 			String callerName = visit(caller, g);
 			for (GraphNode node : g.buildNodes(callerName)) {
-				if ((method.sym == null || isThreadClass(method.sym.owner)) && method.name.equals(THREAD_RUN)) {
+				if ((method.sym == null || inheritsThread(method.sym.owner)) && method.name.equals(THREAD_RUN)) {
 					// we have to be sure that a join is always called to the thread in order
 					// for it not to escape
+					
 					if (joins.get(g.curBB).contains(callerName)) {
 						node.setThread();
 					} else {
 						node.setEscaped();
 					}
 				}
-				if (method.sym != null &&
-						method.cfg.end.escapeGraph.nodeHasProp("this", "escaped")) {
+				if (method.cfg != null && (method.analyzedColor == EscapeAnalyzer.BLACK ||
+						method.cfg.end.escapeGraph.nodeHasProp("this", "escaped"))) {
 					node.setEscaped();
 				}
 			}
@@ -992,7 +985,8 @@ public class EscapeAnalyzer {
 				return null;
 			}
 			
-			if (ast.arg() instanceof Var || ast.arg() instanceof Field || ast.arg() instanceof ThisRef) {
+			if (ast.arg() instanceof Var || ast.arg() instanceof Field || ast.arg() instanceof ThisRef ||
+					ast.arg() instanceof Index) {
 				for (GraphNode x : g.buildNodes(visit(ast.arg(), g))) {
 					x.setReturned();
 				}

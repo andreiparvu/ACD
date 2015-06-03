@@ -1,0 +1,39 @@
+class T extends Thread {
+    Object[] array;
+}
+
+class Main {
+    void escapethread(Object[] array) {
+        T t;
+        t = new T();
+        t.array = array;
+        t.start();
+    }
+    
+    Object[] escapereturn() {
+        Object nostackalloc;
+        Object[] array;
+        
+        
+        nostackalloc = new Object();
+        
+        array = new Object[1];
+        array[0] = nostackalloc;
+        
+        return array;
+    }
+
+    void main() {
+        Object nostackalloc;
+        Object[] array;
+        int i;
+        
+        nostackalloc = new Object();
+        
+        array = new Object[1];
+        array[0] = nostackalloc;
+        escapethread(array);
+        
+        array = escapereturn();
+    }
+}
