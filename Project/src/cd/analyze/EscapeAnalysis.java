@@ -163,7 +163,6 @@ public class EscapeAnalysis {
 
 		// generate scc
 		scc = new CallGraphSCC(callGraph);
-		scc.debugPrint();
 		
 		// find multiply executed thread allocation sites
 		multiSites = findThreadAllocationSites();
