@@ -235,9 +235,22 @@ escape, then it can be allocated on the stack. Otherwise, we must distinguish be
 In order to achieve these goals we decided to implement and expand the escape-analysis algorithm presented
 in \cite{Whaley:99}.
 
-\mypar{Thread Escaping} For lock removal 
+\mypar{Thread Escaping} In order to safely remove locks, the receiver object must
+not be locked in other threads. In our analysis, we therefore remove locks only
+if an object is never reachable from another thread  An object is said to
+escape a thread if:
+
+\begin{itemize}
+  \item it inherits from the \textit{Thread} class and \texttt{.start()} is called on that object.
+  \item the object is (transitively) reachable from a field of another escaped object.
+\end{itemize}
 
 \section{Proposed Method}\label{sec:yourmethod}
+
+In this section we present our algorithms used in escape analysis.
+The \emph{points-to escape graph} determines to whether an object can
+be allocated on the stack, the \emph{alias sets} inform us whether we can
+safely remove invocations of \texttt{.lock()} and \texttt{.unlock()}.
 
 \subsection{Points-To Escape Graph}
 The algorithm shown in \cite{Whaley:99} constructs, for each method,
@@ -346,6 +359,8 @@ determine the set of thread objects that have \textit{join} calls on every path 
 If we have a \textit{start} call-site for a certain thread object and that object is not in the \textit{join\_set} of that
 method, then the object escapes.
 It should be mentioned that currently we only to this analysis for variable objects (not for fields) and we do not do any inter-procedural analysis for thread objects.
+
+\subsection{Alias Sets}
 
 \section{Experimental Results}\label{sec:exp}
 
