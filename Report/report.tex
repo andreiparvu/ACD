@@ -360,7 +360,7 @@ programs.\\
 
 \mypar{Results}
 For the first experiment, we just allocated various objects without using them afterwards, in order to see how the running time differs
-for both cases. TODO: run the actual experiment :)\\
+for both cases. The results can be seen in Figure~\ref{fig:alloc}TODO: comment on the results\\
 
 In the second experiment, we wrote a basic matrix multiplication program with the intent of observing how execution time changes when using
 stack allocation. The results can be seen in Figure~\ref{fig:matrixmul}. It can be observed that the stack allocation improves running
@@ -380,6 +380,12 @@ The hash map is implemented to be thread-safe, so we ran the experiment with one
  \includegraphics[width=0.8\linewidth]{results_hash.eps}
   \caption{Running times hash map}
   \label{fig:hash}
+\end{figure}
+
+\begin{figure} \center
+ \includegraphics[width=0.8\linewidth]{results_only_alloc.eps}
+  \caption{Running times only alloc}
+  \label{fig:alloc}
 \end{figure}
 
 \section{Conclusions}
