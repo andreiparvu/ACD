@@ -694,7 +694,7 @@ public class EscapeAnalyzer {
 			
 			// we should be sure that 'join' is called
 			MethodDecl threadMethod = type.getMethod(THREAD_RUN).ast;
-			if (threadMethod != null && threadMethod.analyzedColor == BLACK) {
+			if (threadMethod != null && threadMethod.sym != null && threadMethod.analyzedColor == BLACK) {
 				g.checkThread(thread, threadMethod.cfg.end.escapeGraph);
 			}
 		}
@@ -880,6 +880,11 @@ public class EscapeAnalyzer {
 			
 			if (inheritsThread(callClass) && method.name.equals(THREAD_START)) {
 				method = callClass.getMethod(THREAD_RUN).ast;
+
+		        if (method.sym == null) {
+		        	// for cases in which run method is not overwritten by user
+		        	method.analyzedColor = EscapeAnalyzer.BLACK;
+		        }
 			}
 			
 			if (main.isBuiltinMethod(method.sym)) {
@@ -923,7 +928,7 @@ public class EscapeAnalyzer {
 
 			String callerName = visit(caller, g);
 			for (GraphNode node : g.buildNodes(callerName)) {
-				if (isThreadClass(method.sym.owner) && method.name.equals(THREAD_RUN)) {
+				if ((method.sym == null || isThreadClass(method.sym.owner)) && method.name.equals(THREAD_RUN)) {
 					// we have to be sure that a join is always called to the thread in order
 					// for it not to escape
 					if (joins.get(g.curBB).contains(callerName)) {
@@ -932,8 +937,7 @@ public class EscapeAnalyzer {
 						node.setEscaped();
 					}
 				}
-				// no need for this anymore
-				if (method.analyzedColor == EscapeAnalyzer.GREY ||
+				if (method.sym != null &&
 						method.cfg.end.escapeGraph.nodeHasProp("this", "escaped")) {
 					node.setEscaped();
 				}
