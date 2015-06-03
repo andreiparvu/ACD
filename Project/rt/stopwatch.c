@@ -3,34 +3,13 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <time.h>
-#include <pthread.h>
+
+#include "rt.h"
 
 #ifndef CLOCK_MONOTONIC_RAW
 // for Linux 2.6.28 and older
 #define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
 #endif
-
-struct stopwatch {
-    struct stopwatch_vtable *vtable;
-    pthread_mutex_t *mutex;
-    pthread_cond_t *cond;
-    struct timespec *start;
-    struct timespec *stop;
-};
-
-struct stopwatch_vtable {
-    void *object_vtable;
-
-    void *(*object_lock) (struct object*);
-    void *(*object_unlock) (struct object*);
-    void *(*object_wait) (struct object*);
-    void *(*object_notify) (struct object*);
-
-    void *(*stopwatch_init) (struct stopwatch*);
-    void *(*stopwatch_start) (struct stopwatch*);
-    void *(*stopwatch_stop) (struct stopwatch*);
-    void *(*stopwatch_print) (struct stopwatch*);
-};
 
 void Stopwatch_init(struct stopwatch *this) {
     this->start = malloc(sizeof(struct timespec));

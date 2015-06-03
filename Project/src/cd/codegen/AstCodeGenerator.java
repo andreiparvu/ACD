@@ -472,6 +472,14 @@ public class AstCodeGenerator {
 			ArrayTypeSymbol as = (ArrayTypeSymbol) ts;
 			emitLabel(vtable(as));
 			emitConstantData(vtable(main.objectType));
+			
+			// emit vtable for object
+			ClassSymbol cs = main.objectType;
+			MethodSymbol[] vtable = new MethodSymbol[cs.totalMethods];
+			collectVtable(vtable, cs);
+			for (int i = 0; i < cs.totalMethods; i++){
+				emitConstantData(mthdlbl(vtable[i]));
+			}
 		}
 	}
 
@@ -1131,6 +1139,10 @@ public class AstCodeGenerator {
 
 				emit("imul", Config.SIZEOF_PTR, reg);
 				emit("addl", Config.SIZEOF_PTR, reg);
+				
+				// add two slots for built-in lock and cond
+				emit("addl", Config.SIZEOF_PTR, reg);
+				emit("addl", Config.SIZEOF_PTR, reg);
 
 				int allocPadding = emitCallPrefix(reg, 1);
 				push(reg);
@@ -1138,6 +1150,14 @@ public class AstCodeGenerator {
 				emitCallSuffix(reg, 1, allocPadding);
 
 				emitStore(c(vtable(arrsym)), 0, reg);
+				
+				if (ast.aliasSet == null || ast.aliasSet.escapes()) {
+					int initPadding = emitCallPrefix(null, 1);
+					push(reg);
+					emit("call", "Object__init__");
+					emitCallSuffix(null, 1, initPadding);
+				}
+	
 				return reg;
 			}
 		}
@@ -1550,7 +1570,7 @@ public class AstCodeGenerator {
 
 	/** Creates an operand addressing an item in an array */
 	protected String a(String arrReg, String idxReg) {
-		final int offset = Config.SIZEOF_PTR; // one word in front for vptr
+		final int offset = 3*Config.SIZEOF_PTR; // three words in front for vptr
 		final int mul = Config.SIZEOF_PTR; // assume all arrays of 4-byte elem
 		return String.format("%d(%s,%s,%d)", offset, arrReg, idxReg, mul);
 	}
