@@ -31,6 +31,7 @@ import cd.ir.Ast.ClassDecl;
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.Field;
 import cd.ir.Ast.FloatConst;
+import cd.ir.Ast.Free;
 import cd.ir.Ast.IfElse;
 import cd.ir.Ast.Index;
 import cd.ir.Ast.IntConst;
@@ -106,6 +107,11 @@ public class AstCodeGenerator {
 	 */
 	private static final String ALLOC = "Javali$Alloc";
 
+	/**
+	 * Name of the internal Javali$Free() helper function we generate.
+	 */
+	private static final String FREE = "Javali$Free";
+	
 	/**
 	 * Name of the internal Javali$PrintNewLine() helper function we generate.
 	 */
@@ -276,6 +282,19 @@ public class AstCodeGenerator {
 			emitLoad(8, BP, size);
 			emitStore(size, 0, SP);
 			emit("call", Config.MALLOC);
+			emit("leave");
+			emit("ret");
+		}
+
+		// Generate a helper method for freeing objects
+		{
+			String ptr = callerSave[0];
+			emitCommentSection(FREE + " function");
+			emitLabel(FREE);
+			emitEnter(c(8));
+			emitLoad(8, BP, ptr);
+			emitStore(ptr, 0, SP);
+			emit("call", Config.FREE);
 			emit("leave");
 			emit("ret");
 		}
@@ -1121,6 +1140,17 @@ public class AstCodeGenerator {
 				emitStore(c(vtable(arrsym)), 0, reg);
 				return reg;
 			}
+		}
+
+		public String free(Free ast, Void arg) {
+			String reg = eg.gen(ast.arg());
+
+			int padding = emitCallPrefix(null, 1);
+			push(reg);
+			emit("call", FREE);
+			emitCallSuffix(null, 1, padding);
+
+			return null;
 		}
 
 		@Override

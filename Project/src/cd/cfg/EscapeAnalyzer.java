@@ -15,6 +15,7 @@ import cd.ir.Ast;
 import cd.ir.Ast.Assign;
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.Field;
+import cd.ir.Ast.Free;
 import cd.ir.Ast.Index;
 import cd.ir.Ast.MethodCall;
 import cd.ir.Ast.MethodCallExpr;
@@ -321,6 +322,7 @@ public class EscapeAnalyzer {
 		Map<String, HashMap<Integer, GraphNode>> nodes = new HashMap<>();
 		Set<GraphNode> returnSet = new HashSet<>();
 		int curBB; // used for processing
+		HashSet<Expr> methodRets = new HashSet<>();
 		
 		Graph(Map<MethodSymbol, Set<MethodSymbol>> callTargets) {
 			this.callTargets = callTargets;
@@ -710,6 +712,20 @@ public class EscapeAnalyzer {
 					allocOnStackVisitor.visit(instr, g);
 				}
 			}
+			
+			for (Expr e : g.methodRets) {
+				// e should be only Var
+				boolean bad = false;
+				for (GraphNode n : g.buildNodes(AstOneLine.toString(e))) {
+					if (n.notAlloc()) {
+						bad = true;
+					}
+				}
+				
+				if (!bad) {
+					cfg.end.instructions.add(new Free(e));
+				}
+			}
 		}
 		
 		mdecl.analyzedColor = WHITE;
@@ -787,6 +803,10 @@ public class EscapeAnalyzer {
 				}
 				
 				if (ast.right() instanceof MethodCallExpr || ast.right() instanceof Var) {
+					
+					if (ast.right() instanceof MethodCallExpr) {
+						g.methodRets.add(ast.left());
+					}
 					
 					g.clearName(v.sym.name);
 					// must be careful if the node already exists
