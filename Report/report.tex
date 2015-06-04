@@ -420,14 +420,37 @@ so the current code naivly merges all site contexts with the single method conte
 We store the alias sets inline the AST, so the thread escape information is available for the code
 generator.
 
+The final method context summaries generated for the example in Listing~\ref{lst:program} looks as follows:
+
+{ \footnotesize
+
+\begin{description}
+\item[\texttt{Main.main()}] \hfill \\
+    $ this: \langle false, \{ b:\langle false, \{ \} \rangle\} \rangle $ \\ 
+    $ arguments: \lbrack \rbrack $ \\
+    $ result: \bot  $ 
+\item[\texttt{Main.escapeOne()}] \hfill \\
+    $ this: \langle false, \{ b:\langle false, \{ \} \rangle\} \rangle $ \\
+    $ arguments: \lbrack \langle true, \{ arg:\langle true, \{ \} \rangle\} \rangle, \langle true, \{ \} \rangle \rbrack $ \\
+    $ result: \bot $
+\item[\texttt{Custom.run()}] \hfill \\
+ $ this: \langle true, \{ arg:\langle true, \{ \} \rangle\} \rangle $ \\
+ $ arguments: \lbrack \rbrack $ \\ 
+ $ result: \bot $
+\end{description}
+}
+
+Both, the created thread as well as the argument passed to it are marked as escaped. The \texttt{Main} object however
+has $escapes$ set to $false$.
+
 \mypar{Code Generation}
 As stated above, we were not able to implement method specialization in time. The code generation
 therefore looks at the receiver alias set of a \texttt{.lock()} or  \texttt{.unlock()} method
 call and omits the function call. As the receiver expression might contain side effects, it
 is still generated.
 
-Additionally, for objects that never escape its thread, we omit calling the object initialization
-function which sets up the built-in locks and conditional variable.
+Additionally, for objects which never escape its thread, we omit calling the object initialization
+function which sets up the built-in lock and conditional variable.
 
 
 \section{Experimental Results}\label{sec:exp}
