@@ -44,25 +44,6 @@
 
 
 
-% For example:
-% ------------
-%\address{School\\
-%    Department\\
-%    Address}
-%
-% Two addresses (uncomment and modify for two-address case).
-% ----------------------------------------------------------
-% \twoauthors
- % {A. Andri Parvu, B. Sebastian Wicki}
-  %    {ETH Zurich\\
-  %    Department of Computer Science}
- % {C. Author-three, D. Author-four\sthanks{The fourth author performed the work
-  %    while at ...}}
-  %    {School C-D\\
-  %    Department C-D\\
-  %    Address C-D}
-
-
 \begin{document}
 %\ninept
 %
@@ -137,9 +118,9 @@ for nodes that could be accessed globally or by another thread, and \emph{NoEsca
 is used for nodes that do not escape.
 
 A similar graph-based approach was published at the same time in the same journal
-by Whaley and Rinard \cite{Whaley:99}. They also use a directed graph, called the points-to graph,
+by Whaley and Rinard \cite{Whaley:99}. They also use a directed graph, called the points-to-escape graph,
 to represent objects. The escape information is determined by the type of edges
-between objects: An object is said to escape its method when it is reachable via an outside edge.
+between objects: an object is said to escape its method when it is reachable via an outside edge.
 
 Both approaches are flow-sensitive, they process the nodes of the control flow graph
 individually and merge the resulting graphs where needed. Both approaches have a
@@ -147,8 +128,8 @@ intraprocedural phase where each method is processed individually, and a interpr
 phase where the graphs are merged at call sites to yield more precise information.
 
 A survey by King \cite{King:04} shows that the approach by Whaley and Rinard is more precise
-than the algorithm by Choi et al, they are able to stack allocate more objects and
-remove more synchronization.
+than the algorithm by Choi et al, being able to stack allocate more objects and
+remove more synchronizations.
 
 \mypar{Alias Set based approaches}
 A different approach for the purpose of lock removal is taken by Ruf \cite{Ruf:00}.
@@ -160,11 +141,11 @@ phases, but it is flow-insensitive. In the survey by  King \cite{King:04} Ruf
 yields the most precision of all algorithms for lock removal.
 
 As Ruf's approach is only concerned about lock removal and works on a low-level
-Java bytecode, his approach was generalized by Ranganath et al \cite{Ranganath:04}.
+Java bytecode, it was generalized by Ranganath et al \cite{Ranganath:04}.
 They extend alias sets to store more general thread escape information
 and dependence information about Java source files.
 
-For this project, we explored and extended two approaches: Stack escape analysis
+For this project, we explored and extended two approaches. The stack escape analysis
 is inspired by Whaley and Rinard, but does more effort to handle thread creation
 and uses node labels similar to Choi.
 % TODO Andrei, can you find more/better differences?
@@ -219,18 +200,18 @@ following methods.
 \subsection{Escape Analysis}
 
 The purpose of escape analysis is to determine whether an object escapes a certain
-scope, in our case whether it escapes a certain method and its stack or a certain thread.
+scope - in our case whether it escapes a certain method or a certain thread.
 
 \mypar{Stack Escaping} For stack allocation we needed to implement an algorithm which can determine
 if a certain variable (or field) escapes the method in which it is allocated. If the object does not
-escape, then it can be allocated on the stack. Otherwise, we must distinguish between other cases:
+escape, then it can be allocated on the stack of the current method. Otherwise, we must distinguish between other cases:
 \begin{itemize}
   \item the object is referenced by a parameter - in this case it might be allocated on the stack
-  of the caller (TODO: we currently don't do this in the code)
+  of the caller
   \item the object is returned - then it might either be allocated on the stack of the caller of freed
   by the caller
   \item the object is referenced by \textit{this}
-  \item the object is passed to another thread
+  \item the object is shared with another thread
 \end{itemize}
 In order to achieve these goals we decided to implement and expand the escape-analysis algorithm presented
 in \cite{Whaley:99}.
@@ -252,21 +233,20 @@ The \emph{points-to escape graph} determines to whether an object can
 be allocated on the stack, the \emph{alias sets} inform us whether we can
 safely remove invocations of \texttt{.lock()} and \texttt{.unlock()}.
 
-\subsection{Points-To Escape Graph}
+\subsection{Points-To-Escape Graph}
 The algorithm shown in \cite{Whaley:99} constructs, for each method,
 a graph in which nodes represent allocated objects and edges represent references between objects.
 The nodes with in-degree zero are either locally declared variables, method parameters, or the \textit{this}
-object. Edge between nodes can either be labeled with the name of a field, or ... TODO. As described in
+object. Edge between nodes can either be labeled with the name of a field or they can represent \textit{phi}
+or \textit{array} edges. As described in
 section \ref{sec:background}, each node can have one of the following labels: REF\_PARAM, THREAD, ARRAY, THIS and ESCAPED. \\
-An example program is shown in Listing~\ref{lst:program}. with the associated escape-graph shown in Figure~\ref{fig:escapegraph}.
+An example program is shown in Listing~\ref{lst:program}, with the associated escape-graph shown in Figure~\ref{fig:escapegraph}.
 One can observe that the nodes have been classified as following:
 \begin{itemize}
-  \item Node 5, corresponding to t.arg has labels THREAD and REF\_PARAM, because t is a parameter and also a thread object.
-  \item Node 4, corresponding to e has only label REF\_PARAM
-  \item Node 14 and 1 have the THIS label
+  \item Node 4, corresponding to \textit{t.arg} has labels THREAD and REF\_PARAM, because \textit{t} is a parameter and also a thread object.
+  \item \textit{this.b} and \textit{b} point to the same node (10), because of the assignmet between the two
+  \item Node 9 also has the THREAD label
 \end{itemize}
-% TODO having no special syntax is not that bad without exceptions
-
 
 \lstset{language=Java,
            basicstyle=\ttfamily\scriptsize,
@@ -317,18 +297,18 @@ class Main {
   \label{fig:escapegraph}
 \end{figure}
 
-\mypar{Building the graph for a method}. The escape graph is built in an iterative manner using control-flow analysis.
-First of all each basic block is processed, in a bread-first search manner, and all its instructions are added to a
+\mypar{Building the graph for a method} The escape graph is built in an iterative manner using control-flow analysis.
+First of all, each basic block is processed, in a breadth-first-search manner, and all its assignment instructions are added to a
 basic-block local escape-graph.
-Secondly, the escape graph of each basic block is merged with the escape graphs of its predecessors and the process
+Secondly, the escape graph of each basic block is merged with the escape graphs of its predecessors. This process
 is repeated until no more changes occur. Finally, after the graph is completed, a depth-first search is applied on it,
-in order to spread the labels of the nodes to the set of nodes it references.
+in order to spread the labels of the nodes to the set of referenced nodes.
 
-\mypar{Analyzing a method call}. The first approach we had to analyzing method calls was to map the parameters of the given
+\mypar{Analyzing a method call} The first approach we had to analyzing method calls was to map the parameters of the given
 call to the corresponding nodes in the escape graph of the callee and copy the already computed labels from the callee to the
 caller. Unfortunately, this solution misses cases in which different fields of parameters are assigned to each other in the callee
 (one example is shown in Listing~\ref{lst:fields}). In order to address this problem we decided to recurse into the callee and
-construct it's escape graph given the parameter nodes of the caller. Although this increases the overall complexity of our solution,
+construct its escape graph given the parameter nodes of the caller. Although this increases the overall complexity of our solution,
 it provides a more accurate analysis.
 
 \begin{lstlisting}[caption=Field parameter assignment, label=lst:fields]
@@ -351,14 +331,15 @@ void d1(F f1, F f2) {
 }
 \end{lstlisting}
 
-\mypar{Analyzing thread objects}. One special case of escaping variables are threads. We defined a thread object to escape if
-it the thread was started, but I was not joined later on in the method (TODO: maybe find a better sentence).
+\mypar{Analyzing thread objects} One special case of escaping variables are threads. We defined a thread object to escape if
+it continus to run even after the method has returned. This is equivalent to the thread not being joined in the same method it has
+been started in.
 Therefore, in order to determine if the \textit{join} method was called on every possible path from the starting point
 to the \textit{end} basic block we need to do another control-flow analysis. For every basic block in the method we 
-determine the set of thread objects that have \textit{join} calls on every path from that basic block to the end (let's call this set \textit{join\_set}).
+determine the set of thread objects that have \textit{join} calls on every path from that basic block to the end (let's call this set the \textit{join\_set}).
 If we have a \textit{start} call-site for a certain thread object and that object is not in the \textit{join\_set} of that
 method, then the object escapes.
-It should be mentioned that currently we only to this analysis for variable objects (not for fields) and we do not do any inter-procedural analysis for thread objects.
+It should be mentioned that currently we only to this analysis for thread objects which are local variables (not fields) and we do not do any inter-procedural analysis for thread objects.
 
 \subsection{Alias Sets}
 
