@@ -363,11 +363,14 @@ It should be mentioned that currently we only to this analysis for variable obje
 \subsection{Alias Sets}
 
 To infer whether an object is shared among multiple threads, we associate \emph{alias sets}
-with every expression in the Javali AST. An alias set summarizes the information about
-all abstract objects that are the result of the expression, it is defined as follows:
+with every expression in the Javali AST. We use the same notation as introduced by Ruf \cite{Ruf:00}.
+An alias set summarizes the information about all abstract objects that are the result of the expression, it is defined as follows:
 
 \begin{equation*}
-    aliasSet ::= \bot \mid \langle escapes, fieldMap \rangle
+\begin{split}
+    aliasSet &::= \bot \mid \langle escapes, fieldMap \rangle \\
+    aliasContext &::= \langle this, \langle a_{1}, a_{2}, a_{3},~\dots \rangle, result \rangle
+\end{split}
 \end{equation*}
 
 $\bot$ denotes an expression of a primitive type, it does not contain any other information.
@@ -380,11 +383,51 @@ The special field \texttt{\$ELT} denotes the elements of an array.
 Alias sets can be \emph{unified}. This operation merges the information of two alias sets and creates a new, unified alias set.
 If an object in one of the two alias set $escapes$, the object will escape in the resulting alias set as well.
 
-\mypar{Intraprocedural analysis}
+In order to propagate information at method boundaries, the concept of \emph{alias contexts} is introduced, they
+are n-tuples of alias sets associated with a method, representing the alias sets of the methods signature.
 
+We differentiate between alias contexts associated with formal method symbols, the \emph{method contexts} and the
+alias contexts that store information about method calls at call sites, the \emph{site contexts}.
 
+\mypar{Intraprocedural analysis} After creating the call graph and partitioning it 
+into strongly connected components using Tarjan's algorithm, the analysis processes all methods,
+traversing the call graph bottom-up. The goal of this first phase is to populate the
+method contexts. Because the callees are analyzed before the callers, the method
+contexts will tell us if an objected passed as an argument will escape to other threads.
 
+The rules for processing a methods statements are based on Ruf's \cite{Ruf:00} paper. Alias sets are merged
+at assignments, field and array access create new entries in the $fieldMap$ attribute. 
+For each method invocation, an \emph{site context} is created and then unified with
+a clone of the method context of all callees. For methods belonging to the same strongly connected component, i.e.
+methods that call each other recursively, the method context of the callees are modified during unification.
 
+If the target of a method call is \texttt{Thread.start()}, we mark the receiver object and all reachable fields
+in the callees site context and the threads entry method as escaped.
+In order to not eliminate locks around \texttt{notify()} and \texttt{wait()}, we also mark those receiver
+object as escaping. 
+
+\mypar{Interprocedural analysis}
+The purpose of the second phase is to push down information about escaped objects from callers to callees.
+For this reason, it traverses the call graph top-down. Some calls to a specific method might call it
+with escaped objects, other calls might not. When we merge clones of the site and method contexts,
+this fact will be reflected in the unified method context. 
+
+For this reason, we tried to store and deduplicate those alias contexts, and use them as a method context
+for visiting the callees. This would allow us to create specialized methods based on the different
+method context created in this phase. However, we were not able to correctly implement this phase in time,
+so the current code naivly merges all site contexts with the single method context of a method.
+
+We store the alias sets inline the AST, so the thread escape information is available for the code
+generator.
+
+\mypar{Code Generation}
+As stated above, we were not able to implement method specialization in time. The code generation
+therefore looks at the receiver alias set of a \texttt{.lock()} or  \texttt{.unlock()} method
+call and omits the function call. As the receiver expression might contain side effects, it
+is still generated.
+
+Additionally, for objects that never escape its thread, we omit calling the object initialization
+function which sets up the built-in locks and conditional variable.
 
 
 \section{Experimental Results}\label{sec:exp}
