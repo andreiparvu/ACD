@@ -456,8 +456,9 @@ function which sets up the built-in lock and conditional variable.
 \section{Experimental Results}\label{sec:exp}
 
 
-\mypar{Experimental setup} For the experiments we used two different machines. The first one, running
-Ubuntu 14.04 with a i5-3317U, 1.70GHz processor and 4Gb RAM.
+\mypar{Experimental setup} For the experiments we used two different machines. Most of then running
+Ubuntu 14.04 with a i5-3317U, 1.70GHz processor and 4 GB RAM, the parallel merge sort however
+on Arch Linux with a i7-5600U 3.00GHz processor and 12 GB RAM.
 
 We tried to analyze three different aspects of our project: firstly, the running time improvement of just allocating
 the unescaped objects on the stack. Secondly, we wanted to see the time benefit of working with stack-allocated
@@ -475,6 +476,16 @@ time with almost 20\%, with the obvious draw-back that more stack memory is used
 For the third experiment, we implemented a hash map, which simulates string hashing (because Javali doesn't have strings we used ASCII arrays).
 The hash map is implemented to be thread-safe, so we ran the experiment with one thread and lock removal. Results can be seen in Figure~
 \ref{fig:hash}; with lock removal, running time is approximately 10\% faster than the unanalyzed version.\\
+
+The last experiment, a parallel merge sort implementation, tests all aspect of our project. It contains multi-threaded code and synchronized
+data structures. The results can be seen in Figure~\ref{fig:merge} stack allocating objects provides some benefit.
+Lock removal is able to remove all the locks in the merge phase, enabling a speed up of nearly 50\%. This
+good result however comes with some caveats: First, in order to take a lock, our current implementation does a virtual function call. In
+an actual system, synchronization primitives would be much more optimized. Second, in contrast to an earlier version used for our
+presentation, this version can be optimized even without method specialization: It uses different data structures for shared array
+(which is to be sorted) and the thread-local scratch memory 
+Our original version cannot be optimized with our current code, thus yielding no performance benefit for lock removal at all.
+
 
 \begin{figure} \center
  \includegraphics[width=0.8\linewidth]{results_matrix_mul.eps}
@@ -496,7 +507,7 @@ The hash map is implemented to be thread-safe, so we ran the experiment with one
 
 \begin{figure} \center
  \includegraphics[width=0.8\linewidth]{results_merge.eps}
-  \caption{Running times for parallel merge sort}
+  \caption{Running times for parallel merge sort, using 4 threads}
   \label{fig:merge}
 \end{figure}
 
