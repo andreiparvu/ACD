@@ -362,6 +362,29 @@ It should be mentioned that currently we only to this analysis for variable obje
 
 \subsection{Alias Sets}
 
+To infer whether an object is shared among multiple threads, we associate \emph{alias sets}
+with every expression in the Javali AST. An alias set summarizes the information about
+all abstract objects that are the result of the expression, it is defined as follows:
+
+\begin{equation*}
+    aliasSet ::= \bot \mid \langle escapes, fieldMap \rangle
+\end{equation*}
+
+$\bot$ denotes an expression of a primitive type, it does not contain any other information.
+
+$escapes$ is a boolean which is \emph{true} if the objects represented by the alias set escape its thread.
+
+$fieldMap$ associates every field $f$ of the abstract object with an alias set which represents the objects stored in field $f$.
+The special field \texttt{\$ELT} denotes the elements of an array.
+
+Alias sets can be \emph{unified}. This operation merges the information of two alias sets and creates a new, unified alias set.
+If an object in one of the two alias set $escapes$, the object will escape in the resulting alias set as well.
+
+\mypar{Intraprocedural analysis}
+
+
+
+
 
 
 \section{Experimental Results}\label{sec:exp}
