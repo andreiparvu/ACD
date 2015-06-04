@@ -362,6 +362,8 @@ It should be mentioned that currently we only to this analysis for variable obje
 
 \subsection{Alias Sets}
 
+
+
 \section{Experimental Results}\label{sec:exp}
 
 
@@ -401,6 +403,12 @@ The hash map is implemented to be thread-safe, so we ran the experiment with one
  \includegraphics[width=0.8\linewidth]{results_only_alloc.eps}
   \caption{Running times only alloc}
   \label{fig:alloc}
+\end{figure}
+
+\begin{figure} \center
+ \includegraphics[width=0.8\linewidth]{results_merge.eps}
+  \caption{Running times for parallel merge sort}
+  \label{fig:merge}
 \end{figure}
 
 \section{Conclusions}
