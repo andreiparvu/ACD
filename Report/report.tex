@@ -463,7 +463,7 @@ on Arch Linux with a i7-5600U 3.00GHz processor and 12 GB RAM.
 We tried to analyze three different aspects of our project: firstly, the running time improvement of just allocating
 the unescaped objects on the stack. Secondly, we wanted to see the time benefit of working with stack-allocated
 objects instead of heap-allocated ones. And thirdly, we tried to observe the how lock-removal affects single-threaded
-programs.\\
+and multi-threaded programs.\\
 
 \mypar{Results}
 For the first experiment, we just allocated various objects without using them afterwards, in order to see how the running time differs
@@ -477,8 +477,8 @@ For the third experiment, we implemented a hash map, which simulates string hash
 The hash map is implemented to be thread-safe, so we ran the experiment with one thread and lock removal. Results can be seen in Figure~
 \ref{fig:hash}; with lock removal, running time is approximately 10\% faster than the unanalyzed version.\\
 
-The last experiment, a parallel merge sort implementation, tests all aspect of our project. It contains multi-threaded code and synchronized
-data structures. The results can be seen in Figure~\ref{fig:merge} stack allocating objects provides some benefit.
+The last experiment, a parallel merge sort implementation, tests all aspect of our project: It contains multi-threaded code and synchronized
+data structures. The results can be seen in Figure~\ref{fig:merge}. Stack allocating objects provides some benefit.
 Lock removal is able to remove all the locks in the merge phase, enabling a speed up of nearly 50\%. This
 good result however comes with some caveats: First, in order to take a lock, our current implementation does a virtual function call. In
 an actual system, synchronization primitives would be much more optimized. Second, in contrast to an earlier version used for our
