@@ -187,7 +187,7 @@ public class Main {
 		stopwatchType.fields.put(stopField.name, stopField);
 		
 		stopwatchType.totalFields = 4;
-		stopwatchType.sizeof = Config.SIZEOF_PTR * (threadType.totalFields + 1);
+		stopwatchType.sizeof = Config.SIZEOF_PTR * (stopwatchType.totalFields + 1);
 	}
 	
 	private void addRuntimeMethod(Symbol.ClassSymbol owner, String methodName, int vtableOffset) {
