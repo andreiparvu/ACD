@@ -167,8 +167,6 @@ not implemented for this project, this would enable other optimizations such
 as thread-local garbage collection. In our approach, alias sets are associated
 with expressions instead of variables.
 
-% TODO mention interprocedural phase?
-
 \section{Background}\label{sec:background}
 
 In this section we briefly present the programming interface and semantics of our
@@ -388,7 +386,7 @@ $fieldMap$ associates every field $f$ of the abstract object with an alias set w
 The special field \texttt{\$ELT} denotes the elements of an array.
 
 Alias sets can be \emph{unified}. This operation merges the information of two alias sets.
-If an object in one of the two alias set $escapes$, the object will escape in both resulting alias sets as well.
+If an object in one of the two alias set $escapes$, the object will escape in the resulting alias sets as well.
 
 In order to propagate information at method boundaries, the concept of \emph{alias contexts} is introduced, they
 are n-tuples of alias sets associated with a method, representing the alias sets of the methods signature.
@@ -519,7 +517,7 @@ Our original version would retain all locks, thus yielding no performance benefi
   \caption{Running times for parallel merge sort, using 4 threads}
   \label{fig:merge}
 \end{figure}
-
+\newpage
 \section{Conclusions}
 
 In this project, we implemented two different algorithms for escape analysis:
