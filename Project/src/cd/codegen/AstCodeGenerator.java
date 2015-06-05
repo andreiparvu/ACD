@@ -13,7 +13,6 @@ import java.util.List;
 
 import cd.Config;
 import cd.Main;
-import cd.analyze.AliasSet;
 import cd.debug.AstOneLine;
 import cd.exceptions.AssemblyFailedException;
 import cd.ir.Ast;
@@ -1365,7 +1364,7 @@ public class AstCodeGenerator {
 		public String methodCall(MethodCall ast, Void dummy) {
 			// don't generate method call for non-thread-escaping objects
 			if (isRemovableSynchronization(ast)) {
-				System.err.println("Removing: " + AstOneLine.toString(ast));
+				main.debug("Removing %s.%s()", AstOneLine.toString(ast.receiver()), ast.methodName);
 				String reg = eg.gen(ast.receiver());
 				releaseRegister(reg);
 				return null;
