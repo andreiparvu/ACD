@@ -297,19 +297,22 @@ class Main {
   \label{fig:escapegraph}
 \end{figure}
 
-\mypar{Building the graph for a method} The escape graph is built in an iterative manner using control-flow analysis.
+\mypar{Building the graph for a method - intraprocedural analysis} The escape graph is built in an iterative manner using control-flow analysis.
 First of all, each basic block is processed, in a breadth-first-search manner, and all its assignment instructions are added to a
 basic-block local escape-graph.
 Secondly, the escape graph of each basic block is merged with the escape graphs of its predecessors. This process
 is repeated until no more changes occur. Finally, after the graph is completed, a depth-first search is applied on it,
 in order to spread the labels of the nodes to the set of referenced nodes.
 
-\mypar{Analyzing a method call} The first approach we had to analyzing method calls was to map the parameters of the given
+\mypar{Analyzing a method call - interprocedural analysis} The first approach we had to analyzing method calls was to map the parameters of the given
 call to the corresponding nodes in the escape graph of the callee and copy the already computed labels from the callee to the
 caller. Unfortunately, this solution misses cases in which different fields of parameters are assigned to each other in the callee
 (one example is shown in Listing~\ref{lst:fields}). In order to address this problem we decided to recurse into the callee and
 construct its escape graph given the parameter nodes of the caller. Although this increases the overall complexity of our solution,
-it provides a more accurate analysis.
+it provides a more accurate analysis. When issuing a method call, we also had to take into account possible method overwriting, due to up-casts. Therefore, we computed a TODO:SOMETHING which, for a given method and a class symbol
+determines all the possible class symbols which might overwrite that method; our analysis takes into account
+each of those methods and keeps the most "pessimistic" analysis. One optimization that can be done here is to
+consider only class symbols that are instanced in the program.
 
 \begin{lstlisting}[caption=Field parameter assignment, label=lst:fields]
 void main() {
@@ -396,7 +399,7 @@ this fact will be reflected in the unified method context.
 For this reason, we tried to store and deduplicate those alias contexts, and use them as a method context
 for visiting the callees. This would allow us to create specialized methods based on the different
 method context created in this phase. However, we were not able to correctly implement this phase in time,
-so the current code naivly merges all site contexts with the single method context of a method.
+so the current code naively merges all site contexts with the single method context of a method.
 
 We store the alias sets inline the AST, so the thread escape information is available for the code
 generator.
@@ -448,7 +451,7 @@ and multi-threaded programs.\\
 
 \mypar{Results}
 For the first experiment, we just allocated various objects without using them afterwards, in order to see how the running time differs
-for both cases. The results can be seen in Figure~\ref{fig:alloc}TODO: comment on the results\\
+for both cases. The results can be seen in Figure~\ref{fig:alloc}. It was no surprise that the running time for stack allocation is smaller than calling \textit{malloc}, because it only involves decrementing the stack pointer, compared to a function call and finding a free memory location.\\
 
 In the second experiment, we wrote a basic matrix multiplication program with the intent of observing how execution time changes when using
 stack allocation. The results can be seen in Figure~\ref{fig:matrixmul}. It can be observed that the stack allocation improves running
@@ -494,17 +497,13 @@ Our original version cannot be optimized with our current code, thus yielding no
 
 \section{Conclusions}
 
-\textcolor{gray}{
-Here you need to summarize what you did and why this is
-important. {\em Do not take the abstract} and put it in the past
-tense. Remember, now the reader has (hopefully) read the report, so it
-is a very different situation from the abstract. Try to highlight
-important results and say the things you really want to get across
-such as high-level statements (e.g., we believe that .... is the right
-approach to .... Even though we only considered x, the
-.... technique should be applicable ....) You can also formulate next
-steps if you want. Be brief. After the conclusions there are only the references.
-}
+In this project, we implemented two different algorithms for escape analysis:
+one based on the points-to-escape graph of a program for stack allocation and one based
+on alias sets for lock removal. We believe that we obtained good performance improvements
+for both of our two optimizations, which could be successfully used for real-world Java programs.\\
+The alias sets method proved to have a faster compile time than the points-to-escape graph, but we
+think that for potentially large scale applications which require powerful optimizations both of them
+can be useful and combining them can provide better performance.
 
 % References should be produced using the bibtex program from suitable
 % BiBTeX files (here: bibl_conf). The IEEEbib.bst bibliography
