@@ -13,6 +13,7 @@ import cd.Main;
 import cd.debug.AstOneLine;
 import cd.ir.Ast;
 import cd.ir.Ast.Assign;
+import cd.ir.Ast.Cast;
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.Field;
 import cd.ir.Ast.Free;
@@ -772,7 +773,7 @@ public class EscapeAnalyzer {
 			
 			if (ast.left() instanceof Var ) {
 				Var v = (Var)ast.left();
-				if (isScalarType(v.type)) {
+				if (isScalarType(v.type) || right == null) {
 					return null;
 				}
 				
@@ -799,7 +800,8 @@ public class EscapeAnalyzer {
 					}
 				}
 				
-				if (ast.right() instanceof MethodCallExpr || ast.right() instanceof Var) {
+				if (ast.right() instanceof MethodCallExpr || ast.right() instanceof Var ||
+						ast.right() instanceof Cast) {
 					
 					if (ast.right() instanceof MethodCallExpr) {
 						g.methodRets.add(ast.left());
@@ -980,6 +982,10 @@ public class EscapeAnalyzer {
 			return AstOneLine.toString(ast);
 		}
 		
+		public String cast(Ast.Cast ast, Graph g) {
+			return visit(ast.arg(), g);
+		}
+
 		public String returnStmt(Ast.ReturnStmt ast, Graph g) {
 			if (ast.arg() == null) {
 				return null;

@@ -33,7 +33,7 @@ public class TestSamplePrograms extends AbstractTestSamplePrograms {
 	 * {@code testDir = new File("javali_tests/A2/")}.
 	 */
 //	public static final File testDir = new File("javali_tests/exec");
-	public static final File testDir = null;
+	public static final File testDir = new File("javali_tests");
 
 	@Parameters
 	public static Collection<Object[]> testFiles() {
