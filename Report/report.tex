@@ -15,6 +15,7 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{url}
+\usepackage{verbatim}
 
 % Example definitions.
 % --------------------
@@ -73,7 +74,7 @@ In Javali, the programmer does not need to decide whether to allocate an object
 on the heap or the stack, object allocation is managed by the programming language.
 Another feature of our extended version of Javali is our implementation of thread
 synchronization primitives, which allow the programmer to write thread-safe
-classes. While these two language feature allow correct programs, they also give margin
+classes. While these two language feature enable correct programs, they also give margin
 for potential optimizations, which we will discuss in the following paragraphs.
 
 \mypar{Motivation} \
@@ -86,12 +87,12 @@ loading, we can perform a whole-program escape analysis, typically yielding more
 precision.
 
 In standard Javali, all non-primitive objects are allocated on the heap. The
-existing implementation even leaks those objects, as there is currently on
+existing implementation leaks those objects, as there is currently no
 garbage collection. Using escape analysis, the compiler can infer that certain
-objects will never outlive the current stack frame, thus those objects could
+objects will never outlive the current stack frame, which means those objects can
 be allocated on the stack. This has the advantage that the object will be cleaned
 up automatically once the function returns. Additionally, allocating data on the
-stack is typically faster than calling \texttt{malloc()} for heap allocation.
+stack is typically faster than calling \texttt{malloc()}.
 This is especially true in multi-threaded programs, as the implementation of
 \texttt{malloc()} internally needs to synchronize as well, although modern
 implementations such as \texttt{TCMalloc} \cite{TCMalloc} optimize this case heavily.
@@ -107,7 +108,7 @@ As a second optimization, we implement synchronization removal on objects that
 never escape the current thread, i.e. that are never shared among multiple threads
 thus do not to be locked in order to be accessed safely. 
 
-This optimization is useful for classes that are is written to be thread-safe,
+This optimization is useful for classes that are written to be thread-safe,
 i.e. use synchronization to ensure correctness, but are actually never used
 in a multi-threaded setting, which leads to unnecessary overhead. Library
 classes such as Java's \texttt{Vector} or \texttt{Hashtable} class are examples
@@ -164,7 +165,7 @@ For lock removal we use an alias set based approach based on Ruf. However, we
 use a more general notation of escaping objects similar to Ranganath et al. While
 not implemented for this project, this would enable other optimizations such
 as thread-local garbage collection. In our approach, alias sets are associated
-with expressions instead of variables, to work with the Javali AST.
+with expressions instead of variables.
 
 % TODO mention interprocedural phase?
 
@@ -185,7 +186,7 @@ The \texttt{Thread} class contains the following methods:
  \item[\texttt{start()}] Starts a new thread. Like in Java it is an error to
  call this method more than once on the same receiver.
  \item[\texttt{join()}] Blocks the caller until the thread exits. It is an error
- to call this on a thread that was never started or was already joined.
+ to call this on a thread that was never started or was already joined by this method.
 \end{description}
 
 Similar to Java, our extension to Javali has a built-in lock and conditional variable
@@ -205,12 +206,12 @@ following methods.
  \item[\texttt{wait()}] Causes the calling thread to wait until another thread
  calls \texttt{notify()} on the object.
  \item[\texttt{notify()}] Wakes up another thread waiting on this object.
-\end{description} % TODO double check notify/wait semantics
+\end{description}
 
 \subsection{Escape Analysis}
 
 The purpose of escape analysis is to determine whether an object escapes a certain
-scope - in our case whether it escapes a certain method or a certain thread.
+scope - in our case whether it escapes a certain method or the current thread.
 
 \mypar{Stack Escaping} For stack allocation we needed to implement an algorithm which can determine
 if a certain variable (or field) escapes the method in which it is allocated. If the object does not
@@ -228,7 +229,7 @@ in \cite{Whaley:99}.
 
 \mypar{Thread Escaping} In order to safely remove locks, the receiver object must
 not be locked in other threads. In our analysis, we therefore remove locks only
-if an object is never reachable from another thread  An object is said to
+if an object is never reachable from another thread. An object is said to
 escape a thread if:
 
 \begin{itemize}
@@ -355,19 +356,20 @@ void d1(F f1, F f2) {
 \end{lstlisting}
 
 \mypar{Analyzing thread objects} One special case of escaping variables are threads. We defined a thread object to escape if
-it continus to run even after the method has returned. This is equivalent to the thread not being joined in the same method it has
+it continues to run even after the method has returned. This is equivalent to the thread not being joined in the same method it has
 been started in.
-Therefore, in order to determine if the \textit{join} method was called on every possible path from the starting point
+Therefore, in order to determine if the \texttt{join()} method was called on every possible path from the starting point
 to the \textit{end} basic block we need to do another control-flow analysis. For every basic block in the method we 
-determine the set of thread objects that have \textit{join} calls on every path from that basic block to the end (let's call this set the \textit{join\_set}).
-If we have a \textit{start} call-site for a certain thread object and that object is not in the \textit{join\_set} of that
+determine the set of thread objects that have \texttt{join()} calls on every path from that basic block to the end (let's call this set the \textit{join\_set}).
+If we have a \texttt{start()} call-site for a certain thread object and that object is not in the \textit{join\_set} of that
 method, then the object escapes.
 It should be mentioned that currently we only to this analysis for thread objects which are local variables (not fields) and we do not do any inter-procedural analysis for thread objects.
 
 \subsection{Alias Sets}
 
 To infer whether an object is shared among multiple threads, we associate \emph{alias sets}
-with every expression in the Javali AST. We use the same notation as introduced by Ruf \cite{Ruf:00}.
+with every expression in the Javali AST, and \emph{alias contexts} with method symbols and invocations.
+We use the same notation as introduced by Ruf \cite{Ruf:00}.
 An alias set summarizes the information about all abstract objects that are the result of the expression, it is defined as follows:
 
 \begin{equation*}
@@ -378,14 +380,12 @@ An alias set summarizes the information about all abstract objects that are the 
 \end{equation*}
 
 $\bot$ denotes an expression of a primitive type, it does not contain any other information.
-
 $escapes$ is a boolean which is \emph{true} if the objects represented by the alias set escape its thread.
-
 $fieldMap$ associates every field $f$ of the abstract object with an alias set which represents the objects stored in field $f$.
 The special field \texttt{\$ELT} denotes the elements of an array.
 
-Alias sets can be \emph{unified}. This operation merges the information of two alias sets and creates a new, unified alias set.
-If an object in one of the two alias set $escapes$, the object will escape in the resulting alias set as well.
+Alias sets can be \emph{unified}. This operation merges the information of two alias sets.
+If an object in one of the two alias set $escapes$, the object will escape in both resulting alias sets as well.
 
 In order to propagate information at method boundaries, the concept of \emph{alias contexts} is introduced, they
 are n-tuples of alias sets associated with a method, representing the alias sets of the methods signature.
@@ -399,14 +399,14 @@ traversing the call graph bottom-up. The goal of this first phase is to populate
 method contexts. Because the callees are analyzed before the callers, the method
 contexts will tell us if an objected passed as an argument will escape to other threads.
 
-The rules for processing a methods statements are based on Ruf's \cite{Ruf:00} paper. Alias sets are merged
+The rules for processing a methods statements are based on Ruf's \cite{Ruf:00} paper: Alias sets are merged
 at assignments, field and array access create new entries in the $fieldMap$ attribute. 
 For each method invocation, an \emph{site context} is created and then unified with
 a clone of the method context of all callees. For methods belonging to the same strongly connected component, i.e.
 methods that call each other recursively, the method context of the callees are modified during unification.
 
 If the target of a method call is \texttt{Thread.start()}, we mark the receiver object and all reachable fields
-in the callees site context and the threads entry method as escaped.
+in the callee's site context as escaped, and unify it with the receiver of all related \texttt{run()} methods.
 In order to not eliminate locks around \texttt{notify} and \texttt{wait}, we also mark those receiver
 object as escaping. 
 
@@ -418,11 +418,12 @@ this fact will be reflected in the unified method context.
 
 For this reason, we tried to store and deduplicate those alias contexts, and use them as a method context
 for visiting the callees. This would allow us to create specialized methods based on the different
-method context created in this phase. However, we were not able to correctly implement this phase in time,
-so the current code naivly merges all site contexts with the single method context of a method.
+method context created in this phase. However, we were not able to correctly implement this algorithm in time,
+so the current code naively merges all site contexts with the single method context of a method.
+As a consequence, we do not support method specialization.
 
-We store the alias sets inline the AST, so the thread escape information is available for the code
-generator.
+% XXX Remove this example. It is that not useful and takes up too much space.
+\begin{comment}
 
 The final method context summaries generated for the example in Listing~\ref{lst:program} looks as follows:
 
@@ -446,23 +447,22 @@ The final method context summaries generated for the example in Listing~\ref{lst
 
 Both, the created thread as well as the argument passed to it are marked as escaped. The \texttt{Main} object however
 has $escapes$ set to $false$.
+\end{comment}
 
 \mypar{Code Generation}
 As stated above, we were not able to implement method specialization in time. The code generation
-therefore looks at the receiver alias set of a \texttt{.lock()} or  \texttt{.unlock()} method
+therefore just inspects the unified receiver alias set of a \texttt{.lock()} or  \texttt{.unlock()} method
 call and omits the function call. As the receiver expression might contain side effects, it
 is still generated.
 
 Additionally, for objects which never escape its thread, we omit calling the object initialization
 function which sets up the built-in lock and conditional variable.
 
-
 \section{Experimental Results}\label{sec:exp}
 
-
 \mypar{Experimental setup} For the experiments we used two different machines. Most of then running
-Ubuntu 14.04 with a i5-3317U, 1.70GHz processor and 4 GB RAM, the parallel merge sort however
-on Arch Linux with a i7-5600U 3.00GHz processor and 12 GB RAM.
+Ubuntu 14.04 with a i5-3317U, 1.70GHz processor and 4 GB RAM, the parallel merge sort
+on Arch Linux with a i7-5600U, 3.00GHz processor and 12 GB RAM.
 
 We tried to analyze three different aspects of our project: firstly, the running time improvement of just allocating
 the unescaped objects on the stack. Secondly, we wanted to see the time benefit of working with stack-allocated
@@ -487,10 +487,10 @@ able to allocate the objects of the shared array on the stack, since the array o
 Stack allocation is able to reduce the amount of leaked memory by up to 30\%, as reported by Valgrind.
 Lock removal is able to remove all the locks in the merge phase, reducing execution time by nearly 50\%. This
 good result however comes with some caveats: First, in order to take a lock, our current implementation does a virtual function call. In
-an actual system, synchronization primitives would be much more optimized. Second, in contrast to an earlier version used for our
+an actual system, synchronization primitives would be much more optimized. Second, in contrast to an earlier version shown at our
 presentation, this version can be optimized even without method specialization: It uses different data structures for shared array
-(which is to be sorted) and the thread-local scratch memory 
-Our original version cannot be optimized with our current code, thus yielding no performance benefit for lock removal at all.
+(which is to be sorted) and the thread-local scratch memory.
+Our original version would retain all locks, thus yielding no performance benefit for lock removal at all.
 
 
 \begin{figure} \center
