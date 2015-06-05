@@ -63,17 +63,18 @@ instructions on these objects.
 Our experimental results we show that we can remove all locks in single threaded
 programs, but we are also able to remove locks in multi-threaded programs, as
 long as objects stay thread-local. We also show that stack allocation can
-improve performance by up to 20\% and can even safely allocate objects that
-are shared among threads.
+improve performance by up to 20\%, while also reducing the number of memory
+leaks in Javali.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
 
-The basis of this project is an extended version of Javali with support for
-basic multi-threading, similar to Java's built-in \texttt{Thread} class. 
-Additionally, we also added support for synchronization though locks. Having
-those additional language features also give more margin for potential
-optimizations, which we will discuss in the following paragraphs.
+In Javali, the programmer does not need to decide whether to allocate an object
+on the heap or the stack, object allocation is managed by the programming language.
+Another feature of our extended version of Javali is our implementation of thread
+synchronization primitives, which allow the programmer to write thread-safe
+classes. While these two language feature allow correct programs, they also give margin
+for potential optimizations, which we will discuss in the following paragraphs.
 
 \mypar{Motivation} \
 Escape analysis can determine if an object reference escapes a certain dynamic
@@ -482,7 +483,8 @@ The hash map is implemented to be thread-safe, so we ran the experiment with one
 
 The last experiment, a parallel merge sort implementation, tests all aspect of our project: It contains multi-threaded code and synchronized
 data structures. The results can be seen in Figure~\ref{fig:merge}. Stack allocating objects provides some benefit, it is even
-able to allocate the objects of the shared array on the stack, since the array outlives all other threads.
+able to allocate the objects of the shared array on the stack, since the array outlives all other threads. 
+Stack allocation is able to reduce the amount of leaked memory by up to 30\%, as reported by Valgrind.
 Lock removal is able to remove all the locks in the merge phase, reducing execution time by nearly 50\%. This
 good result however comes with some caveats: First, in order to take a lock, our current implementation does a virtual function call. In
 an actual system, synchronization primitives would be much more optimized. Second, in contrast to an earlier version used for our
