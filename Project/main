@@ -1,6 +1,9 @@
 #!/bin/sh
 # A handy script for running your compiler from the command line.
 M=$(dirname $0)
+
+( cd $M/rt; make -s )
+
 CP=$M/bin:$CLASSPATH
 for jarfile in $M/lib/*.jar; do CP="$jarfile:$CP"; done
 java -Dcd.meta_hidden.Version=REFERENCE -cp $CP cd.Main "$@"
