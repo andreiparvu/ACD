@@ -348,8 +348,10 @@ public class EscapeAnalysis {
 				new MethodAnalayzer(method, methodContexts) {
 					private void methodInvocation(MethodSymbol m, AliasContext sc) {
 						for (MethodSymbol p : callGraph.targets.get(m)) {
-							AliasContext mc = methodContexts.get(p);
-							sc.unify(mc);
+							if (!main.isBuiltinMethod(p)) {
+								AliasContext mc = methodContexts.get(p);
+								sc.unify(mc);
+							}
 						}
 					}
 
