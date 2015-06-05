@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import cd.cfg.EscapeAnalyzer;
+import cd.analyze.stackalloc.EscapeAnalyzer;
 import cd.ir.Ast.Expr;
 import cd.ir.Symbol.VariableSymbol;
 

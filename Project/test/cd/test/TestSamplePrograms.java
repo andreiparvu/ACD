@@ -23,7 +23,7 @@ public class TestSamplePrograms extends AbstractTestSamplePrograms {
 	 * {@code justFile = new File("javali_tests/A2/Inheritance.javali")}.
 	 */
 
-//	public static final File justFile = new File("./javali_tests/CD2_A2/if_opt.javali");
+//	public static final File justFile = new File("./javali_tests/exec/A4/manyregs_11.javali");
 	public static final File justFile = null;
 
 	/**
@@ -32,7 +32,7 @@ public class TestSamplePrograms extends AbstractTestSamplePrograms {
 	 * particular directory, use sth. like:
 	 * {@code testDir = new File("javali_tests/A2/")}.
 	 */
-//	public static final File testDir = new File("javali_tests/");
+//	public static final File testDir = new File("javali_tests/exec");
 	public static final File testDir = null;
 
 	@Parameters

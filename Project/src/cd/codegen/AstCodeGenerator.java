@@ -30,6 +30,7 @@ import cd.ir.Ast.ClassDecl;
 import cd.ir.Ast.Expr;
 import cd.ir.Ast.Field;
 import cd.ir.Ast.FloatConst;
+import cd.ir.Ast.Free;
 import cd.ir.Ast.IfElse;
 import cd.ir.Ast.Index;
 import cd.ir.Ast.IntConst;
@@ -105,6 +106,11 @@ public class AstCodeGenerator {
 	 */
 	private static final String ALLOC = "Javali$Alloc";
 
+	/**
+	 * Name of the internal Javali$Free() helper function we generate.
+	 */
+	private static final String FREE = "Javali$Free";
+	
 	/**
 	 * Name of the internal Javali$PrintNewLine() helper function we generate.
 	 */
@@ -275,6 +281,19 @@ public class AstCodeGenerator {
 			emitLoad(8, BP, size);
 			emitStore(size, 0, SP);
 			emit("call", Config.MALLOC);
+			emit("leave");
+			emit("ret");
+		}
+
+		// Generate a helper method for freeing objects
+		{
+			String ptr = callerSave[0];
+			emitCommentSection(FREE + " function");
+			emitLabel(FREE);
+			emitEnter(c(8));
+			emitLoad(8, BP, ptr);
+			emitStore(ptr, 0, SP);
+			emit("call", Config.FREE);
 			emit("leave");
 			emit("ret");
 		}
@@ -452,6 +471,14 @@ public class AstCodeGenerator {
 			ArrayTypeSymbol as = (ArrayTypeSymbol) ts;
 			emitLabel(vtable(as));
 			emitConstantData(vtable(main.objectType));
+			
+			// emit vtable for object
+			ClassSymbol cs = main.objectType;
+			MethodSymbol[] vtable = new MethodSymbol[cs.totalMethods];
+			collectVtable(vtable, cs);
+			for (int i = 0; i < cs.totalMethods; i++){
+				emitConstantData(mthdlbl(vtable[i]));
+			}
 		}
 	}
 
@@ -1111,6 +1138,10 @@ public class AstCodeGenerator {
 
 				emit("imul", Config.SIZEOF_PTR, reg);
 				emit("addl", Config.SIZEOF_PTR, reg);
+				
+				// add two slots for built-in lock and cond
+				emit("addl", Config.SIZEOF_PTR, reg);
+				emit("addl", Config.SIZEOF_PTR, reg);
 
 				int allocPadding = emitCallPrefix(reg, 1);
 				push(reg);
@@ -1118,8 +1149,27 @@ public class AstCodeGenerator {
 				emitCallSuffix(reg, 1, allocPadding);
 
 				emitStore(c(vtable(arrsym)), 0, reg);
+				
+				if (ast.aliasSet == null || ast.aliasSet.escapes()) {
+					int initPadding = emitCallPrefix(null, 1);
+					push(reg);
+					emit("call", "Object__init__");
+					emitCallSuffix(null, 1, initPadding);
+				}
+	
 				return reg;
 			}
+		}
+
+		public String free(Free ast, Void arg) {
+			String reg = eg.gen(ast.arg());
+
+			int padding = emitCallPrefix(null, 1);
+			push(reg);
+			emit("call", FREE);
+			emitCallSuffix(null, 1, padding);
+
+			return null;
 		}
 
 		@Override
@@ -1140,10 +1190,12 @@ public class AstCodeGenerator {
 				}
 				emitStore(c(vtable(clssym)), 0, reg);
 
-				int initPadding = emitCallPrefix(null, 1);
-				push(reg);
-				emit("call", "Object__init__");
-				emitCallSuffix(null, 1, initPadding);
+				if (ast.aliasSet == null || ast.aliasSet.escapes()) {
+					int initPadding = emitCallPrefix(null, 1);
+					push(reg);
+					emit("call", "Object__init__");
+					emitCallSuffix(null, 1, initPadding);
+				}
 
 				return reg;
 			}
@@ -1300,12 +1352,25 @@ public class AstCodeGenerator {
 
 		}
 
+		private boolean isRemovableSynchronization(MethodCall ast) {
+			MethodSymbol lock = main.objectType.getMethod("lock");
+			MethodSymbol unlock = main.objectType.getMethod("unlock");
+			Expr obj = ast.receiver();
+			return (ast.sym == lock || ast.sym == unlock) && 
+					obj.aliasSet != null && !obj.aliasSet.escapes();
+		}
+
 		@Override
 		public String methodCall(MethodCall ast, Void dummy) {
-			{
+			// don't generate method call for non-thread-escaping objects
+			if (isRemovableSynchronization(ast)) {
+				main.debug("Removing %s.%s()", AstOneLine.toString(ast.receiver()), ast.methodName);
+				String reg = eg.gen(ast.receiver());
+				releaseRegister(reg);
+				return null;
+			} else {
 				return methodCall(ast.sym, ast.allArguments());
 			}
-
 		}
 
 		// Emit vtable for arrays of this class:
@@ -1504,7 +1569,7 @@ public class AstCodeGenerator {
 
 	/** Creates an operand addressing an item in an array */
 	protected String a(String arrReg, String idxReg) {
-		final int offset = Config.SIZEOF_PTR; // one word in front for vptr
+		final int offset = 3*Config.SIZEOF_PTR; // three words in front for vptr
 		final int mul = Config.SIZEOF_PTR; // assume all arrays of 4-byte elem
 		return String.format("%d(%s,%s,%d)", offset, arrReg, idxReg, mul);
 	}

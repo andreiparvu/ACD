@@ -3,31 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-struct object {
-    void *object_vtable;
-    pthread_mutex_t *mutex, *cond_mutex;
-    pthread_cond_t *cond;
-};
-
-struct thread {
-    struct thread_vtable *vtable;
-    pthread_mutex_t *mutex, *cond_mutex;
-    pthread_cond_t *cond;
-    pthread_t *thread;
-};
-
-struct thread_vtable {
-    void *object_vtable;
-    void *(*object_lock) (struct object*);
-    void *(*object_unlock) (struct object*);
-    void *(*object_lock_cond) (struct object*);
-    void *(*object_unlock_cond) (struct object*);
-    void *(*object_wait) (struct object*);
-    void *(*object_notify) (struct object*);
-    void *(*thread_run) (struct thread*);
-    void *(*thread_start) (struct thread*);
-    void *(*thread_join) (struct thread*);
-};
+#include "rt.h"
 
 static void *thread_entry(void *arg) {
     struct thread *this = arg;
@@ -47,13 +23,6 @@ void Object__init__(struct object *this) {
     }
     pthread_mutexattr_destroy(&attr);
 
-    this->cond_mutex = malloc(sizeof(pthread_mutex_t));
-    rc = pthread_mutex_init(this->cond_mutex, NULL);
-    if (rc) {
-      perror("pthread_mutex_init for cond: ");
-      exit(1);
-    }
-
     this->cond = malloc(sizeof(pthread_cond_t));
     rc = pthread_cond_init(this->cond, NULL);
     if (rc) {
@@ -62,41 +31,24 @@ void Object__init__(struct object *this) {
     }
 }
 
-static void lock(pthread_mutex_t *mutex, char *error_msg) {
-    int rc = pthread_mutex_lock(mutex);
-    if (rc) {
-        perror(error_msg);
-        exit(1);
-    }
-}
-
-static void unlock(pthread_mutex_t *mutex, char *error_msg) {
-    int rc = pthread_mutex_unlock(mutex);
-    if (rc) {
-        perror(error_msg);
-        exit(1);
-    }
-}
-
 void Object_lock(struct object *this) {
-    lock(this->mutex, "pthread_mutex_lock: ");
+    int rc = pthread_mutex_lock(this->mutex);
+    if (rc) {
+        perror("pthread_mutex_lock: ");
+        exit(1);
+    }
 }
 
 void Object_unlock(struct object *this) {
-    unlock(this->mutex, "pthread_mutex_unlock: ");
+    int rc = pthread_mutex_unlock(this->mutex);
+    if (rc) {
+        perror("pthread_mutex_unlock: ");
+        exit(1);
+    }
 }
-
-void Object_lock_cond(struct object *this) {
-    lock(this->cond_mutex, "pthread_mutex_lock for cond: ");
-}
-
-void Object_unlock_cond(struct object *this) {
-    unlock(this->cond_mutex, "pthread_mutex_unlock for cond: ");
-}
-
 
 void Object_wait(struct object *this) {
-  int rc = pthread_cond_wait(this->cond, this->cond_mutex);
+  int rc = pthread_cond_wait(this->cond, this->mutex);
   if (rc) {
     perror("pthread_cond_wait: ");
     exit(0);

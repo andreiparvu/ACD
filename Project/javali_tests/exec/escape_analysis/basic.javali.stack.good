@@ -1,0 +1,5 @@
+stack a_1
+stack a_1.b
+stack a_1.b.c
+stack y_1
+stack x_1

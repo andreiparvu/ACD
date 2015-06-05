@@ -1,0 +1,15 @@
+class Main {
+    void main() {
+        int i;
+        Stopwatch s;
+
+        s = new Stopwatch();
+        s.init();
+
+        s.start();
+        i = 1000000000;
+        while (i > 0) { i = i - 1; }
+        s.stop();
+        s.print();
+    }
+}

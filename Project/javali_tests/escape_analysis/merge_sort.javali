@@ -1,0 +1,258 @@
+class Vector {
+
+    int capacity;
+    int size;
+    Object[] elements;
+    
+    // do bounds check
+    void check(int index) {
+        if ( (index >= 0) && (index < size) ) {
+            return;
+        }
+        write(11111111); writeln();
+        write(index); writeln();
+        write(11111111); writeln();
+        write(0 / 0); // force program exit by doing division by zero
+    }
+    
+    void init() {
+        init_with_capacity(16);
+    }
+    
+    void init_with_capacity(int cap) {
+        this.lock();
+        this.capacity = cap;
+        this.size = 0;
+        this.elements = new Object[capacity];
+        this.unlock();
+    }
+    
+    // push to back, thread-safe
+    void push(Object elem) {
+        this.lock();
+        grow(size + 1);
+        elements[size] = elem;
+        size = size + 1;
+        this.unlock();
+    }
+
+    Object get(int index) {
+        Object o;
+        o = null;
+        this.lock();
+        check(index);
+        o = elements[index];
+        this.unlock();
+
+        return o;
+    }
+
+    void set(int index, Object obj) {
+        this.lock();
+        check(index);
+        elements[index] = obj;
+        this.unlock();
+    }
+
+    // ensure capacity, thread-safe
+    void grow(int mincapacity) {
+        int i, newcapacity;
+        Object[] oldelements;
+
+        this.lock();
+        if (this.capacity < mincapacity) {
+            oldelements = this.elements;
+            newcapacity = this.capacity * 2;
+            if (newcapacity < mincapacity) {
+                newcapacity = mincapacity;
+            }
+            this.capacity = newcapacity;
+            this.elements = new Object[newcapacity];
+
+            i = 0;
+            while (i < size) {
+                elements[i] = oldelements[i];
+                i = i + 1;
+            }
+        }
+        this.unlock();
+    }
+
+}
+
+class Integer {
+    int val;
+}
+
+class ParallelMergeSort extends Thread {
+    Integer[] arr;
+    int start, end;
+    int threads;
+
+    void init(Integer[] arr, int start, int end, int threads) {
+        this.arr = arr;
+        this.start = start;
+        this.end = end;
+        this.threads = threads;
+    }
+
+
+    void run() {
+        int left_start, left_end, right_start, right_end;
+        ParallelMergeSort left_thread, right_thread;
+
+        if (end - start <= 1) {
+            return;
+        }
+
+        left_start = start;
+        left_end = (start + end) / 2;
+        right_start = left_end;
+        right_end = end;
+
+        left_thread = new ParallelMergeSort();
+        left_thread.init(arr, left_start, left_end, threads / 2);
+        right_thread = new ParallelMergeSort();
+        right_thread.init(arr, right_start, right_end, threads / 2);
+
+        if (threads > 1) {
+            left_thread.start();
+            right_thread.run();
+            left_thread.join();
+        } else {
+            left_thread.run();
+            right_thread.run();
+        }
+
+        merge(left_start, left_end, right_start, right_end);
+    }
+
+    void merge(int left_start, int left_end, int right_start, int right_end) {
+        int left_length, right_length;
+        Integer left_int, right_int, integer;
+        Vector left, right;
+        int l, r, i;
+
+        left_length = left_end - left_start;
+        right_length = right_end - right_start;
+
+        left = new Vector();
+        left.init_with_capacity(left_length);
+        right = new Vector();
+        right.init_with_capacity(right_length);
+
+        /* copy left half of list into left */
+        i = left_start;
+        while (i < left_end) {
+            left.push(arr[i]);
+            i = i + 1;
+        }
+
+        /* copy right half of list into right */
+        i = right_start;
+        while (i < right_end) {
+            right.push(arr[i]);
+            i = i + 1;
+        }
+
+        /* merge left_half and right_half back into list */
+        i = left_start;
+        r = 0; l = 0;
+
+        while ((l < left_length) && (r < right_length)) {
+            left_int = (Integer) left.get(l);
+            right_int = (Integer) right.get(r);
+
+            if (left_int.val < right_int.val) {
+                arr[i] = left_int;
+                l = l + 1;
+            } else {
+                arr[i] = right_int;
+                r = r + 1;
+            }
+
+            i = i + 1;
+        }
+
+        /* Copy over leftovers of whichever temporary list hasn't finished */
+        while (l < left_length) {
+            left_int = (Integer) left.get(l);
+            arr[i] = left_int;
+            i = i + 1;
+            l = l + 1;
+        }
+
+        while (r < right_length) {
+            right_int = (Integer) right.get(r);
+            arr[i] = right_int;
+            i = i + 1;
+            r = r + 1;
+        }
+    }
+
+}
+
+class Main {
+    int seed;
+
+    int rand() {
+        seed = seed * 1103515245 + 12345;
+        return seed;
+    }
+
+    void validate(Integer[] arr, int size) {
+        int i, prev_val;
+ 
+        prev_val = -2147483647;
+        prev_val =  prev_val - 1; // INT_MIN
+
+        i = 0;
+        while (i < size) {
+            if (prev_val > arr[i].val) {
+                // not sorted
+                write(9999999); writeln();
+                return;
+            }
+            prev_val = arr[i].val;
+            i = i + 1;
+        }
+    }
+
+    void main() {
+        int BENCH_SIZE, size, threads, i;
+        ParallelMergeSort sort;
+        Stopwatch s;
+        Integer integer;
+        Integer[] a;
+
+        BENCH_SIZE = 1000;
+
+        size = BENCH_SIZE;
+        threads = 4;
+
+        a = new Integer[size];
+
+        seed = 1337;
+
+        i = 0;
+        while (i < size) {
+            integer = new Integer();
+            integer.val = i;// rand();
+            a[i] = integer;
+            i = i + 1;
+        }
+
+        s = new Stopwatch();
+        s.init();
+        s.start();
+
+        sort = new ParallelMergeSort();
+        sort.init(a, 0, size, threads);
+        sort.run();
+
+        s.stop();
+        s.print();
+
+        validate(a, size);
+    }
+}

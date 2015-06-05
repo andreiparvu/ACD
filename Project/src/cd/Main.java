@@ -1,7 +1,6 @@
 package cd;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -13,11 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.antlr.runtime.ANTLRReaderStream;
@@ -25,13 +20,9 @@ import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
 
-import cd.cfg.CFGBuilder;
-import cd.cfg.DeSSA;
-import cd.cfg.Dominator;
-import cd.cfg.EscapeAnalyzer;
-import cd.analyze.CallGraphGenerator;
-import cd.analyze.CallGraphSCC;
-import cd.analyze.EscapeAnalysis;
+import cd.analyze.lockremoval.CallGraphGenerator;
+import cd.analyze.lockremoval.EscapeAnalysis;
+import cd.analyze.stackalloc.EscapeAnalyzer;
 import cd.cfg.CFGBuilder;
 import cd.cfg.DeSSA;
 import cd.cfg.Dominator;
@@ -47,6 +38,7 @@ import cd.ir.Ast.MethodDecl;
 import cd.ir.Ast.Seq;
 import cd.ir.BasicBlock;
 import cd.ir.Symbol;
+import cd.ir.Symbol.ClassSymbol;
 import cd.ir.Symbol.MethodSymbol;
 import cd.ir.Symbol.PrimitiveTypeSymbol;
 import cd.ir.Symbol.TypeSymbol;
@@ -76,14 +68,18 @@ public class Main {
 	/** Symbols for the built-in primitive types */
 	public PrimitiveTypeSymbol intType, floatType, voidType, booleanType;
 
-	/** Symbols for the built-in Object and null types */
-	public Symbol.ClassSymbol objectType, nullType, threadType;
+	/** Symbols for the built-in Objects and null types */
+	public Symbol.ClassSymbol objectType, nullType, threadType, stopwatchType;
 	
 	/** Symbol for the Main type */
 	public Symbol.ClassSymbol mainType;
 	
 	/** List of all type symbols, used by code generator. */
-	public List<TypeSymbol> allTypeSymbols;  
+	public List<TypeSymbol> allTypeSymbols;
+	
+	// Global flags to enable/disable our escape analysis
+	public boolean enableStackAlloc = true;
+	public boolean enableLockRemoval = true;
 
 	public void debug(String format, Object... args) {
 		if (debug != null) {
@@ -105,9 +101,13 @@ public class Main {
 		
 		for (String file : args) {
 			
-			if (file.equals("-d"))
+			if (file.equals("-d")) {
 				m.debug = new OutputStreamWriter(System.err);
-			else {
+			} else if (file.equals("-no-stackalloc")) {
+				m.enableStackAlloc = false;
+			} else if (file.equals("-no-lockremoval")) {
+				m.enableLockRemoval = false;
+			} else {
 				{
 					if (m.debug != null)
 						m.cfgdumpbase = new File(file);
@@ -143,32 +143,51 @@ public class Main {
 		threadType = new Symbol.ClassSymbol("Thread");
 		threadType.superClass = objectType;
 
+		stopwatchType = new Symbol.ClassSymbol("Stopwatch");
+		stopwatchType.superClass = objectType;
+		
 		addRuntimeFields();
 		addRuntimeMethods();
 	}
 	
+	public boolean isBuiltinMethod(MethodSymbol sym) {
+		ClassSymbol owner = sym.owner;
+		return (owner == objectType) || (owner == threadType) || (owner == stopwatchType);
+	}
 	
+	/** Manually set offset for built-in objects to match C definition */
 	private void addRuntimeFields() {
+		// Object
 		VariableSymbol mutexField = new VariableSymbol("$mutex", objectType, Kind.FIELD);
-		mutexField.offset = 0;
+		mutexField.offset = 1 * Config.SIZEOF_PTR;
 		objectType.fields.put(mutexField.name, mutexField);
 
-		VariableSymbol condMutexField = new VariableSymbol("$cond_mutex", objectType, Kind.FIELD);
-		condMutexField.offset = 1;
-		objectType.fields.put(condMutexField.name, condMutexField);
-
-		VariableSymbol condField = new VariableSymbol("$condition", objectType, Kind.FIELD);
-		condField.offset = 2;
+		VariableSymbol condField = new VariableSymbol("$cond", objectType, Kind.FIELD);
+		mutexField.offset = 2 * Config.SIZEOF_PTR;
 		objectType.fields.put(condField.name, condField);
 
-		objectType.totalFields = 3;
+		objectType.totalFields = 2;
 		objectType.sizeof = Config.SIZEOF_PTR * (objectType.totalFields + 1);
 
+		// Thread extends Object
 		VariableSymbol threadField = new VariableSymbol("$thread", objectType, Kind.FIELD);
-		threadField.offset = 3;
+		threadField.offset = 3 * Config.SIZEOF_PTR;
 		threadType.fields.put(threadField.name, threadField);
-		threadType.totalFields = 4;
+		
+		threadType.totalFields = 3;
 		threadType.sizeof = Config.SIZEOF_PTR * (threadType.totalFields + 1);
+		
+		// Stopwatch extends Object
+		VariableSymbol startField = new VariableSymbol("$start", objectType, Kind.FIELD);
+		startField.offset = 3 * Config.SIZEOF_PTR;
+		stopwatchType.fields.put(startField.name, startField);
+
+		VariableSymbol stopField = new VariableSymbol("$stop", objectType, Kind.FIELD);
+		stopField.offset = 4 * Config.SIZEOF_PTR;
+		stopwatchType.fields.put(stopField.name, stopField);
+		
+		stopwatchType.totalFields = 4;
+		stopwatchType.sizeof = Config.SIZEOF_PTR * (stopwatchType.totalFields + 1);
 	}
 	
 	private void addRuntimeMethod(Symbol.ClassSymbol owner, String methodName, int vtableOffset) {
@@ -181,20 +200,29 @@ public class Main {
 		methodSymbol.returnType = voidType;
 		methodSymbol.owner = owner;
 		methodSymbol.vtableIndex = vtableOffset;
+		methodSymbol.ast.sym = methodSymbol;
 		owner.methods.put(methodName, methodSymbol);
 	}
 
 	private void addRuntimeMethods() {
-		int vtableOffset = 0;
-		for (String methodName : Arrays.asList("lock", "unlock", "lock_cond", "unlock_cond", "notify", "wait")) {
-			addRuntimeMethod(objectType, methodName, vtableOffset++);
+		int vtableObjectOffset = 0;
+		// order of methods is significant, needs to match vtable in C
+		for (String methodName : Arrays.asList("lock", "unlock", "notify", "wait")) {
+			addRuntimeMethod(objectType, methodName, vtableObjectOffset++);
 		}
-		objectType.totalMethods = vtableOffset;
+		objectType.totalMethods = vtableObjectOffset;
 
+		int vtableThreadOffset = vtableObjectOffset;
 		for (String methodName : Arrays.asList("run", "start", "join")) {
-			addRuntimeMethod(threadType, methodName, vtableOffset++);
+			addRuntimeMethod(threadType, methodName, vtableThreadOffset++);
 		}
-		threadType.totalMethods = vtableOffset;
+		threadType.totalMethods = vtableThreadOffset;
+		
+		int vtableStopwatchOffset = vtableObjectOffset;
+		for (String methodName : Arrays.asList("init", "start", "stop", "print")) {
+			addRuntimeMethod(stopwatchType, methodName, vtableStopwatchOffset++);
+		}
+		stopwatchType.totalMethods = vtableStopwatchOffset;
 	}
 
 	public List<ClassDecl> parse(Reader file, boolean debugParser)  throws IOException {
@@ -286,29 +314,34 @@ public class Main {
 				CfgDump.toString(astRoots, ".opt", cfgdumpbase, false);				
 			}
 			
-			try {
-				File f = new File(cfgdumpbase.getCanonicalFile() + ".escape.dot"),
-					 rez = new File(cfgdumpbase.getCanonicalFile() + ".stack");
-				PrintWriter pw = new PrintWriter(f),
+			
+			Map<MethodSymbol, Set<MethodSymbol>> callTargets = new CallGraphGenerator(this).computeTargets(astRoots);
+			
+			if (enableStackAlloc) {
+				try {
+					File f = new File(cfgdumpbase.getCanonicalFile() + ".escape.dot"),
+							rez = new File(cfgdumpbase.getCanonicalFile() + ".stack");
+					PrintWriter pw = new PrintWriter(f),
 							pr = new PrintWriter(rez);
-				
-				pw.write("digraph G {\ngraph [rankdir = \"LR\"];\n");
-				for (ClassDecl cd : astRoots) {
-					for (MethodDecl md : cd.methods()) {
-						if (md.analyzedColor == EscapeAnalyzer.WHITE) {
-							(new EscapeAnalyzer(this)).compute(md, pw, pr);
+
+					pw.write("digraph G {\ngraph [rankdir = \"LR\"];\n");
+					for (ClassDecl cd : astRoots) {
+						for (MethodDecl md : cd.methods()) {
+							if (md.analyzedColor == EscapeAnalyzer.WHITE) {
+								(new EscapeAnalyzer(this)).compute(md, pw, pr, callTargets);
+							}
 						}
 					}
+					pw.write("}\n");
+					pw.close();
+					pr.close();
+				} catch (IOException ex) {
+					System.err.println(ex);
 				}
-				pw.write("}\n");
-				pw.close();
-				pr.close();
-			} catch (IOException ex) {
-				System.err.println(ex);
 			}
 			
-			{
-//				new EscapeAnalysis(this).analyze(astRoots);
+			if (enableLockRemoval) {
+				new EscapeAnalysis(this).analyze(astRoots);
 			}
 
 			// Remove SSA form.

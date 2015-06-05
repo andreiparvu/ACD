@@ -41,6 +41,9 @@ public class Config {
     /** Defines the name of the malloc function to be used in .s file */
     public static final String MALLOC;
     
+    /** Defines the name of the free function to be used in .s file */
+    public static final String FREE;
+    
     /** Defines the name of the exit function to be used in .s file */
     public static final String EXIT;
     
@@ -94,6 +97,7 @@ public class Config {
             PRINTF = "_printf";
             SCANF = "_scanf";
             MALLOC = "_malloc";
+            FREE = "_free";
             EXIT = "_exit";
             // These are set up for a Cygwin installation on C:,
             // you can change as needed.
@@ -113,6 +117,7 @@ public class Config {
             PRINTF = "_printf";
             SCANF = "_scanf";
             MALLOC = "_malloc";
+            FREE = "_free";
             EXIT = "_exit";
             ASM = new String[]{"gcc", "-m32", "-o", "$0", "$1", "-L$2", "-ljavali", "-lpthread"};
             ASM_DIR = new File(".");
@@ -130,6 +135,7 @@ public class Config {
             PRINTF = "printf";
             SCANF = "scanf";
             MALLOC = "malloc";
+            FREE = "free";
             EXIT = "exit";
             ASM = new String[]{"gcc", "-m32", "-o", "$0", "$1", "-L$2", "-ljavali", "-lpthread"};
             ASM_DIR = new File(".");
