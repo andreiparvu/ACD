@@ -333,7 +333,7 @@ call to the corresponding nodes in the escape graph of the callee and copy the a
 caller. Unfortunately, this solution misses cases in which different fields of parameters are assigned to each other in the callee
 (one example is shown in Listing~\ref{lst:fields}). In order to address this problem we decided to recurse into the callee and
 construct its escape graph given the parameter nodes of the caller. Although this increases the overall complexity of our solution,
-it provides a more accurate analysis. When issuing a method call, we also had to take into account possible method overwriting, due to up-casts. Therefore, we computed a TODO:SOMETHING which, for a given method and a class symbol
+it provides a more accurate analysis. When issuing a method call, we also had to take into account possible method overwriting, due to up-casts. Therefore, we computed a call target set which, for a given method and a class symbol
 determines all the possible class symbols which might overwrite that method; our analysis takes into account
 each of those methods and keeps the most "pessimistic" analysis. One optimization that can be done here is to
 consider only class symbols that are instanced in the program.

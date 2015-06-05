@@ -1,0 +1,67 @@
+class Main {
+  void main() {
+    Line[] mat1;
+    int i, j, k;
+    int n;
+    Line[] rez;
+    int sum;
+
+    n = read();
+    mat1 = new Line[n];
+    rez = new Line[n];
+
+    i = 0;
+    while (i < n) {
+      mat1[i] = new Line();
+      mat1[i].cell = new E[n];
+      rez[i] = new Line();
+      rez[i].cell = new E[n];
+
+      j = 0;
+      while (j < n) {
+        mat1[i].cell[j] = new E();
+        rez[i].cell[j] = new E();
+
+        mat1[i].cell[j].val = read();
+
+        rez[i].cell[j].val = 0;
+        j = j + 1;
+      }
+      i = i + 1;
+    }
+
+    sum = 0;
+    i = 0;
+    while (i < n) {
+      j = 0;
+
+      while (j < n) {
+
+        k = 0;
+
+        while (k < n) {
+          rez[i].cell[j].val = rez[i].cell[j].val + mat1[i].cell[k].val * mat1[k].cell[j].val;
+
+          k = k + 1;
+        }
+        sum = sum + rez[i].cell[j].val;
+
+        j = j + 1;
+      }
+
+      i = i + 1;
+    }
+
+    write(sum);
+    writeln();
+  }
+}
+
+class E {
+  int val;
+}
+
+class Line {
+  E[] cell;
+}
+

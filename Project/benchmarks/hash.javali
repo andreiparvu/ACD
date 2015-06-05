@@ -1,0 +1,135 @@
+class Hash {
+  int MOD, P;
+  int[] vals;
+
+  void init() {
+    int i;
+
+    MOD = 666013;
+    P = 97;
+
+    vals = new int[MOD];
+
+    i = 0;
+    while (i < MOD) {
+      vals[i] = 0;
+      i = i + 1;
+    }
+  }
+
+  int mod(int a, int b) {
+    int q;
+
+    q = a / b;
+
+    return a - q * b;
+  }
+
+  int genVal(int[] v, int size) {
+    int rez;
+    int i;
+
+    rez = 0;
+
+    i = 0;
+
+    while (i < size) {
+      rez = rez * P + v[i];
+      rez = mod(rez, MOD);
+
+      i = i + 1;
+    }
+
+    return rez;
+  }
+
+  void add(int[] v, int size) {
+    this.lock();
+
+    vals[genVal(v, size)] = 1;
+
+    this.unlock();
+  }
+
+  void delete(int[] v, int size) {
+    this.lock();
+
+    vals[genVal(v, size)] = 0;
+
+    this.unlock();
+  }
+
+  int find(int[] v, int size) {
+    int ret;
+
+    this.lock();
+
+    ret = vals[genVal(v, size)];
+    this.unlock();
+
+    return ret;
+  }
+}
+
+class Input {
+  int op, m;
+  int[] v;
+}
+
+class Main {
+  void main() {
+    int n;
+    int i, m, j, p;
+    int op;
+    Hash hash;
+    Input[] inputs;
+    int LIMIT;
+
+    LIMIT = read();
+
+    hash = new Hash();
+    hash.init();
+
+    n = read();
+
+    inputs = new Input[n];
+
+    i = 0;
+    while (i < n) {
+      inputs[i] = new Input();
+
+      inputs[i].op = read();
+      inputs[i].m = read();
+      inputs[i].v = new int[30];
+
+      j = 0;
+      while (j < inputs[i].m) {
+        inputs[i].v[j] = read();
+        j = j + 1;
+      }
+      i = i + 1;
+    }
+
+    i = 0;
+
+    while (i < LIMIT) {
+      j = 0;
+
+      while (j < n) {
+        if (inputs[j].op == 0) {
+          hash.add(inputs[j].v, inputs[j].m);
+        } else {
+          if (inputs[j].op == 1) {
+            hash.delete(inputs[j].v, inputs[j].m);
+          } else {
+            hash.find(inputs[j].v, inputs[j].m);
+          }
+        }
+
+        j = j + 1;
+      }
+
+      i = i + 1;
+    }
+  }
+}

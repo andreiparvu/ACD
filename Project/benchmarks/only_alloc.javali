@@ -1,0 +1,30 @@
+class Main {
+
+  void doAlloc() {
+    Object x;
+
+    x = new Object();
+  }
+
+  void main() {
+    int i;
+    int N;
+    Stopwatch s;
+
+    s = new Stopwatch();
+
+    N = read();
+
+    i = 0;
+    s.init();
+    s.start();
+    while (i < N) {
+      doAlloc();
+
+      i = i + 1;
+    }
+    s.stop();
+    s.print();
+  }
+}
+
