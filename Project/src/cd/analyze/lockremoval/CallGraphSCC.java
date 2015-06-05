@@ -1,4 +1,4 @@
-package cd.analyze;
+package cd.analyze.lockremoval;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 
-import cd.analyze.CallGraphGenerator.CallGraph;
+import cd.analyze.lockremoval.CallGraphGenerator.CallGraph;
 import cd.ir.Symbol.MethodSymbol;
 
 public class CallGraphSCC {

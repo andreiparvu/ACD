@@ -5,8 +5,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import cd.cfg.EscapeAnalyzer;
-import cd.analyze.AliasSet;
+import cd.analyze.lockremoval.AliasSet;
+import cd.analyze.stackalloc.EscapeAnalyzer;
 import cd.debug.AstOneLine;
 import cd.ir.Symbol.ClassSymbol;
 import cd.ir.Symbol.MethodSymbol;

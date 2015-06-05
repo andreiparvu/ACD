@@ -1,4 +1,4 @@
-package cd.analyze;
+package cd.analyze.lockremoval;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;

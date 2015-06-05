@@ -1,4 +1,4 @@
-package cd.analyze;
+package cd.analyze.lockremoval;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -9,8 +9,8 @@ import java.util.Map;
 import java.util.Set;
 
 import cd.Main;
-import cd.analyze.AliasSet.AliasSetData;
-import cd.analyze.CallGraphGenerator.CallGraph;
+import cd.analyze.lockremoval.AliasSet.AliasSetData;
+import cd.analyze.lockremoval.CallGraphGenerator.CallGraph;
 import cd.ir.Ast;
 import cd.ir.Ast.Assign;
 import cd.ir.Ast.ClassDecl;

@@ -1,4 +1,4 @@
-package cd.analyze;
+package cd.analyze.lockremoval;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;

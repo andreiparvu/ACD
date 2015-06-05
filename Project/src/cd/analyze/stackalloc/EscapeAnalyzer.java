@@ -1,4 +1,4 @@
-package cd.cfg;
+package cd.analyze.stackalloc;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;

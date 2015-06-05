@@ -20,12 +20,12 @@ import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
 
-import cd.analyze.CallGraphGenerator;
-import cd.analyze.EscapeAnalysis;
+import cd.analyze.lockremoval.CallGraphGenerator;
+import cd.analyze.lockremoval.EscapeAnalysis;
+import cd.analyze.stackalloc.EscapeAnalyzer;
 import cd.cfg.CFGBuilder;
 import cd.cfg.DeSSA;
 import cd.cfg.Dominator;
-import cd.cfg.EscapeAnalyzer;
 import cd.cfg.Optimizer;
 import cd.cfg.SSA;
 import cd.codegen.CfgCodeGenerator;
