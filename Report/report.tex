@@ -51,20 +51,30 @@
 %
 
 \begin{abstract}
-\textcolor{gray}{
-Describe in concise words what you do, why you do it (not necessarily
-in this order), and the main result.  The abstract has to be
-self-contained and readable for a person in the general area. You
-should write the abstract last. }
+
+We present two escape analyses for multi-threaded Javali. First, we present
+a points-to escape graph analysis for the purpose of stack allocating objects.
+Our implementation is able to allocate objects on the stack even if they are
+shared with other threads, as long as we can guarantee that the threads will
+outlive the current stack frame.  Second, we use an alias sets based approach
+to discover thread-local objects, in order to remove unnecessary locking
+instructions on these objects.
+
+Our experimental results we show that we can remove all locks in single threaded
+programs, but we are also able to remove locks in multi-threaded programs, as
+long as objects stay thread-local. We also show that stack allocation can
+improve performance by up to 20\%, while also reducing the number of memory
+leaks in Javali.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
 
-The basis of this project is an extended version of Javali with support for
-basic multi-threading, similar to Java's built-in \texttt{Thread} class. 
-Additionally, we also added support for synchronization though locks. Having
-those additional language features also give more margin for potential
-optimizations, which we will discuss in the following paragraphs.
+In Javali, the programmer does not need to decide whether to allocate an object
+on the heap or the stack, object allocation is managed by the programming language.
+Another feature of our extended version of Javali is our implementation of thread
+synchronization primitives, which allow the programmer to write thread-safe
+classes. While these two language feature allow correct programs, they also give margin
+for potential optimizations, which we will discuss in the following paragraphs.
 
 \mypar{Motivation} \
 Escape analysis can determine if an object reference escapes a certain dynamic
@@ -231,7 +241,20 @@ escape a thread if:
 In this section we present our algorithms used in escape analysis.
 The \emph{points-to escape graph} determines to whether an object can
 be allocated on the stack, the \emph{alias sets} inform us whether we can
-safely remove invocations of \texttt{.lock()} and \texttt{.unlock()}.
+safely remove locking instructions. But first, we briefly explain the 
+implementation threading extension.
+
+\subsection{POSIX Threads for Javali}
+Our implementation for the built-in \texttt{Thread} class and synchronization
+methods is based on POSIX Threads \cite{PThreads}. Similar to the already existing built-in
+\texttt{Object} class, we add additional types for the methods and
+classes presented in the previous section. Because the built-in classes
+are not part of the AST, the code generator emits calls to symbols such as
+\texttt{Thread\_start}, without generating code for the actual method body.
+Thus, the generated \texttt{.s} file still contains
+unresolved symbols. These symbols are provided by our own \texttt{libjavali},
+which is linked against the generated object file. This allowed us to write
+the code for the built-in objects in C rather than assembly code.
 
 \subsection{Points-To-Escape Graph}
 The algorithm shown in \cite{Whaley:99} constructs, for each method,
@@ -387,7 +410,7 @@ methods that call each other recursively, the method context of the callees are 
 
 If the target of a method call is \texttt{Thread.start()}, we mark the receiver object and all reachable fields
 in the callees site context and the threads entry method as escaped.
-In order to not eliminate locks around \texttt{notify()} and \texttt{wait()}, we also mark those receiver
+In order to not eliminate locks around \texttt{notify} and \texttt{wait}, we also mark those receiver
 object as escaping. 
 
 \mypar{Interprocedural analysis}
@@ -462,8 +485,10 @@ The hash map is implemented to be thread-safe, so we ran the experiment with one
 \ref{fig:hash}; with lock removal, running time is approximately 10\% faster than the unanalyzed version.\\
 
 The last experiment, a parallel merge sort implementation, tests all aspect of our project: It contains multi-threaded code and synchronized
-data structures. The results can be seen in Figure~\ref{fig:merge}. Stack allocating objects provides some benefit.
-Lock removal is able to remove all the locks in the merge phase, enabling a speed up of nearly 50\%. This
+data structures. The results can be seen in Figure~\ref{fig:merge}. Stack allocating objects provides some benefit, it is even
+able to allocate the objects of the shared array on the stack, since the array outlives all other threads. 
+Stack allocation is able to reduce the amount of leaked memory by up to 30\%, as reported by Valgrind.
+Lock removal is able to remove all the locks in the merge phase, reducing execution time by nearly 50\%. This
 good result however comes with some caveats: First, in order to take a lock, our current implementation does a virtual function call. In
 an actual system, synchronization primitives would be much more optimized. Second, in contrast to an earlier version used for our
 presentation, this version can be optimized even without method specialization: It uses different data structures for shared array
