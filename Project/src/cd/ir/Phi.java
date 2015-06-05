@@ -7,12 +7,10 @@ import java.util.Set;
 
 import cd.ir.Ast.BooleanConst;
 import cd.ir.Ast.Expr;
-import cd.ir.Ast.IntConst;
-import cd.ir.Ast.LeafExpr;
-import cd.ir.Ast.Var;
 import cd.ir.Ast.FloatConst;
 import cd.ir.Ast.IntConst;
 import cd.ir.Ast.LeafExpr;
+import cd.ir.Ast.Var;
 import cd.ir.Symbol.VariableSymbol;
 
 public class Phi {
